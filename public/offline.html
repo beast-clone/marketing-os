@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>You're offline · Marketing OS</title>
+<style>
+  body{margin:0;min-height:100vh;display:grid;place-items:center;background:#F6F7FB;font-family:Inter,system-ui,-apple-system,sans-serif;color:#232D42}
+  .card{background:#fff;border:1px solid #EEF0F5;border-radius:16px;padding:32px 36px;max-width:360px;margin:16px;text-align:center}
+  img{width:56px;height:56px;border-radius:12px}
+  h1{font-size:18px;font-weight:500;margin:16px 0 6px}
+  p{font-size:14px;color:#8A92A6;margin:0 0 20px;line-height:1.5}
+  button{background:#3A57E8;color:#fff;border:0;border-radius:10px;padding:10px 18px;font:500 14px inherit;cursor:pointer}
+  button:hover{background:#2138B0}
+  @media (prefers-color-scheme: dark){body{background:#12151C;color:#E6E9F2}.card{background:#1A1E27;border-color:#2A2F3A}}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img src="/app-icon-192.png" alt="">
+    <h1>You're offline</h1>
+    <p>Marketing OS needs the internet — all its data is live. Check your connection and try again.</p>
+    <button onclick="location.reload()">Try again</button>
+  </div>
+</body>
+</html>

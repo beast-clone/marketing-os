@@ -1,5 +1,6 @@
 "use client";
 import { ThemeToggle } from "@/components/Theme";
+import { InstallApp } from "@/components/InstallApp";
 import { canAccessSection, canSeeTab, canManageAccess, TABS, type Permissions, type Section, type Sections } from "@/lib/permissions";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -451,6 +452,7 @@ export function PreviewSidebar() {
           {g.items.map((it) => (isFolder(it) ? <FolderRow key={it.key} f={it} /> : <LeafRow key={it.href} leaf={it.href === TEAM_LOCKED.href && me && !canManageAccess(me) ? { ...it, icon: IconLock } : it} />))}
         </div>
       ))}
+      <InstallApp />
       {/* Light / Dark / System (also on the Account page). */}
       <div className="htheme"><span className="hnavgroup" style={{ padding: 0 }}>Theme</span><ThemeToggle compact /></div>
     </aside>

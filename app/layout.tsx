@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { FetchBasePathPatch } from "@/components/FetchBasePathPatch";
 import { CommentMode } from "@/components/CommentMode";
@@ -11,7 +11,10 @@ const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"], 
 export const metadata: Metadata = {
   title: "GooCampus Marketing OS",
   description: "Internal marketing operations & analytics for GooCampus — across Instagram, Facebook, LinkedIn, YouTube, Ads, SEO and web.",
+  // The installed app's name on Mac / iPhone (app/manifest.ts is the rest).
+  appleWebApp: { capable: true, title: "Marketing OS", statusBarStyle: "default" },
 };
+export const viewport: Viewport = { themeColor: "#FFFFFF" };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
