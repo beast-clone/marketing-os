@@ -3,7 +3,7 @@ import { VIDEO_TYPES } from "@/lib/mh-content-types";
 import { TEAM_NAMES } from "@/lib/team-names";
 import { activeTeamIds } from "@/lib/team-db";
 import { fetchContentTypes } from "@/lib/content-types-db";
-import { keysWithRole, isEditor, isDesigner, siblingOf as siblingOfRole } from "@/lib/team-roles";
+import { keysWithRole, isEditor, isDesigner, isWriter, siblingOf as siblingOfRole } from "@/lib/team-roles";
 
 // Notification GENERATION — who hears about what, derived from the mh_activity
 // event log (and mh_status_log for "your task moved"). Lifted verbatim out of
@@ -129,10 +129,16 @@ export async function buildNotifs(sb: SupabaseClient, person: string, since: str
           target = editors();
           n = { cat: "pool", kind: "message", emoji: "🎬", title: "New video up for grabs", sub: `"${short}" was approved — claim it from the pool.` };
         }
+      } else if (post?.owner_key && !isDesigner(post.owner_key) && !isWriter(post.owner_key)) {
+        // The Rules page handed it to someone else (12thPlus design → Nandu, 30 Oct) —
+        // tell them, not the designer. Treating every non-designer owner as "queued for
+        // the designer" sent Praveen "Waiting in your pipeline" for Nandu's tasks.
+        target = [post.owner_key];
+        n = { cat: "assigned", kind: "message", emoji: "📥", title: "Approved — handed to you", sub: `"${short}" is ready for you to produce.`, postId: e.post_id };
       } else if (post && !isDesigner(post.owner_key)) {
         // Deferred handoff (assigner saw "day full" and queued it): ownership is
-        // still with the writer — Praveen must ACCEPT to take it. postId powers
-        // the Accept button; the task joins his board only via that takeover.
+        // still with the writer — the designer must ACCEPT to take it. postId powers
+        // the Accept button; the task joins their board only via that takeover.
         target = keysWithRole("designer");
         n = { cat: "action", kind: "message", emoji: "⏳", title: "Waiting in your pipeline", sub: `"${short}" is approved and queued for you — accept when you have room.`, postId: e.post_id, accept: true };
       } else {

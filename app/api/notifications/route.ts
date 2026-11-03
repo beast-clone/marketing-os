@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { shiftStartMin } from "@/lib/team-roles";
+import { shiftStartMin, isWriter } from "@/lib/team-roles";
 import { requireSection } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
@@ -115,7 +115,8 @@ export async function GET(req: Request) {
 
 // Which open action items are now finished (spec §5):
 //   date change to approve → no longer pending (approved or rejected)
-//   waiting in pipeline    → the person took it, or it left Content - Approved
+//   waiting in pipeline    → the person took it, someone other than the writer owns it
+//                            (the Rules page gave it to them), or it left Content - Approved
 //   swap request           → the task now belongs to the person who asked
 //   sent back for changes  → the task left Incorporating Feedback
 //   any of them            → the task no longer exists
@@ -146,7 +147,8 @@ async function resolveDone(sb: NonNullable<ReturnType<typeof getSupabase>>, pers
     if (o.title === "Publish-date change to approve") {
       if (!pendingDates.has(o.post_id as string)) done.push(o.id);
     } else if (payload.accept) {
-      if ((p.owner_key || "").toLowerCase() === person || p.status !== "Content - Approved") done.push(o.id);
+      const owner = (p.owner_key || "").toLowerCase();
+      if (owner === person || (owner && !isWriter(owner)) || p.status !== "Content - Approved") done.push(o.id);
     } else if (payload.swap) {
       if (payload.swap.from && p.owner_key === payload.swap.from) done.push(o.id);
     } else if (o.title === "Sent back for changes") {

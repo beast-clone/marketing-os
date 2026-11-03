@@ -2389,7 +2389,10 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
   //   when their day was full). NOT the claim pool — that's the Claim pool button;
   //   showing it here too made both buttons list the same tasks (Nandu, 21 Sep).
   const pipelineTasks = useMemo(() => {
-    if (isDesigner(person)) return tasks.filter((t) => t.status === "Content - Approved" && !isVideoType(t.detail.typeLine) && t.detail.owner !== me.name);
+    // Only while the writer still holds it (a deferred handoff). Approved design work the
+    // Rules page gave to someone else — 12thPlus → Nandu — is theirs, not queued here.
+    if (isDesigner(person)) return tasks.filter((t) => t.status === "Content - Approved" && !isVideoType(t.detail.typeLine) && t.detail.owner !== me.name
+      && (!t.detail.ownerKey || isWriter(t.detail.ownerKey)));
     if (isEditor) {
       const queued = new Set(notifs.filter((n) => n.accept && n.postId).map((n) => n.postId!));
       const seen = new Set<string>();
