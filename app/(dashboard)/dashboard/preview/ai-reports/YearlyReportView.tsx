@@ -139,7 +139,7 @@ function TallyTable({ first, rows, withTypes }: { first: string; rows: Tally[]; 
   );
 }
 
-function CopyTable({ header, rows, total }: { header: string[]; rows: (string | number)[][]; total?: (string | number)[] }) {
+export function CopyTable({ header, rows, total }: { header: string[]; rows: (string | number)[][]; total?: (string | number)[] }) {
   const [done, setDone] = useState(false);
   const fmt = (c: string | number) => (typeof c === "number" ? c.toLocaleString("en-IN") : c);
   const copy = async () => {

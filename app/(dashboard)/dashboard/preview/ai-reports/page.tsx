@@ -6,6 +6,7 @@ import { BrandLoader } from "@/components/BrandLoader";
 import { ReportView, PERIOD_META, type ReportPayload, type Period } from "./ReportView";
 import { MonthlyReportView } from "./MonthlyReportView";
 import { YearlyReportView } from "./YearlyReportView";
+import { TeamReports } from "./TeamReportView";
 import { HISTORY_FIRST } from "@/lib/report-history";
 
 export default function AIReportsPage() {
@@ -14,7 +15,7 @@ export default function AIReportsPage() {
   const [period, setPeriod] = useState<View>("monthly");
   return (
     <PreviewDashboardShell active="ai-reports" title="Monthly Reports" subtitle="The full monthly report in the team's format — live data + imported history. Weekly & quarterly rollups available too; generated reports are stored under Reports." hideRange
-      hideAccountPicker={period === "monthly" || period === "yearly"}>
+      hideAccountPicker={period === "monthly" || period === "yearly" || period === "team"}>
       {({ accountId }) => <AIReports accountId={accountId} period={period} setPeriod={setPeriod} />}
     </PreviewDashboardShell>
   );
@@ -22,7 +23,7 @@ export default function AIReportsPage() {
 
 // Monthly and Yearly are the company reports (list on the left); weekly / quarterly
 // are the per-account generator.
-type View = Period | "yearly";
+type View = Period | "yearly" | "team";
 
 function AIReports({ accountId, period, setPeriod }: { accountId: string; period: View; setPeriod: (p: View) => void }) {
   // "monthly" = the full-format template report (default). weekly/quarterly = the
@@ -89,7 +90,7 @@ function AIReports({ accountId, period, setPeriod }: { accountId: string; period
 
   const pick = (p: View) => {
     setError(null);
-    if (p === "monthly" || p === "yearly") { setPeriod(p); setReport(null); }
+    if (p === "monthly" || p === "yearly" || p === "team") { setPeriod(p); setReport(null); }
     else { generate(p); }
   };
 
@@ -116,14 +117,14 @@ function AIReports({ accountId, period, setPeriod }: { accountId: string; period
       {/* Cadence switcher + print. Monthly = the full-format template report. */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          {(["monthly", "weekly", "quarterly", "yearly"] as View[]).map((p) => (
+          {(["monthly", "weekly", "quarterly", "yearly", "team"] as View[]).map((p) => (
             <button
               key={p}
               onClick={() => pick(p)}
               disabled={loading === p}
               className={`text-[12px] font-medium px-3 py-1.5 rounded-lg border transition ${period === p ? "border-brand bg-brand text-white" : "border-gray-200 bg-white text-gray-700 hover:border-brand"} disabled:opacity-50`}
             >
-              {loading === p ? "…" : p === "yearly" ? "Yearly report" : PERIOD_META[p].title}
+              {loading === p ? "…" : p === "yearly" ? "Yearly report" : p === "team" ? "Team report" : PERIOD_META[p].title}
             </button>
           ))}
         </div>
@@ -141,6 +142,8 @@ function AIReports({ accountId, period, setPeriod }: { accountId: string; period
         <MonthlyReports />
       ) : period === "yearly" ? (
         <YearlyReports />
+      ) : period === "team" ? (
+        <TeamReports />
       ) : loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <BrandLoader size={40} />
