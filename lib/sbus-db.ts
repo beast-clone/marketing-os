@@ -5,6 +5,8 @@
 // Falls back to SBU_OPTIONS in lib/sbus.ts if the table can't be read, so a
 // database hiccup never empties a brand picker or rejects a valid task.
 
+import { PUBLISH_PAGES } from "@/lib/publish-pages";
+import { loadPublishPages } from "@/lib/publish-pages-server";
 import { getSupabase } from "@/lib/supabase";
 import { SBU_OPTIONS } from "@/lib/sbus";
 import { setSbuPages, SBU_PAGE_CHOICES, type SbuPageChoice } from "@/lib/sbu-pages";
@@ -35,10 +37,15 @@ export async function fetchSbuPages(): Promise<Record<string, string>> {
   return cache?.pages || {};
 }
 
-const cleanPage = (p: unknown): SbuPageChoice => ((SBU_PAGE_CHOICES as readonly string[]).includes(String(p)) ? (p as SbuPageChoice) : "GooCampus Main");
+// A built-in page, "none", or a brand linked on the Brands page (lib/publish-pages.ts).
+const cleanPage = (p: unknown): SbuPageChoice => {
+  const v = typeof p === "string" ? p.trim().slice(0, 80) : "";
+  return (SBU_PAGE_CHOICES as readonly string[]).includes(v) || PUBLISH_PAGES.some((x) => x.value === v) ? v : "GooCampus Main";
+};
 
 /** Change which page a brand posts to. */
 export async function setSbuPage(name: string, page: unknown): Promise<void> {
+  await loadPublishPages();   // so cleanPage knows the linked brands
   const sb = getSupabase();
   if (!sb) throw new Error("no db");
   const { error } = await sb.from("mh_sbus").update({ page: cleanPage(page) }).eq("name", name);

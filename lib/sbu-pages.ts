@@ -8,22 +8,24 @@
 // 27 Oct: the page now lives with the brand (mh_sbus.page, sql/040) and is changed on
 // Rules → Content calendar → Brands. The lists below are only the fallback until the
 // live list has loaded (server: fetchSbus; browser: /api/sbus).
-export type SbuPage = "GooCampus Main" | "GooCampus World" | "12Plus / GC India";
+// 3 Nov: a brand can also post to a brand linked on the Brands page (lib/publish-pages.ts),
+// so a page is any page value; these are the built-in ones.
+export type SbuPage = string;
 export const SBU_PAGE_CHOICES = ["GooCampus Main", "GooCampus World", "12Plus / GC India", "none"] as const;
-export type SbuPageChoice = (typeof SBU_PAGE_CHOICES)[number];
+export type SbuPageChoice = string;
 
 // Filled from the database (no imports here: shared by server and browser).
 const LIVE: Record<string, SbuPageChoice> = {};
 export function setSbuPages(rows: { name: string; page?: string | null }[]) {
   for (const r of rows) {
-    const p = (SBU_PAGE_CHOICES as readonly string[]).includes(String(r.page)) ? (r.page as SbuPageChoice) : null;
+    const p = typeof r.page === "string" && r.page.trim() ? r.page.trim() : null;
     if (p) LIVE[r.name.trim().toLowerCase()] = p;
   }
 }
 
 const WORLD = ["Mentorship Platform"];
 const INDIA = ["12thPlus.com", "India NEET UG Consulting"];
-const NONE = ["Samvaya"];
+const NONE: string[] = [];
 
 const is = (list: string[], sbu: string) => list.some((s) => s.toLowerCase() === sbu);
 

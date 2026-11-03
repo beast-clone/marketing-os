@@ -1,4 +1,5 @@
 import { pageForSbu } from "@/lib/sbu-pages";
+import { pageInfo } from "@/lib/publish-pages";
 import { VIDEO_TYPES } from "@/lib/mh-content-types";
 
 // Matching a Content Calendar task to the post that actually went live.
@@ -17,12 +18,10 @@ import { VIDEO_TYPES } from "@/lib/mh-content-types";
 
 /** Brand (SBU) → the Instagram account it goes out on. null = not one of ours. */
 export function accountIdForSbu(sbu: string | null | undefined): string | null {
-  switch (pageForSbu(sbu)) {
-    case "GooCampus Main": return "goocampus";
-    case "GooCampus World": return "goocampusworld";
-    case "12Plus / GC India": return "12thplusdotcom";
-    default: return null;   // Samvaya, or an SBU we don't post for
-  }
+  // The page's account — a GooCampus page or a linked brand (lib/publish-pages.ts);
+  // null for an SBU we don't post for.
+  const page = pageForSbu(sbu);
+  return page ? pageInfo(page).accountId || null : null;
 }
 
 // Words that appear in almost every caption and so tell us nothing about WHICH post

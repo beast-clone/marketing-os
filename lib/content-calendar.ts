@@ -23,7 +23,7 @@ type AttachmentInput = { url: string; filename?: string };
 export type CreatePostInput = {
   particulars: string;            // short title for the row, e.g. "AMC Aug intake reel"
   publishTo: "Facebook" | "Instagram" | "Instagram/Facebook";
-  publishToPage: "GooCampus Main" | "GooCampus World" | "12Plus / GC India";
+  publishToPage: string;          // a page value (lib/publish-pages.ts)
   caption: string;                // the body the post will use (Sync V3 will split IG vs FB)
   mediaUrls: string[];            // 1+ urls (image/video/reel). For carousels send multiple.
   scheduleTimeISO?: string;       // when to publish; omit to use Sync V3's default (now + 2h)

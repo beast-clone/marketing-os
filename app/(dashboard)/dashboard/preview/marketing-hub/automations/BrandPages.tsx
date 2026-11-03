@@ -3,20 +3,27 @@ import { useEffect, useState } from "react";
 import { IconBuildingStore, IconPlus } from "@tabler/icons-react";
 import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
 import { addBrand } from "@/lib/use-sbus";
+import { usePublishPages } from "@/lib/use-publish-pages";
 import { showToast } from "../../Toast";
 
 // Brands and the page each one posts to (mh_sbus.page, sql/040). This used to be a
 // list in the code (lib/sbu-pages.ts), so a new brand silently went to GooCampus
 // Main. Admins change it here; everyone else can read it.
 
-const PAGES = [
-  { value: "GooCampus Main", label: "GooCampus Main" },
-  { value: "GooCampus World", label: "GooCampus World" },
-  { value: "12Plus / GC India", label: "12th Plus" },
-  { value: "none", label: "None of our pages" },
-];
+// The GooCampus pages, every brand linked on the Brands page, and "none".
+function usePageChoices() {
+  const linked = usePublishPages();
+  return [
+    { value: "GooCampus Main", label: "GooCampus Main" },
+    { value: "GooCampus World", label: "GooCampus World" },
+    { value: "12Plus / GC India", label: "12th Plus" },
+    ...linked.filter((p) => p.linked).map((p) => ({ value: p.value, label: p.label })),
+    { value: "none", label: "None of our pages" },
+  ];
+}
 
 export function BrandPages() {
+  const PAGES = usePageChoices();
   const [pages, setPages] = useState<Record<string, string> | null>(null);
   const [canEdit, setCanEdit] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);

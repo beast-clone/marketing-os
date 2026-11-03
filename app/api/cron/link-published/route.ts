@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { loadPublishPages } from "@/lib/publish-pages-server";
 import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
 import { writeBackLink } from "@/lib/mh-linkback";
@@ -42,6 +43,7 @@ type Row = {
 
 export async function GET(req: Request) {
   await fetchSbus();   // brand → page comes from the database (sql/040)
+  await loadPublishPages();   // pages of brands linked on the Brands page
   await fetchContentTypes();   // registers dashboard-added types into VIDEO_TYPES (sql/028)
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });

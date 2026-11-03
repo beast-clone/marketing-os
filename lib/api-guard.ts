@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { pageInfo } from "@/lib/publish-pages";
 import { headers } from "next/headers";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getSessionUserId } from "@/lib/auth";
@@ -39,12 +40,12 @@ export function guardRate(req: Request, name: string, max: number, windowMs: num
 //   if (denied) return denied;
 // Scheduler brand pages (Team & access → Scheduler, 22 Oct). `pages` are the
 // PublishToPage values a request wants to post to; a post id checks the row's own.
-const PAGE_LABEL: Record<string, string> = { "GooCampus Main": "GooCampus", "GooCampus World": "GooCampus World", "12Plus / GC India": "12thPlus.com" };
+const PAGE_LABEL = (p: string) => pageInfo(p).label || p;
 export async function requireSchedulerPages(pages: string[]): Promise<NextResponse | null> {
   const me = await rosterById(getSessionUserId());
   const bad = pages.filter((p) => !maySchedulePage(me, p));
   if (!bad.length) return null;
-  return NextResponse.json({ error: `You can't schedule to ${bad.map((p) => PAGE_LABEL[p] || p).join(", ")} — ask an admin to add it in Team & access.` }, { status: 403 });
+  return NextResponse.json({ error: `You can't schedule to ${bad.map(PAGE_LABEL).join(", ")} — ask an admin to add it in Team & access.` }, { status: 403 });
 }
 export async function requireSchedulerPost(postId: string): Promise<NextResponse | null> {
   const sb = getSupabase();

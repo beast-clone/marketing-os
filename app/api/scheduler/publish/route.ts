@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSection, requireCapability, requireSchedulerPages } from "@/lib/api-guard";
 import { getAccount } from "@/lib/instagram";
+import { loadPublishPages } from "@/lib/publish-pages-server";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
 import { writeBackLink } from "@/lib/mh-linkback";
@@ -14,11 +15,11 @@ import { writeBackLink } from "@/lib/mh-linkback";
 
 const GRAPH = "https://graph.facebook.com/v25.0";
 
-function accountIdForPage(page: string): string | null {
-  if (/india|12th|12plus/i.test(page)) return "12thplusdotcom";
-  if (/world/i.test(page)) return "goocampusworld";
-  if (/main|goocampus/i.test(page)) return "goocampus";
-  return null;
+// The account behind a page value — the GooCampus pages or a linked brand
+// (lib/publish-pages.ts). Unknown pages get no account: never a GooCampus default.
+async function accountIdForPage(page: string): Promise<string | null> {
+  const pages = await loadPublishPages();
+  return pages.find((p) => p.value === page)?.accountId || null;
 }
 
 // Publish one image post (with optional collaborators) to a single IG account.
@@ -88,13 +89,13 @@ export async function POST(req: Request) {
       if (!collaborators.length) collaborators = ((data.collaborators as string[] | null) || []).slice(0, 3);
       if (!accountIds.length) {
         const pages = (data.publish_to_pages as string[] | null) || [];
-        accountIds = pages.map(accountIdForPage).filter((x): x is string => !!x);
+        accountIds = (await Promise.all(pages.map(accountIdForPage))).filter((x): x is string => !!x);
       }
     }
     if (!accountIds.length) return NextResponse.json({ error: "accountId (or a post with target pages) is required" }, { status: 400 });
     // The brand pages this person may schedule to (Team & access) apply here too (A8).
-    const PAGE_FOR_ACCOUNT: Record<string, string> = { goocampus: "GooCampus Main", goocampusworld: "GooCampus World", "12thplusdotcom": "12Plus / GC India" };
-    const __pages = await requireSchedulerPages(accountIds.map((a) => PAGE_FOR_ACCOUNT[a] || a));
+    const all = await loadPublishPages();
+    const __pages = await requireSchedulerPages(accountIds.map((a) => all.find((p) => p.accountId === a)?.value || a));
     if (__pages) return __pages;
     if (!imageUrl) return NextResponse.json({ error: "no media to publish (imageUrl / media_urls is empty)" }, { status: 400 });
 

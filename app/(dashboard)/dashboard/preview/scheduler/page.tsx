@@ -1,4 +1,6 @@
 "use client";
+import { pageInfo } from "@/lib/publish-pages";
+import { usePublishPages } from "@/lib/use-publish-pages";
 import { LoadingBlock } from "@/components/LoadingBlock";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useSearchParams } from "next/navigation";
@@ -30,7 +32,8 @@ import { SETTINGS } from "@/lib/app-settings";
 import { useAppSettings } from "@/lib/use-app-settings";
 
 type PublishTo = "Facebook" | "Instagram" | "Instagram/Facebook";
-type PublishToPage = "GooCampus Main" | "GooCampus World" | "12Plus / GC India";
+// A page value from lib/publish-pages.ts — the three GooCampus pages or a linked brand.
+type PublishToPage = string;
 
 type ScheduledPost = {
   id: string;
@@ -109,20 +112,17 @@ const pdfName = (u: string) => decodeURIComponent((u.split("?")[0].split("/").po
 // Brand page -> its LinkedIn page key. GooCampus India has no LinkedIn page, so
 // the LinkedIn option is unavailable (not merely unticked) whenever that is the
 // only brand selected. Mirrors the mapping used when publishing.
+// Only the GooCampus pages have LinkedIn pages; anything else (12thPlus, a linked
+// brand like Samvaya) has none — it must never fall through to GooCampus's.
 function linkedInKeyFor(page: string): string | null {
-  if (/world/i.test(page)) return "world";
-  if (/india|12/i.test(page)) return null;
-  return "goocampus";
+  return pageInfo(page).linkedIn;
 }
 
-const PAGE_OPTIONS: { value: PublishToPage; label: string; subtitle: string }[] = [
-  { value: "GooCampus Main",     label: "GooCampus",            subtitle: "@goocampus + 2 FB pages" },
-  { value: "GooCampus World",    label: "GooCampus World",      subtitle: "@goocampusworld + GooCampus World page" },
-  { value: "12Plus / GC India",  label: "12thPlus.com",          subtitle: "@12thplusdotcom + GC India page" },
-];
-
+// The pages are GooCampus's three plus every brand linked on the Brands page
+// (lib/publish-pages.ts); components that list them call usePublishPages() so a
+// linked brand appears once the list has loaded.
 // What people see for a stored page value — "GooCampus Main" is just "GooCampus".
-const pageLabel = (v: string) => PAGE_OPTIONS.find((o) => o.value === v)?.label || v;
+const pageLabel = (v: string) => pageInfo(v).label || v;
 
 // Our own handles, offered before anyone types — collaborating with a sister
 // account is the common case and should not need a lookup.
@@ -174,6 +174,7 @@ function SchedulerTabs() {
 
 function Scheduler() {
   const sbus = useSbus();   // live brand list (sql/027)
+  const pageOptions = usePublishPages();
   // Form state
   const [particulars, setParticulars] = useState("");
   const [publishToPage, setPublishToPage] = useState<PublishToPage>("GooCampus Main");
@@ -250,6 +251,8 @@ function Scheduler() {
     [composePages],
   );
   const linkedInAvailable = linkedInPages.length > 0;
+  // The ticked pages that have no LinkedIn page, by name, for the notes below.
+  const noLinkedInName = composePages.filter((p) => !linkedInKeyFor(p)).map(pageLabel).join(" and ") || "This page";
   // Keep the primary page (drives preview / limits / suggest-time) in sync with the
   // first checked cross-post page.
   useEffect(() => {
@@ -528,11 +531,7 @@ function Scheduler() {
   // (publishToPage) so tiles/filters can tell them apart.
   const [publishedIG, setPublishedIG] = useState([] as PublishedIG[]);
   useEffect(() => {
-    const accounts: { id: string; page: string }[] = [
-      { id: "goocampus", page: "GooCampus Main" },
-      { id: "goocampusworld", page: "GooCampus World" },
-      { id: "12thplusdotcom", page: "12Plus / GC India" },
-    ];
+    const accounts: { id: string; page: string }[] = pageOptions.map((o) => ({ id: o.accountId, page: o.value }));
     Promise.all(accounts.map((a) =>
       fetch(`/api/posts?accountId=${a.id}&limit=20&insights=true`)
         .then((r) => r.ok ? r.json() : { posts: [] })
@@ -542,7 +541,7 @@ function Scheduler() {
       const merged = results.flat().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setPublishedIG(merged);
     });
-  }, []);
+  }, [pageOptions]);
 
   const loadQueue = (quiet = false) => {
     if (!quiet) setQueueLoading(true);
@@ -651,7 +650,7 @@ function Scheduler() {
   const loadTopPerformers = async () => {
     setTopLoading(true);
     try {
-      const pages = topAccount === "all" ? PAGE_OPTIONS.map((o) => o.value) : [topAccount];
+      const pages = topAccount === "all" ? pageOptions.map((o) => o.value) : [topAccount];
       const results = await Promise.all(pages.map((pg) =>
         fetch(`/api/scheduler/top-performers?publishToPage=${encodeURIComponent(pg)}`)
           .then((r) => r.ok ? r.json() : { top: [] })
@@ -674,8 +673,7 @@ function Scheduler() {
     setMediaUrls(p.thumbnail ? [p.thumbnail] : [""]);
     setShowCreateForm(true);
     if (p.mediaType === "CAROUSEL_ALBUM") {
-      const accId = p.publishToPage === "GooCampus World" ? "goocampusworld"
-        : p.publishToPage === "12Plus / GC India" ? "12thplusdotcom" : "goocampus";
+      const accId = pageInfo(p.publishToPage).accountId || "goocampus";
       try {
         const r = await fetch(`/api/scheduler/media-children?mediaId=${encodeURIComponent(p.id)}&accountId=${accId}`);
         const d = await r.json();
@@ -763,7 +761,7 @@ function Scheduler() {
     // on a post whose only file is a PDF — nothing left to publish anywhere.
     linkedInOnly && !(alsoLinkedIn && linkedInAvailable) && (toInstagram || toFacebook
       ? (linkedInAvailable ? "Somewhere to post the PDF — turn LinkedIn back on, or add an image"
-        : "Somewhere to post the PDF — 12thPlus.com has no LinkedIn page, so pick GooCampus or GooCampus World, or add images")
+        : `Somewhere to post the PDF — ${noLinkedInName} has no LinkedIn page, so pick GooCampus or GooCampus World, or add images`)
       : "Somewhere to post — tick Instagram, Facebook or LinkedIn"),
     scheduleEnabled && !(scheduleDate && scheduleTime) && "A date and time to publish",
   ].filter((x): x is string => !!x), [composePages, caption, cleanMediaUrls, linkedInOnly, alsoLinkedIn, linkedInAvailable, scheduleEnabled, scheduleDate, scheduleTime, toInstagram, toFacebook]);
@@ -936,7 +934,7 @@ function Scheduler() {
           <span className={`text-sm ${linkedInAvailable ? "text-gray-800" : "text-gray-400"}`}>LinkedIn</span>
         </label>
         <span className="text-xs text-gray-500 ml-auto">
-          {!linkedInAvailable ? "12thPlus.com has no LinkedIn page"
+          {!linkedInAvailable ? `${noLinkedInName} has no LinkedIn page`
             : alsoLinkedIn ? `LinkedIn page: ${linkedInPages.map((k) => (k === "world" ? "GooCampus World" : "GooCampus")).join(" · ")}` : ""}
         </span>
       </div>
@@ -979,7 +977,7 @@ function Scheduler() {
             ) : (
               <span className="text-[#C0392B]">{pdfName(pdfUrls[0])} — not being posted. {linkedInAvailable
                     ? "LinkedIn is off."
-                    : "12thPlus.com has no LinkedIn page: pick GooCampus or GooCampus World to post it there, or add images for Instagram/Facebook."}</span>
+                    : `${noLinkedInName} has no LinkedIn page: pick GooCampus or GooCampus World to post it there, or add images for Instagram/Facebook.`}</span>
             )}
           </div>
         </div>
@@ -1101,12 +1099,9 @@ function Scheduler() {
   }
 
   const previewImage = cleanMediaUrls[0] || null;
-  const previewHandle = publishToPage === "GooCampus Main" ? "goocampus" :
-                        publishToPage === "GooCampus World" ? "goocampusworld" : "12thplusdotcom";
-  const pageHandle = (p: string) => p === "GooCampus Main" ? "@goocampus" :
-                        p === "GooCampus World" ? "@goocampusworld" : "@12thplusdotcom";
-  const previewName = publishToPage === "GooCampus Main" ? "GooCampus" :
-                      publishToPage === "GooCampus World" ? "GooCampus World" : "12th Plus · GC India";
+  const previewHandle = pageInfo(publishToPage).handle.replace(/^@/, "") || "goocampus";
+  const pageHandle = (p: string) => pageInfo(p).handle;
+  const previewName = publishToPage === "12Plus / GC India" ? "12th Plus · GC India" : pageInfo(publishToPage).label;
 
   // Filter derived data for the queue view — computed here so we can also use it for
   // the status-counter strip.
@@ -1136,7 +1131,7 @@ function Scheduler() {
     .sort((a, b) => new Date(b.publishedAt || b.scheduleTime || 0).getTime() - new Date(a.publishedAt || a.scheduleTime || 0).getTime())
     .slice(0, 20);
   // Populate filter dropdown options from the actual data so we don't hardcode.
-  const availablePages = PAGE_OPTIONS.map((o) => o.value); // the 3 GooCampus accounts, always
+  const availablePages = pageOptions.map((o) => o.value); // every page we post to, linked brands included
   const publishedFiltered = filterPage === "all" ? publishedIG : publishedIG.filter((p) => p.publishToPage === filterPage);
   const availableInterests = Array.from(new Set(queue.map((p) => p.primaryInterest).filter(Boolean))).sort();
 
@@ -1647,7 +1642,7 @@ function Scheduler() {
               <div className="text-[12px] text-gray-500">Your best posts by reach (last 90 days) — click one to reschedule it.</div>
             </div>
             <PreviewSelect value={topAccount} onChange={setTopAccount}
-              options={[{ value: "all", label: "All accounts" }, ...PAGE_OPTIONS.map((o) => ({ value: o.value, label: o.value }))]} />
+              options={[{ value: "all", label: "All accounts" }, ...pageOptions.map((o) => ({ value: o.value, label: o.label }))]} />
           </div>
 
           {topLoading && <div className="bg-white rounded-lg border border-gray-100"><LoadingBlock label="Loading top performers…" /></div>}
@@ -1657,7 +1652,7 @@ function Scheduler() {
           {!topLoading && topPerformers.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
               {topPerformers.map((p, i) => {
-                const handle = p.publishToPage === "GooCampus World" ? "@goocampusworld" : p.publishToPage === "12Plus / GC India" ? "@12thplusdotcom" : "@goocampus";
+                const handle = pageInfo(p.publishToPage).handle || "@goocampus";
                 const fmt = (n: number) => n >= 100000 ? `${(n / 100000).toFixed(1)}L` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
                 return (
                   <button key={`${p.publishToPage}-${p.id}`} type="button" onClick={() => rescheduleTopPerformer(p)}
@@ -2172,9 +2167,6 @@ function ToScheduleList({ items, loading, onRefresh, onSchedule, onAddManual, hi
   const statusChip = (s: string) => s === "Ready to Publish"
     ? { bg: "#E3F5EA", text: "#157F3C" }
     : { bg: "#FEF3E2", text: "#B45309" };
-  const pageChip: Record<string, string> = {
-    "GooCampus Main": "@goocampus", "GooCampus World": "@goocampusworld", "GooCampus India": "@12thplusdotcom",
-  };
   return (
     <div>
       {!hideHeader && (
@@ -2707,7 +2699,7 @@ function ScheduleNowModal({ post, onClose, onConfirm }: {
   // to fan-out. On confirm, one Airtable row is updated in place + one duplicate is
   // created for each additional page (same media/caption/interest, different Publish
   // To Page), so n8n's Native Scheduler fires one post per selected page.
-  const ALL_PAGES = ["GooCampus Main", "GooCampus World", "12Plus / GC India"] as const;
+  const ALL_PAGES = usePublishPages().map((o) => o.value);
   const [selectedPages, setSelectedPages] = useState<string[]>(
     post.publishToPage ? [post.publishToPage] : ["GooCampus Main"]
   );
@@ -2748,8 +2740,7 @@ function ScheduleNowModal({ post, onClose, onConfirm }: {
           <div className="space-y-1.5">
             {ALL_PAGES.map((page) => {
               const checked = selectedPages.includes(page);
-              const handle = page === "GooCampus Main" ? "@goocampus" :
-                page === "GooCampus World" ? "@goocampusworld" : "@12thplusdotcom";
+              const handle = pageInfo(page).handle;
               return (
                 <label
                   key={page}
@@ -2848,7 +2839,7 @@ function ScheduleNowModal({ post, onClose, onConfirm }: {
 type PublishedIG = {
   id: string; caption: string; mediaUrl: string; permalink: string; type: string;
   timestamp: string; likes: number; comments: number; reach: number;
-  publishToPage: string; // which account it was published from (matches PAGE_OPTIONS values)
+  publishToPage: string; // which account it was published from (a page value, lib/publish-pages.ts)
 };
 
 type CalendarItem =
@@ -3916,14 +3907,13 @@ function CaptionField(props: {
 // the selected row) instead of a native <select>, matching My Day's StatusDropdown.
 // Account dot colors — matches PreviewCalendar's ACCOUNT_STYLE so an account reads
 // the same colour in the Scheduler and the Calendar. Main = brand (was purple).
-const PAGE_DOT: Record<string, string> = {
-  "GooCampus Main": "#3A57E8", "GooCampus World": "#0EA5E9", "12Plus / GC India": "#E11D48",
-};
+const PAGE_DOT = (v: string) => pageInfo(v).color;
 
 // Multi-select brand pages — tick one or more to cross-post the same content to
 // several GooCampus accounts at once. The first ticked page is the "primary".
 function PageCheckboxes({ value, onChange, allowed }: { value: string[]; onChange: (v: string[]) => void; allowed?: string[] | null }) {
-  const OPTIONS = allowed ? PAGE_OPTIONS.filter((o) => allowed.includes(o.value)) : PAGE_OPTIONS;
+  const all = usePublishPages();
+  const OPTIONS = allowed ? all.filter((o) => allowed.includes(o.value)) : all;
   // A dropdown, the way Meta's composer does it, rather than three rows sitting
   // open forever. Three pages take 174px of a 600px column to answer a question
   // that is settled once and rarely changed; the trigger says who is selected and
@@ -3962,7 +3952,7 @@ function PageCheckboxes({ value, onChange, allowed }: { value: string[]; onChang
         className="flex items-center gap-2 w-full h-9 rounded border border-gray-200 bg-white px-3 text-left hover:border-gray-300 focus:border-brand focus:outline-none">
         <span className="flex items-center gap-1 shrink-0">
           {chosen.map((o) => (
-            <span key={o.value} className="w-2.5 h-2.5 rounded-full" style={{ background: PAGE_DOT[o.value] || "#94A3B8" }} />
+            <span key={o.value} className="w-2.5 h-2.5 rounded-full" style={{ background: PAGE_DOT(o.value) }} />
           ))}
         </span>
         <span className="flex-1 min-w-0 truncate text-[14px] text-[#232D42]">{summary}</span>
@@ -3980,7 +3970,7 @@ function PageCheckboxes({ value, onChange, allowed }: { value: string[]; onChang
               <label key={o.value} role="option" aria-selected={checked}
                 className={`flex items-center gap-2.5 px-3 py-2 cursor-pointer ${checked ? "bg-brand-light" : "hover:bg-[#F6F7FB]"}`}>
                 <input type="checkbox" checked={checked} onChange={() => toggle(o.value)} className="w-4 h-4 accent-[#3A57E8]" />
-                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PAGE_DOT[o.value] || "#94A3B8" }} />
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PAGE_DOT(o.value) }} />
                 <span className="flex-1 min-w-0">
                   <span className="block text-[13px] leading-4 truncate text-gray-900">{o.label}</span>
                   <span className="block text-[11px] leading-4 text-gray-500 truncate">{o.subtitle}</span>

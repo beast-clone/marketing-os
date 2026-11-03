@@ -6,6 +6,7 @@ import {
 } from "@tabler/icons-react";
 import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/PreviewDashboardShell";
 import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
+import { usePublishPages } from "@/lib/use-publish-pages";
 import { CAPABILITIES, DATE_APPROVAL_RULE, DATE_REASON_RULE, TABS, TASK_ACTIONS, canConnectClaude, hasCapability, needsDateApproval, needsDateReason, canEditCalendar, type Capability } from "@/lib/permissions";
 
 type Member = {
@@ -110,11 +111,7 @@ function Pill({ tone, children }: { tone: "good" | "mute" | "brand"; children: R
 // selected), task actions (full or partial), calendar editing, date approval.
 
 type Draft = { isAdmin: boolean; sections: Record<string, boolean>; permissions: Perm; name: string; email: string; role: string; active: boolean; workRole: WorkRole | null; shiftStart: string; editPartner: string };
-const BRAND_PAGES: { value: string; label: string }[] = [
-  { value: "GooCampus Main", label: "GooCampus" },
-  { value: "GooCampus World", label: "GooCampus World" },
-  { value: "12Plus / GC India", label: "12thPlus.com" },
-];
+
 const GROUPS = Array.from(new Set(TABS.map((t) => t.group)));
 // List order asked for on 22 Oct; anyone added later goes after, A–Z.
 const PEOPLE_ORDER = ["maheen", "nandu", "praveen", "manya", "nikhil"];
@@ -310,6 +307,8 @@ function Tick({ checked, label, onChange, disabled }: { checked: boolean; label:
 }
 
 function PersonEditor({ m, team, busy, viewerId, onSave, onAction }: { m: Member; team: Member[]; busy: boolean; viewerId: string; onSave: (d: Draft) => void; onAction: (body: unknown, msg: string) => void }) {
+  // The pages they can be allowed to post to: GooCampus's and every linked brand's.
+  const brandPages = usePublishPages().map((p) => ({ value: p.value, label: p.label }));
   const fresh = (): Draft => ({ isAdmin: m.isAdmin, sections: { ...(m.sections || {}) }, permissions: { ...(m.permissions || {}) }, name: m.name, email: m.email, role: m.role, active: m.active, workRole: m.workRole ?? null, shiftStart: m.shiftStart || "09:00", editPartner: m.editPartner || "" });
   const [d, setD] = useState<Draft>(fresh);
   const [pw, setPw] = useState<string | null>(null);
@@ -370,7 +369,7 @@ function PersonEditor({ m, team, busy, viewerId, onSave, onAction }: { m: Member
               onChange={(v) => setPerm({ scheduler_pages: v === "full" ? undefined : (pages || []) })} />
             {pages ? (
               <div className="flex flex-wrap gap-2">
-                {BRAND_PAGES.map((b) => <Tick key={b.value} label={b.label} disabled={busy} checked={pages.includes(b.value)}
+                {brandPages.map((b) => <Tick key={b.value} label={b.label} disabled={busy} checked={pages.includes(b.value)}
                   onChange={(on) => setPerm({ scheduler_pages: on ? [...pages, b.value] : pages.filter((x) => x !== b.value) })} />)}
                 {!pages.length && <span className="text-[12px] text-[#C0392B] self-center">Tick at least one page, or they can&apos;t schedule anything.</span>}
               </div>

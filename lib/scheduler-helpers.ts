@@ -2,7 +2,7 @@
 // Each function takes a "publishToPage" label (the brand option the UI uses)
 // and resolves it to one of the configured IG accounts.
 
-import { getAccount, fetchAudience, fetchRecentMedia, fetchMediaInsights, type IGAccountConfig, type IGMedia } from "@/lib/instagram";
+import { getAccount, getConfiguredAccounts, fetchAudience, fetchRecentMedia, fetchMediaInsights, type IGAccountConfig, type IGMedia } from "@/lib/instagram";
 import { fetchPagePosts } from "@/lib/facebook";
 
 // Inlined to survive the Mac-side rename of extractHashtags from the older lib
@@ -66,10 +66,12 @@ const PAGE_TO_ACCOUNT_ID: Record<string, string> = {
   "12Plus / GC India": "12thplusdotcom",
 };
 
+// A linked brand's page value is its Facebook page name, which is also the label of its
+// connected account (lib/brand-accounts.ts; loaded by requireSection).
 export function resolveAccountForPage(publishToPage: string): IGAccountConfig | null {
   const accId = PAGE_TO_ACCOUNT_ID[publishToPage];
-  if (!accId) return null;
-  return getAccount(accId);
+  if (accId) return getAccount(accId);
+  return getConfiguredAccounts().find((a) => a.pageId && a.label === publishToPage) ?? null;
 }
 
 // ------ Smart time suggestion ------

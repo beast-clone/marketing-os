@@ -1706,7 +1706,7 @@ const CAL_CHANNELS: { value: CalChannel; label: string }[] = [
   { value: "12thplusdotcom", label: "12th Plus" },
 ];
 const PAGE_CHANNEL: Record<SbuPage, Exclude<CalChannel, "all">> = { "GooCampus Main": "goocampus", "GooCampus World": "goocampusworld", "12Plus / GC India": "12thplusdotcom" };
-const channelOfSbu = (sbu: string): Exclude<CalChannel, "all"> | null => { const p = pageForSbu(sbu); return p ? PAGE_CHANNEL[p] : null; };
+const channelOfSbu = (sbu: string): Exclude<CalChannel, "all"> | null => { const p = pageForSbu(sbu); return (p && PAGE_CHANNEL[p]) || null; };
 
 // Pick several at once — "I don't select single SBU each time to see, I want see all
 // the SBUs of my together" (Manya, 5 Oct). An empty selection means everything, so the

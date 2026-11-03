@@ -10,7 +10,7 @@
 export const SBU_OPTIONS = [
   "10K Mentorship", "12thPlus.com", "Allied Courses", "Australia-PGCP", "Buckingham Program", "Dr Divij's Course",
   "General Content", "India NEET PG Consulting", "India NEET UG Consulting", "Interview Plus", "ISIP",
-  "Mentorship Platform", "Middle East", "Portfolio Plus", "Samvaya", "Special Days", "SSAHE",
+  "Mentorship Platform", "Middle East", "Portfolio Plus", "Samvaya Matrimony", "Special Days", "SSAHE",
   "Standard Consulting Program - Australia", "Standard Consulting Program - UK", "Standard Consulting Program - USA",
   "Study Abroad", "UK ALS Course", "UK-PGCP", "University Programs",
 ] as const;

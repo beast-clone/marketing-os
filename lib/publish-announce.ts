@@ -8,6 +8,7 @@
 // on the Watchers page. Only posts published after `since` are announced, so turning
 // it on never floods the group with old posts. What was sent per post is kept under
 // `pubann:<postId>`.
+import { CORE_PAGES } from "@/lib/publish-pages";
 import { getSupabase } from "@/lib/supabase";
 import { hasTelegram, sendTelegram } from "@/lib/telegram";
 import { rosterById } from "@/lib/team-db";
@@ -17,7 +18,7 @@ const IST = "Asia/Kolkata";
 export type AnnounceSetting = { on: boolean; since: string | null; chat: string | null };
 type Links = { instagram: string[]; facebook: string[]; linkedin: string[] };
 const PLATFORM: Record<keyof Links, string> = { instagram: "Instagram", facebook: "Facebook", linkedin: "LinkedIn" };
-const PAGE: Record<string, string> = { "GooCampus Main": "GooCampus", "GooCampus World": "GooCampus World", "12Plus / GC India": "12thPlus.com" };
+const PAGE: Record<string, string> = Object.fromEntries(CORE_PAGES.map((p) => [p.value, p.label]));
 
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
 const split = (v: string | null) => (v || "").split(/\s*,\s*/).map((s) => s.trim()).filter((s) => /^https?:\/\//.test(s));
