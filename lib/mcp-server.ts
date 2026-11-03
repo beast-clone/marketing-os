@@ -45,7 +45,7 @@ const TOOLS = [
       "Put the post body / script / slide text in `content` and the social caption in `caption` — they are DIFFERENT fields; never merge them or copy one into the other. " +
       "If the user gave you content but no caption, ASK whether they want one before calling: offer to write it, or to leave it empty for the writer. " +
       "Do not invent a caption silently, and do not block on it — if they say skip, leave it empty and create the task. " +
-      "Formats that carry no caption of their own (Reel Thumbnail, YouTube Thumbnail, Meta Ads) don't need the question — leave caption empty for those. " +
+      "Formats that carry no caption of their own (Story (Image), Story (Video), Reel Thumbnail, YouTube Thumbnail, Meta Ads) don't need the question — leave caption empty for those. " +
       "Ask everything you are missing in ONE message rather than one question at a time. " +
       "Confirm the title, primary interest, content type and publishing date with the user before calling if anything is ambiguous.",
     inputSchema: {

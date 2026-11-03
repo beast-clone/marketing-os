@@ -552,7 +552,7 @@ function DetailSidebar({ card, isPlan, onClose, onAccept, accepted, busy }: { ca
               <div className="text-xs uppercase tracking-widest text-gray-400 font-semibold mb-1">Caption</div>
               {capLoading ? <LoadingBlock size={18} className="!py-2 !flex-row !justify-start !gap-2" label="Loading caption…" />
                 : caption ? <div className="text-[12.5px] text-gray-700 whitespace-pre-wrap leading-relaxed">{caption}</div>
-                : <div className="text-[12px] text-gray-400 italic">No caption yet.</div>}
+                : <div className="text-[12px] text-gray-400 italic">{/story/i.test(card.type) ? "Story — no caption needed." : "No caption yet."}</div>}
             </div>
           </div>
         </div>

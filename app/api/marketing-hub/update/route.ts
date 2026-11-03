@@ -280,7 +280,8 @@ export async function PATCH(req: Request) {
       if (toMeta && !slideCount) missing.push("The creative uploaded as a file — a Drive or Canva link can't be posted to Instagram or Facebook");
       else if (!toMeta && !slideCount && !pdfCount && !filled(eff("output_link"))) missing.push("A creative file or an output link");
       if (toMeta && type === "Carousel" && slideCount === 1) missing.push("At least 2 slides for a carousel (the LinkedIn PDF doesn't count as a slide)");
-      if (!filled(eff("caption"))) missing.push("A caption — the text that goes out with the post (the brief doesn't count)");
+      // Stories go out with no caption (Praveen, 3 Nov 2026) — every primary interest.
+      if (!/story/i.test(type) && !filled(eff("caption"))) missing.push("A caption — the text that goes out with the post (the brief doesn't count)");
       if (!filled(eff("publishing_date"))) missing.push("Publishing date");
       if (missing.length) return NextResponse.json({ error: "Not ready to publish yet — some required fields are missing.", missing, gate: "publish" }, { status: 422 });
     }

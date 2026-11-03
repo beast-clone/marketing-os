@@ -755,7 +755,7 @@ function Scheduler() {
   // with no reason was the single most common "why won't it do anything?" complaint.
   const missingToPublish = useMemo(() => [
     composePages.length === 0 && "A page to publish to — tick where it should go",
-    !caption.trim() && "A caption",
+    format !== "story" && !caption.trim() && "A caption",
     cleanMediaUrls.length === 0 && "At least one image or video",
     // LinkedIn is ticked automatically, so this only fires if it was turned off
     // on a post whose only file is a PDF — nothing left to publish anywhere.
@@ -764,7 +764,7 @@ function Scheduler() {
         : `Somewhere to post the PDF — ${noLinkedInName} has no LinkedIn page, so pick GooCampus or GooCampus World, or add images`)
       : "Somewhere to post — tick Instagram, Facebook or LinkedIn"),
     scheduleEnabled && !(scheduleDate && scheduleTime) && "A date and time to publish",
-  ].filter((x): x is string => !!x), [composePages, caption, cleanMediaUrls, linkedInOnly, alsoLinkedIn, linkedInAvailable, scheduleEnabled, scheduleDate, scheduleTime, toInstagram, toFacebook]);
+  ].filter((x): x is string => !!x), [composePages, format, caption, cleanMediaUrls, linkedInOnly, alsoLinkedIn, linkedInAvailable, scheduleEnabled, scheduleDate, scheduleTime, toInstagram, toFacebook]);
   const canSubmit = missingToPublish.length === 0 && !submitting;
 
   // Posts already committed to the same local day for a given account (scheduled,
@@ -2638,7 +2638,7 @@ function QueueRow({ post, onReschedule, onPublishNow, onEdit, onScheduleNow, bus
             {post.caption}
           </div>
         ) : (
-          <div className="text-xs text-gray-400 italic">No caption yet.</div>
+          <div className="text-xs text-gray-400 italic">{post.format === "story" ? "Story — no caption needed." : "No caption yet."}</div>
         )}
         {post.failureReason && (
           <div className="text-xs text-rose-700 mt-2 bg-rose-50 border border-rose-100 rounded px-2 py-1">

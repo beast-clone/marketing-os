@@ -321,6 +321,7 @@ function Review() {
           )}
           {p.caption
             ? <p className="text-xs text-[#8A92A6] line-clamp-2">{plainText(p.caption)}</p>
+            : /story/i.test(p.type || "") ? <p className="text-xs text-[#8A92A6]">Story — no caption needed</p>
             : <p className="text-xs text-amber-700">No caption yet</p>}
           {!p.hasCreative && (
             <div className="text-xs text-amber-700 bg-amber-50 rounded-md px-2 py-1">
@@ -602,7 +603,8 @@ function Review() {
                     <div className="text-[11px] font-semibold uppercase tracking-wide text-[#8A92A6] mb-1">Caption</div>
                     <div className="text-sm text-[#232D42]"><Markdown value={p.caption} /></div>
                   </div>
-                ) : <div className="text-xs text-amber-700 bg-amber-50 rounded-md px-3 py-2">No caption yet — add the text that goes out with the post before Push to Schedule. The brief isn&apos;t posted.</div>}
+                ) : /story/i.test(p.type || "") ? null
+                : <div className="text-xs text-amber-700 bg-amber-50 rounded-md px-3 py-2">No caption yet — add the text that goes out with the post before Push to Schedule. The brief isn&apos;t posted.</div>}
                 {!p.hasCreative && <div className="text-xs text-amber-700 bg-amber-50 rounded-md px-3 py-2">No creative attached — add media before it can go to the Scheduler.</div>}
                 </div>
               </div>
