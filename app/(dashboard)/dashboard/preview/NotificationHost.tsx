@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { IconBell, IconX } from "@tabler/icons-react";
+import { IconBell } from "@tabler/icons-react";
 import { playChatChime } from "@/app/(dashboard)/dashboard/preview/notifChime";
 import { shouldPoll } from "@/lib/quiet-hours";
 
@@ -10,11 +10,11 @@ import { shouldPoll } from "@/lib/quiet-hours";
 //
 //   · ONLY an action-needed notification pops up. Anything that merely informs
 //     goes to the bell — it rings and shakes — and to the unread count
-//   · whatever is due shows as ONE line — "You have 45 notifications to review" —
-//     never a card per item. Three stacked cards plus "+40 more" covered the page
-//     and looked cheap (Praveen, 21 Oct)
-//   · an action item that is still unread comes back every ~90 s; the × only
-//     closes the bar, it doesn't dismiss anything
+//   · whatever is due shows as ONE pop-up — the Bell button with the first item and
+//     "+N more", never a card per item. Three stacked cards plus "+40 more" covered
+//     the page and looked cheap (Praveen, 21 Oct)
+//   · an action item that is still unread comes back every ~90 s; "Later" only
+//     closes it, it doesn't dismiss anything
 //   · no pop-ups in quiet hours — the server decides that, in IST
 //   · the unread count goes into the browser tab title and the sidebar badge
 //
@@ -182,20 +182,39 @@ export function NotificationHost() {
     return () => { clearInterval(id); window.removeEventListener("focus", onFocus); window.removeEventListener(NOTIF_REFRESH, onFocus); };
   }, [load]);
 
-  // Already looking at them — the bar would only cover the list it points to.
+  // Already looking at them — the pop-up would only cover the list it points to.
   if (!shown.length || pathname?.startsWith(NOTIF_CENTER)) return null;
+  // The Bell button (Praveen, 3 Nov — prototype docs/notify-buddy-prototype/v9.html):
+  // a bell above the Comment button rings, its red count pops and pulse rings spread,
+  // then the first item slides out beside it. One item opens straight on its task;
+  // several open the notification center.
   const count = shown.length;
-  const label = `You have ${count} notification${count === 1 ? "" : "s"} to review`;
-  const review = () => { close(); router.push(NOTIF_CENTER); };
+  const first = shown[0];
+  const decision = shown.some((n) => n.action_needed);
+  const open = () => {
+    close();
+    if (count === 1 && first.post_id) router.push(taskHref(first.post_id));
+    else if (count === 1 && first.payload?.href) router.push(first.payload.href);
+    else router.push(NOTIF_CENTER);
+  };
   return (
-    <div className="gc-notif-bar" onMouseEnter={() => { hovering.current = true; }} onMouseLeave={() => { hovering.current = false; }}
+    <div className="gc-nb" key={armed} onMouseEnter={() => { hovering.current = true; }} onMouseLeave={() => { hovering.current = false; }}
       role="status" aria-live="polite">
-      <button type="button" className="gc-notif-bar-main" onClick={review} title="Open the notification center">
-        <span className="gc-notif-bar-icon"><IconBell size={15} stroke={1.8} /></span>
-        <span className="gc-notif-bar-text">{label}</span>
+      <div className="gc-nb-panel">
+        <div className="gc-nb-meta">{decision ? "Needs your decision" : "New for you"} · now</div>
+        <div className="gc-nb-title">{first.title}</div>
+        {first.sub && <div className="gc-nb-sub">{first.sub}</div>}
+        {count > 1 && <div className="gc-nb-more">+ {count - 1} more waiting for you</div>}
+        <div className="gc-nb-acts">
+          <button type="button" className="gc-nb-go" onClick={open}>{count === 1 ? "Review" : `Review all ${count}`}</button>
+          <button type="button" className="gc-nb-later" onClick={close}>Later</button>
+        </div>
+      </div>
+      <button type="button" className="gc-nb-fab" onClick={open} aria-label={`${count} notification${count === 1 ? "" : "s"} — review`} title="Review">
+        <span className="gc-nb-pulse" /><span className="gc-nb-pulse b" />
+        <IconBell size={25} stroke={1.9} className="gc-nb-bell" />
+        <span className="gc-nb-count">{count > 99 ? "99+" : count}</span>
       </button>
-      <button type="button" className="gc-notif-bar-go" onClick={review}>Review</button>
-      <button type="button" className="gc-notif-bar-x" aria-label="Close" onClick={close}><IconX size={14} stroke={1.8} /></button>
     </div>
   );
 }
