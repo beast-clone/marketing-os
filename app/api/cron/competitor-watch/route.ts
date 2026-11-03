@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { runCompetitorWatch, type WatchEvent } from "@/lib/competitor-watch";
 import { getSupabase } from "@/lib/supabase";
 import { fetchRoster } from "@/lib/team-db";
@@ -24,7 +25,7 @@ const LABEL: Record<WatchEvent["kind"], string> = {
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
-  const byCron = !!secret && req.headers.get("x-cron-secret") === secret;
+  const byCron = sameSecret(req.headers.get("x-cron-secret"), secret);
   if (!byCron && !(isLoggedIn() && getSessionIsAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const t0 = Date.now();

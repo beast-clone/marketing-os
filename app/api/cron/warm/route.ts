@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { createHmac, randomBytes } from "crypto";
 import { buildPayload } from "@/lib/session-payload";
 import { format, subDays } from "date-fns";
@@ -55,7 +56,9 @@ export async function GET(req: Request) {
   // is deliberate for local dev, where instrumentation.ts fires it on boot, and
   // safe in production because the variable is always set there.
   const secret = process.env.CRON_SECRET;
-  if (secret && req.headers.get("x-cron-secret") !== secret) {
+  // Without CRON_SECRET it is open only in local dev, never in production
+  // (security audit, 3 Nov 2026).
+  if (secret ? !sameSecret(req.headers.get("x-cron-secret"), secret) : process.env.NODE_ENV === "production") {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

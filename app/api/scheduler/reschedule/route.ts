@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSection, requireSchedulerPost } from "@/lib/api-guard";
+import { requireSection, requireSchedulerPost, requireCapability } from "@/lib/api-guard";
 import { getSupabase } from "@/lib/supabase";
 import { NOT_PUBLISHING, notUpdated, freshPublishState } from "@/lib/scheduler-lock";
 import { safeError } from "@/lib/errors";
@@ -11,6 +11,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const __denied = await requireSection("content");
   if (__denied) return __denied;
+  // The section alone let anyone with Content past the Edit / Change dates switches (security audit, 3 Nov 2026).
+  { const __noCap = await requireCapability("reschedule"); if (__noCap) return __noCap; }
 
   let body: { recordId?: string; scheduleTime?: string };
   try { body = await req.json(); }

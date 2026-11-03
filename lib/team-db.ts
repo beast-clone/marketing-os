@@ -19,6 +19,8 @@ export type RosterUser = TeamUser & {
   sections: Sections;
   photoUrl: string | null;              // profile picture (null = initials)
   theme: "light" | "dark" | "system";   // saved per account (sql/015)
+  /** Sessions signed in before this (epoch sec) are no longer honoured. */
+  sessionsSince: number | null;
 };
 
 type IndUserRow = {
@@ -35,6 +37,7 @@ type IndUserRow = {
   sections?: unknown;
   photo_url?: string | null;
   theme?: string | null;
+  sessions_since?: string | null;
 };
 
 function fromRow(r: IndUserRow): RosterUser {
@@ -53,11 +56,12 @@ function fromRow(r: IndUserRow): RosterUser {
     sections: cleanSections(r.sections),
     photoUrl: r.photo_url || null,
     theme: r.theme === "light" || r.theme === "dark" ? r.theme : "system",
+    sessionsSince: r.sessions_since ? Math.floor(Date.parse(r.sessions_since) / 1000) : null,
   };
 }
 
 function fromCode(u: TeamUser): RosterUser {
-  return { ...u, active: true, hasPassword: false, passwordHash: null, permissions: {}, sections: {}, photoUrl: null, theme: "system" };
+  return { ...u, active: true, hasPassword: false, passwordHash: null, permissions: {}, sections: {}, photoUrl: null, theme: "system", sessionsSince: null };
 }
 
 // Small cache so /api/me etc. don't hit Supabase on every request.
@@ -103,6 +107,17 @@ export async function fetchRoster(fresh = false): Promise<RosterUser[]> {
 
 export function invalidateRosterCache() {
   cache = null;
+}
+
+/** Ends every session this person has open, everywhere — a copied sign-in stops
+ *  working within the roster cache window (30s). Used on sign-out, a password
+ *  change or reset, and switching someone off (security audit, 3 Nov 2026). */
+export async function endSessions(id: string | null | undefined): Promise<void> {
+  const sb = getSupabase();
+  if (!sb || !id) return;
+  await sb.from("ind_users").update({ sessions_since: new Date(Math.floor(Date.now() / 1000) * 1000).toISOString() }).eq("id", id.toLowerCase());
+  invalidateRosterCache();
+  await fetchRoster(true).catch(() => {});
 }
 
 export async function rosterById(id: string | null | undefined): Promise<RosterUser | null> {

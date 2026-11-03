@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSection } from "@/lib/api-guard";
+import { requireSection, requireCapability } from "@/lib/api-guard";
 import { importFromAirtable, IMPORT_FILTER_KEYS, isNetworkError, LOST_CONNECTION, type ImportFilters } from "@/lib/airtable-import";
 import { safeError } from "@/lib/errors";
 
@@ -19,6 +19,9 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export async function POST(req: Request) {
   const denied = await requireSection("content");
   if (denied) return denied;
+  // The section alone let anyone with Content past the Edit / Change dates switches (security audit, 3 Nov 2026).
+  { const __noCap = await requireCapability("create_tasks"); if (__noCap) return __noCap; }
+  { const __noCap = await requireCapability("edit_tasks"); if (__noCap) return __noCap; }
 
   try {
     const b = (await req.json().catch(() => ({}))) as { from?: string; to?: string; dryRun?: boolean; facetsOnly?: boolean; filters?: Record<string, unknown> };

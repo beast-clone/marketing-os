@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { startRun, collect } from "@/lib/geo";
 import { safeError } from "@/lib/errors";
 
@@ -10,7 +11,7 @@ export const maxDuration = 60;
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("x-cron-secret") !== secret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!secret || !sameSecret(req.headers.get("x-cron-secret"), secret)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const what = new URL(req.url).searchParams.get("do");
   try {
     if (what === "weekly") return NextResponse.json(await startRun({ brandId: null, trigger: "weekly", by: null }));

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
 import { WA_COLS, WA_STATUSES, nextOccurrence, repeatOf, type WaMessage, type WaStatus } from "@/lib/whatsapp";
@@ -14,7 +15,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  if (req.headers.get("x-cron-secret") !== secret) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!sameSecret(req.headers.get("x-cron-secret"), secret)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   try {
     const b = (await req.json().catch(() => ({}))) as { id?: string; status?: string; wa_message_id?: string; error?: string };

@@ -3,6 +3,7 @@ import { safeError } from "@/lib/errors";
 import { getSessionUserId } from "@/lib/auth";
 import { listComments, saveComment, setCommentResolved } from "@/lib/comments";
 import { requireSection } from "@/lib/api-guard";
+import { rosterById } from "@/lib/team-db";
 
 // Log a dashboard comment server-side (for the daily digest email). Any signed-in
 // user can post; the widget keeps its own localStorage copy for the pins.
@@ -19,11 +20,17 @@ export async function POST(req: Request) {
       : undefined;
     const text = (b.text || "").trim();
     if (!text) return NextResponse.json({ error: "empty comment" }, { status: 400 });
+    // Name from the roster, not the body; and an id that's already someone else's
+    // comment isn't overwritten (security audit, 3 Nov 2026).
+    const uid = getSessionUserId() || "";
+    const me = await rosterById(uid);
+    const existing = b.id ? (await listComments()).find((c) => c.id === b.id) : undefined;
+    if (existing && existing.authorId && existing.authorId !== uid) return NextResponse.json({ error: "That comment is someone else's." }, { status: 403 });
     await saveComment({
       id: b.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       path: (b.path || "/").slice(0, 300),
       text: text.slice(0, 4000),
-      author: (b.author || "Someone").slice(0, 80),
+      author: (me?.name || me?.first || b.author || "Someone").slice(0, 80),
       ts: typeof b.ts === "number" ? b.ts : Date.now(),
       authorId: getSessionUserId() || undefined, // from the session, not the client
       ...(ctx ? { ctx } : {}),

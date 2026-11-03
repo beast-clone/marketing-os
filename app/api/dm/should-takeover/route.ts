@@ -1,4 +1,5 @@
 // Called by n8n at the START of the workflow to decide: AI mode or human takeover.
+import { sameSecret } from "@/lib/cron-auth";
 // Usage: GET /api/dm/should-takeover?account=...&sender_id=...&secret=...
 // Returns:
 //   { mode: "ai" | "human", queued_reply: string | null }
@@ -10,7 +11,7 @@ import { getThread, popQueuedReply, recordInbound } from "@/lib/dm";
 
 function authorized(req: Request) {
   const secret = process.env.CRON_SECRET;
-  return !!secret && req.headers.get("x-cron-secret") === secret;
+  return sameSecret(req.headers.get("x-cron-secret"), secret);
 }
 
 export async function GET(req: Request) {

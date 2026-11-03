@@ -18,6 +18,7 @@
 
 import { getSupabase } from "@/lib/supabase";
 import { getAccount, fetchCompetitor } from "@/lib/instagram";
+import { safeFetch } from "@/lib/ssrf";
 
 type SB = NonNullable<ReturnType<typeof getSupabase>>;
 export type WatchEvent = { handle: string; name: string; kind: "blog" | "event" | "page" | "youtube" | "instagram"; title: string; url: string; publishedAt?: string | null; section?: string | null };
@@ -35,7 +36,8 @@ const MAX_TITLES = 8;          // new pages whose <title> we fetch per competito
 
 async function get(url: string, ms = 12_000): Promise<string | null> {
   try {
-    const r = await fetch(url, { headers: { "User-Agent": UA, Accept: "text/html,application/xml,text/xml;q=0.9,*/*;q=0.8" }, redirect: "follow", signal: AbortSignal.timeout(ms), cache: "no-store" });
+    // URLs come from competitors' own sitemaps, so each hop is checked (lib/ssrf).
+    const r = await safeFetch(url, { headers: { "User-Agent": UA, Accept: "text/html,application/xml,text/xml;q=0.9,*/*;q=0.8" }, timeoutMs: ms, cache: "no-store" });
     if (!r.ok) return null;
     return await r.text();
   } catch { return null; }

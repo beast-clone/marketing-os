@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
+import { getSessionIsAdmin } from "@/lib/auth";
 import {
   listReports, getReport, listTrash, trashReport, restoreReport, deleteReportPermanent, updateReportText, type ReportPlatform,
 } from "@/lib/report-store";
@@ -48,6 +49,8 @@ export async function DELETE(req: Request) {
     const key = url.searchParams.get("key");
     if (!key) return NextResponse.json({ error: "key is required" }, { status: 400 });
     const permanent = url.searchParams.get("permanent") === "1";
+    // Deleting for good can't be undone, so it's admins only (security audit, 3 Nov 2026).
+    if (permanent && !getSessionIsAdmin()) return NextResponse.json({ error: "Only an admin can delete a report for good." }, { status: 403 });
     const ok = permanent ? await deleteReportPermanent(key) : await trashReport(key);
     if (!ok) return NextResponse.json({ error: permanent ? "not in Recycle Bin" : "report not found" }, { status: 404 });
     return NextResponse.json({ ok: true, permanent });

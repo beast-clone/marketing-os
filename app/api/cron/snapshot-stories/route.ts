@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { getConfiguredAccounts, type IGAccountConfig } from "@/lib/instagram";
 import { getSupabase } from "@/lib/supabase";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
@@ -33,7 +34,7 @@ type InsightsResp = { data?: Array<{ name: string; values?: Array<{ value: numbe
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  if (req.headers.get("x-cron-secret") !== secret) {
+  if (!sameSecret(req.headers.get("x-cron-secret"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   await warmBrandAccounts();   // include brands connected on the Brands page

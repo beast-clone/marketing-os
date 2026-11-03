@@ -1,4 +1,5 @@
 // Called by n8n every time it processes a DM. Mirrors the conversation into Supabase.
+import { sameSecret } from "@/lib/cron-auth";
 // Usage: POST /api/dm/mirror  with header x-cron-secret
 //
 // Header only. ?secret= used to be accepted too, which writes a live credential
@@ -12,7 +13,7 @@ import { safeError } from "@/lib/errors";
 
 function authorized(req: Request) {
   const secret = process.env.CRON_SECRET;
-  return !!secret && req.headers.get("x-cron-secret") === secret;
+  return sameSecret(req.headers.get("x-cron-secret"), secret);
 }
 
 export async function POST(req: Request) {

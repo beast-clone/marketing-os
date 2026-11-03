@@ -3,7 +3,7 @@ import { rosterByEmail } from "@/lib/team-db";
 import { getSupabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/passwords";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import { inviteKey } from "@/lib/invites";
+import { inviteKey, newCode } from "@/lib/invites";
 import { sendMail, hasEmail } from "@/lib/email";
 
 // POST /api/account/forgot-password  { email }
@@ -74,7 +74,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, message: SENT });
   }
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = newCode();
   const expiresAt = Date.now() + RESET_TTL_MS;
 
   // Same key an invite uses, so a reset replaces any invite still in flight for

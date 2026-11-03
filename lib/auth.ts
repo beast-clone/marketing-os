@@ -39,7 +39,9 @@ function safeEqual(a: string, b: string): boolean {
 // always covers the whole payload, so the middleware's verify (which signs everything
 // before the last dot) keeps working unchanged whichever form is present.
 function makeCookieValue(userId?: string | null, isAdmin?: boolean): string {
-  const token = randomBytes(24).toString("hex");
+  // The token starts with when it was issued, so a session can be ended early
+  // (ind_users.sessions_since). Same 4-part payload, so the middleware is unchanged.
+  const token = `${Math.floor(Date.now() / 1000).toString(36)}_${randomBytes(24).toString("hex")}`;
   const payload = buildPayload(userId, isAdmin, token);
   const sig = sign(payload);
   return `${payload}.${sig}`;
@@ -68,6 +70,14 @@ function parseVerified(value: string | undefined): { valid: boolean; userId: str
   // by replaying the cookie after the browser would have dropped it.
   const read = readPayload(payload);
   if (!read) return { valid: false, userId: null };
+  // Ended early? (sign-out, password change, switched off.) Older tokens carry no
+  // issue time and count as issued at 0.
+  const since = lastKnownRosterUser(read.userId)?.sessionsSince;
+  if (since) {
+    const tok = payload.slice(payload.lastIndexOf(":") + 1);
+    const iat = tok.includes("_") ? parseInt(tok.split("_")[0], 36) || 0 : 0;
+    if (iat < since) return { valid: false, userId: null };
+  }
   return { valid: true, userId: read.userId };
 }
 

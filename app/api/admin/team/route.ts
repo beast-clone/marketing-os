@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
-import { fetchRoster, rosterById, invalidateRosterCache, syncHubMember } from "@/lib/team-db";
+import { fetchRoster, rosterById, invalidateRosterCache, syncHubMember, endSessions } from "@/lib/team-db";
 import { TEAM_ROLES } from "@/lib/team-roles";
 import { getSupabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/passwords";
 import { cleanPermissions, cleanSections, canManageAccess } from "@/lib/permissions";
 import { sendMail, hasEmail, maskEmail } from "@/lib/email";
-import { INVITE_TTL_MS, inviteKey } from "@/lib/invites";
+import { INVITE_TTL_MS, inviteKey, newCode } from "@/lib/invites";
 
 // Admin-only management of the team roster (Supabase `ind_users`).
 // GET   → the roster (no password hashes, just a has-password flag)
@@ -148,6 +148,8 @@ export async function PATCH(req: Request) {
     if (hErr) return NextResponse.json({ error: hErr.message }, { status: 500 });
   }
   invalidateRosterCache();
+  // Switched off: end their open sessions too.
+  if (updates.active === false) await endSessions(id).catch(() => {});
   // Keep the Marketing Hub's copy in step (name, email, switched on/off).
   if ("name" in updates || "email" in updates || "active" in updates) {
     try { await syncHubMember(id); } catch (e) { console.error("[team] hub sync", e); }
@@ -247,7 +249,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = newCode();
     const expiresAt = Date.now() + INVITE_TTL_MS;
     const { error: sErr } = await sb.from("discover_cache").upsert(
       { cache_key: inviteKey(id), source: "invite_otp", last_fetched: new Date().toISOString(), payload: { codeHash: hashPassword(code), expiresAt } },

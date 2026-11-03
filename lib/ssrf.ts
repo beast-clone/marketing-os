@@ -20,9 +20,21 @@
 
 import net from "node:net";
 import { lookup } from "node:dns/promises";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
+
+// An IPv4 address hidden inside an IPv6 one — "::ffff:127.0.0.1", and the hex
+// spelling the URL parser turns it into, "::ffff:7f00:1" (which got past the old
+// check; security audit, 3 Nov 2026). Also the IPv4-compatible and NAT64 forms.
+function embeddedV4(ip: string): string | null {
+  const m = ip.toLowerCase().match(/^(?:::ffff:|::|64:ff9b::)(?:(\d+\.\d+\.\d+\.\d+)|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/);
+  if (!m) return null;
+  if (m[1]) return m[1];
+  const hi = parseInt(m[2], 16), lo = parseInt(m[3], 16);
+  return `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+}
 
 export function isPrivateIp(ip: string): boolean {
-  const v = ip.replace(/^::ffff:/i, "");
+  const v = embeddedV4(ip) || ip;
   if (net.isIPv4(v)) {
     const p = v.split(".").map(Number);
     if (p[0] === 10 || p[0] === 127 || p[0] === 0) return true;
@@ -30,10 +42,13 @@ export function isPrivateIp(ip: string): boolean {
     if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
     if (p[0] === 192 && p[1] === 168) return true;
     if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true; // CGNAT
+    if (p[0] === 198 && (p[1] === 18 || p[1] === 19)) return true; // benchmarking
+    if (p[0] >= 224) return true;                                // multicast + reserved
     return false;
   }
   const l = ip.toLowerCase();
-  return l === "::1" || l === "::" || l.startsWith("fe80") || l.startsWith("fc") || l.startsWith("fd");
+  if (!net.isIPv6(l)) return true;                               // unparseable: refuse
+  return l === "::1" || l === "::" || /^fe[89ab]/.test(l) || l.startsWith("fc") || l.startsWith("fd") || l.startsWith("ff");
 }
 
 /** Throws when the URL is not a public http(s) address. */
@@ -52,4 +67,19 @@ export async function assertPublicUrl(urlStr: string): Promise<void> {
 /** True when the URL is safe to fetch. For call sites that prefer to skip quietly. */
 export async function isPublicUrl(urlStr: string): Promise<boolean> {
   try { await assertPublicUrl(urlStr); return true; } catch { return false; }
+}
+
+/** fetch() for a URL someone typed: checks the address, then follows redirects
+ *  itself and checks every hop BEFORE requesting it — following them blindly let
+ *  a public page 302 the server into the internal network. */
+export async function safeFetch(urlStr: string, init: RequestInit & { timeoutMs?: number } = {}, maxHops = 5): Promise<Response> {
+  let url = urlStr;
+  for (let hop = 0; ; hop++) {
+    await assertPublicUrl(url);
+    const r = await fetchWithTimeout(url, { ...init, redirect: "manual" });
+    const loc = r.status >= 300 && r.status < 400 ? r.headers.get("location") : null;
+    if (!loc) return r;
+    if (hop >= maxHops) throw new Error("too many redirects");
+    url = new URL(loc, url).href;
+  }
 }

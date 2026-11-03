@@ -163,7 +163,10 @@ export default function LoginPage() {
       // nothing but a link. "/\" is the same trick in some browsers.
       // app/api/notifications already guards this exact pattern.
       const next = new URLSearchParams(window.location.search).get("next");
-      const safe = !!next && next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\");
+      // Resolved against this site: anything that lands on another origin (tabs,
+      // backslashes, "//") is refused.
+      let safe = false;
+      try { safe = !!next && next.startsWith("/") && new URL(next, window.location.origin).origin === window.location.origin; } catch { safe = false; }
       router.push(safe ? next! : "/me");
       return;
     }

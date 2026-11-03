@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { snapshotAllAccountsForDay } from "@/lib/snapshot";
 import { snapshotClarityForDay, snapshotBingForDay } from "@/lib/web-history";
 import { buildReportSnapshot, saveReportSnapshot } from "@/lib/report-month";
@@ -18,7 +19,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
   // Header-only — query-string secrets leak into proxy/cdn/browser-history logs.
-  if (headerSecret !== secret) {
+  if (!sameSecret(headerSecret, secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

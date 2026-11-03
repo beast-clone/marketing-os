@@ -3,6 +3,7 @@ import { requireSection } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
 import { activeTeamIds } from "@/lib/team-db";
+import { getSessionUserId } from "@/lib/auth";
 
 // POST /api/marketing-hub/comments  { postId, authorKey, body }
 // Adds one comment to mh_comments. Used by the inline comments thread.
@@ -16,9 +17,10 @@ export async function POST(req: Request) {
   try {
     const body = (await req.json()) as { postId?: string; authorKey?: string; body?: string };
     if (!body.postId) return NextResponse.json({ error: "postId required" }, { status: 400 });
-    if (!body.authorKey || !VALID_KEYS.has(body.authorKey)) {
-      return NextResponse.json({ error: `authorKey must be one of ${[...VALID_KEYS].join("|")}` }, { status: 400 });
-    }
+    // The author is whoever is signed in — never the body's authorKey, which let
+    // anyone post in a colleague's name (security audit, 3 Nov 2026).
+    const author = (getSessionUserId() || "").toLowerCase();
+    if (!VALID_KEYS.has(author)) return NextResponse.json({ error: "Only team members can comment." }, { status: 403 });
     if (!body.body || body.body.trim().length === 0) {
       return NextResponse.json({ error: "body required" }, { status: 400 });
     }
@@ -28,7 +30,7 @@ export async function POST(req: Request) {
 
     const { data, error } = await sb
       .from("mh_comments")
-      .insert({ post_id: body.postId, author_key: body.authorKey, body: body.body.trim() })
+      .insert({ post_id: body.postId, author_key: author, body: body.body.trim() })
       .select("id, author_key, body, resolved, created_at")
       .single();
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { pageInfo } from "@/lib/publish-pages";
 import { headers } from "next/headers";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import { getSessionUserId } from "@/lib/auth";
+import { getSessionUserId, getSessionIsAdmin } from "@/lib/auth";
 import { rosterById } from "@/lib/team-db";
 import { CAPABILITIES, hasCapability, canAccessSection, canSeeTab, apiTabFor, maySchedulePage, type Capability, type Section } from "@/lib/permissions";
 import { getSupabase } from "@/lib/supabase";
@@ -82,4 +82,13 @@ export async function requireSection(sec: Section): Promise<NextResponse | null>
   // load them (cached a minute) so getConfiguredAccounts() in the route includes them.
   await warmBrandAccounts();
   return null;
+}
+
+/** Whose personal data (notepad, notifications, …) a request may read: the person
+ *  asked for when the caller is an admin, otherwise always the caller — the same
+ *  rule My Day's chat and report already used (security audit, 3 Nov 2026). */
+export function ownPerson(asked: string | null | undefined): string {
+  const me = (getSessionUserId() || "").toLowerCase();
+  const want = (asked || "").toLowerCase().trim();
+  return getSessionIsAdmin() && want ? want : me;
 }

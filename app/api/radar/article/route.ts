@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
-import { fetchWithTimeout, FetchTimeoutError } from "@/lib/fetch-with-timeout";
+import { FetchTimeoutError } from "@/lib/fetch-with-timeout";
 import { safeError } from "@/lib/errors";
-import net from "node:net";
-import { lookup } from "node:dns/promises";
+import { assertPublicUrl, safeFetch } from "@/lib/ssrf";
 
 // jsdom + readability are loaded lazily inside GET (not at module top level):
 // jsdom 29 pulls html-encoding-sniffer 6 → the ESM-only @exodus/bytes, which
@@ -48,7 +47,6 @@ const MAX_CONTENT_LEN = 200_000; // trim response body
 // guaranteed, and the raised budget is headroom for the parse below, not a licence
 // to wait longer upstream.
 const FETCH_BUDGET_MS = 7_000;
-const REDIRECT_PROBE_MAX_MS = 3_000;
 
 // Time left in this request's budget, floored so a nearly-exhausted budget still
 // makes a real attempt instead of aborting instantly.
@@ -66,33 +64,6 @@ function looksLikeUrl(u: string): boolean {
 // SSRF guard: reject URLs whose host is (or resolves to) a private / loopback /
 // link-local / cloud-metadata address, so a logged-in user can't turn this
 // article reader into a probe of internal services.
-function isPrivateIp(ip: string): boolean {
-  const v = ip.replace(/^::ffff:/i, "");
-  if (net.isIPv4(v)) {
-    const p = v.split(".").map(Number);
-    if (p[0] === 10 || p[0] === 127 || p[0] === 0) return true;
-    if (p[0] === 169 && p[1] === 254) return true;              // link-local + cloud metadata
-    if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
-    if (p[0] === 192 && p[1] === 168) return true;
-    if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return true; // CGNAT
-    return false;
-  }
-  const l = ip.toLowerCase();
-  return l === "::1" || l === "::" || l.startsWith("fe80") || l.startsWith("fc") || l.startsWith("fd");
-}
-
-async function assertPublicUrl(urlStr: string): Promise<void> {
-  const u = new URL(urlStr);
-  if (u.protocol !== "http:" && u.protocol !== "https:") throw new Error("blocked protocol");
-  const host = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) {
-    throw new Error("blocked host");
-  }
-  if (net.isIP(host)) { if (isPrivateIp(host)) throw new Error("blocked ip"); return; }
-  const addrs = await lookup(host, { all: true });
-  for (const a of addrs) if (isPrivateIp(a.address)) throw new Error("blocked resolved ip");
-}
-
 // Sanitize the reader HTML before it goes to the client (rendered via
 // dangerouslySetInnerHTML). Readability strips <script>, but NOT event-handler
 // attributes, so `<img src=x onerror=...>` / `<svg onload=...>` survive and fire
@@ -114,21 +85,6 @@ function sanitizeArticleHtml(JSDOM: JSDOMCtor, rawHtml: string): string {
     }
   }
   return d.body.innerHTML;
-}
-
-async function resolveRedirect(url: string, startedAt: number): Promise<string> {
-  try {
-    const r = await fetchWithTimeout(url, {
-      method: "HEAD",
-      redirect: "follow",
-      // This probe is an optimisation, not the payload: it must never eat the budget
-      // the article fetch itself needs, so it gets the smaller of its own cap and
-      // whatever is left. Failing it is harmless — the caller falls back to `url`.
-      timeoutMs: Math.min(REDIRECT_PROBE_MAX_MS, remainingMs(startedAt)),
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; GooCampusRadar/1.0)" },
-    });
-    return r.url || url;
-  } catch { return url; }
 }
 
 export async function GET(req: Request) {
@@ -169,25 +125,20 @@ export async function GET(req: Request) {
   const startedAt = Date.now();
 
   try {
-    const resolved = await resolveRedirect(target, startedAt);
-    await assertPublicUrl(resolved); // re-check after redirect resolution
+    const resolved = target;
 
     // Fetch the article HTML with a browser-like UA so publishers don't hand
     // back a mobile stub or a bot-detection page.
-    const r = await fetchWithTimeout(resolved, {
+    // Redirects are followed by safeFetch, which checks each hop before requesting it.
+    const r = await safeFetch(resolved, {
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36",
         "Accept": "text/html,application/xhtml+xml",
         "Accept-Language": "en-IN,en;q=0.9",
       },
-      timeoutMs: remainingMs(startedAt), // whatever the redirect probe left
-      redirect: "follow",
+      timeoutMs: remainingMs(startedAt),
     });
     if (!r.ok) throw new Error(`Fetch failed (${r.status})`);
-    // The GET can follow a redirect the HEAD check didn't see (a server can answer
-    // HEAD and GET differently). Re-validate the FINAL url before we read/return the
-    // body, so it can't be pointed at an internal / cloud-metadata address.
-    await assertPublicUrl(r.url || resolved);
     // PDFs (e.g. official exam notices / web notices) can't go through Readability —
     // the raw bytes render as mojibake. Detect them and hand back a flag so the
     // reader embeds the PDF (via the Google viewer) instead of parsing it as HTML.
@@ -201,7 +152,7 @@ export async function GET(req: Request) {
     }
 
     // Run Readability against a JSDOM window built from the fetched HTML.
-    const dom = new JSDOM(html, { url: resolved });
+    const dom = new JSDOM(html, { url: r.url || resolved });
     const doc = dom.window.document;
 
     // Meta fallbacks — every publisher sets these even on JS-heavy pages.

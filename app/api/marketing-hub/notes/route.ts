@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { requireSection } from "@/lib/api-guard";
+import { requireSection, ownPerson } from "@/lib/api-guard";
+import { getSessionIsAdmin } from "@/lib/auth";
 import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
 import { activeTeamIds } from "@/lib/team-db";
@@ -11,10 +12,17 @@ import { activeTeamIds } from "@/lib/team-db";
 //   DELETE /api/marketing-hub/notes?id=<uuid>
 
 
+// A notepad is its owner's alone (admins can open anyone's, as on My Day).
 async function normalizePerson(v: string | null | undefined): Promise<string | null> {
-  if (!v) return null;
-  const k = v.toLowerCase().trim();
-  return (await activeTeamIds()).has(k) ? k : null;
+  const k = ownPerson(v);
+  return k && (await activeTeamIds()).has(k) ? k : null;
+}
+
+// Editing or deleting a note by id: only its owner (or an admin).
+async function ownsNote(sb: NonNullable<ReturnType<typeof getSupabase>>, id: string): Promise<boolean> {
+  if (getSessionIsAdmin()) return true;
+  const { data } = await sb.from("mh_notes").select("member_key").eq("id", id).maybeSingle();
+  return !!data && data.member_key === ownPerson(null);
 }
 
 export async function GET(req: Request) {
@@ -89,6 +97,7 @@ export async function PATCH(req: Request) {
 
     const sb = getSupabase();
     if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+    if (!(await ownsNote(sb, body.id))) return NextResponse.json({ error: "That note belongs to someone else." }, { status: 403 });
 
     const { data, error } = await sb
       .from("mh_notes")
@@ -116,6 +125,7 @@ export async function DELETE(req: Request) {
     const sb = getSupabase();
     if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
 
+    if (!(await ownsNote(sb, id))) return NextResponse.json({ error: "That note belongs to someone else." }, { status: 403 });
     const { error } = await sb.from("mh_notes").delete().eq("id", id);
     if (error) throw new Error(error.message);
     return NextResponse.json({ ok: true });

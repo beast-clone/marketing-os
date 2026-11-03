@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { getAccount } from "@/lib/instagram";
 import { snapshotPostsForMonth, snapshotAllAccountsPostsForMonth, currentMonth } from "@/lib/post-history";
 import { snapshotAudienceForMonth, snapshotAllAccountsAudienceForMonth } from "@/lib/audience-history";
@@ -21,7 +22,7 @@ import { warmBrandAccounts } from "@/lib/brand-accounts";
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  if (req.headers.get("x-cron-secret") !== secret) {
+  if (!sameSecret(req.headers.get("x-cron-secret"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   await warmBrandAccounts();   // include brands connected on the Brands page

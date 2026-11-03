@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSection } from "@/lib/api-guard";
+import { requireSection, ownPerson } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
 import { buildNotifs } from "@/lib/notifications";
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   if (__denied) return __denied;
 
   try {
-    const person = (new URL(req.url).searchParams.get("person") || "").toLowerCase();
+    const person = ownPerson(new URL(req.url).searchParams.get("person"));
     if (!person) return NextResponse.json({ notifs: [] });
 
     const sb = getSupabase();

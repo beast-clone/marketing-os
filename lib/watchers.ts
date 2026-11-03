@@ -16,7 +16,7 @@ import { fetchRoster } from "@/lib/team-db";
 import { hasEmail, sendMail } from "@/lib/email";
 import { hasTelegram, sendTelegram, syncTelegramChats } from "@/lib/telegram";
 import { summarizeNotice } from "@/lib/pdf-summary";
-import { isPublicUrl } from "@/lib/ssrf";
+import { isPublicUrl, safeFetch } from "@/lib/ssrf";
 
 export type Watcher = {
   id: string; name: string | null; url: string; category: string | null; auto_category: boolean;
@@ -59,7 +59,7 @@ export async function fetchPage(url: string): Promise<string | null> {
   if (!(await isPublicUrl(url))) return null;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const r = await fetch(url, { headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml" }, redirect: "follow", signal: AbortSignal.timeout(25_000), cache: "no-store" });
+      const r = await safeFetch(url, { headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml" }, timeoutMs: 25_000, cache: "no-store" });   // checks every redirect hop
       if (r.ok) return await r.text();
     } catch { /* retry once */ }
   }

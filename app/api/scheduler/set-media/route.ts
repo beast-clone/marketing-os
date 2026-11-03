@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSection } from "@/lib/api-guard";
+import { requireSection, requireCapability } from "@/lib/api-guard";
 import { getSupabase } from "@/lib/supabase";
 import { NOT_PUBLISHING, notUpdated, freshPublishState } from "@/lib/scheduler-lock";
 import { sendBackForReview } from "@/lib/re-review";
@@ -12,6 +12,8 @@ import { safeError } from "@/lib/errors";
 export async function POST(req: Request) {
   const __denied = await requireSection("content");
   if (__denied) return __denied;
+  // The section alone let anyone with Content past the Edit / Change dates switches (security audit, 3 Nov 2026).
+  { const __noCap = await requireCapability("edit_tasks"); if (__noCap) return __noCap; }
 
   try {
     const { postId, mediaUrls: incoming, append } = (await req.json()) as { postId?: string; mediaUrls?: string[]; append?: boolean };

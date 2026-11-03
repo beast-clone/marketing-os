@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { getSupabase } from "@/lib/supabase";
 import { airtableList, CRM_TABLE, pickName, dateRangeFormula } from "@/lib/sales-hub";
 import { pickUser } from "@/lib/lead-assignment";
@@ -23,7 +24,7 @@ const MAX = 8000; // runaway guard for one run — a normal night is far fewer
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
-  if (req.headers.get("x-cron-secret") !== secret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!sameSecret(req.headers.get("x-cron-secret"), secret)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const sb = getSupabase();
   if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });

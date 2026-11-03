@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { getSupabase } from "@/lib/supabase";
 import { checkWatcher, type Watcher } from "@/lib/watchers";
 import { safeError } from "@/lib/errors";
@@ -28,7 +29,7 @@ export const maxDuration = 60;
 
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;
-  if (!secret || req.headers.get("x-cron-secret") !== secret) {
+  if (!secret || !sameSecret(req.headers.get("x-cron-secret"), secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

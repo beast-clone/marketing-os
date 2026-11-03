@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { rosterByEmail } from "@/lib/team-db";
+import { rosterByEmail, endSessions } from "@/lib/team-db";
 import { getSupabase } from "@/lib/supabase";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import { inviteKey, type InvitePayload } from "@/lib/invites";
+import { inviteKey, wrongGuess, type InvitePayload } from "@/lib/invites";
 
 // POST /api/account/accept-invite  { email, code, newPassword }
 //
@@ -58,10 +58,16 @@ export async function POST(req: Request) {
     await sb.from("discover_cache").delete().eq("cache_key", inviteKey(user.id));
     return NextResponse.json({ error: "That invite has expired — ask for a new one." }, { status: 400 });
   }
-  if (!verifyPassword(code, invite.codeHash)) return NextResponse.json({ error: BAD }, { status: 400 });
+  if (!verifyPassword(code, invite.codeHash)) {
+    if (await wrongGuess(sb, inviteKey(user.id), invite)) return NextResponse.json({ error: "Too many wrong codes — that code no longer works. Ask for a new one." }, { status: 400 });
+    return NextResponse.json({ error: BAD }, { status: 400 });
+  }
 
   const { error } = await sb.from("ind_users").update({ password_hash: hashPassword(newPassword) }).eq("id", user.id);
   if (error) return NextResponse.json({ error: "Couldn't set the password — please try again." }, { status: 502 });
+
+  // A reset password ends any session still open with the old one.
+  await endSessions(user.id).catch(() => {});
 
   // One-time: burn the code so the same email can't be replayed.
   await sb.from("discover_cache").delete().eq("cache_key", inviteKey(user.id)).then(() => {}, () => {});

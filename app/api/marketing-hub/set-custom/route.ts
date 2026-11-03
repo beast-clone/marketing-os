@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSection } from "@/lib/api-guard";
+import { requireSection, requireCapability } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
 
@@ -10,6 +10,8 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   const __denied = await requireSection("content");
   if (__denied) return __denied;
+  // The section alone let anyone with Content past the Edit / Change dates switches (security audit, 3 Nov 2026).
+  { const __noCap = await requireCapability("edit_tasks"); if (__noCap) return __noCap; }
 
   try {
     const body = (await req.json()) as { postId?: string; key?: string; value?: unknown };

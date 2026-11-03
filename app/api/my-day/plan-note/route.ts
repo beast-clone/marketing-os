@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
+import { getSessionUserId } from "@/lib/auth";
 
 // Why a late or high-priority task was pushed back.
 //
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
 
     await sb.from("mh_activity").insert({
       post_id: taskId,
-      actor_key: (b.actor || "").toLowerCase() || null,
+      actor_key: (getSessionUserId() || "").toLowerCase() || null,   // the session, not the body (security audit, 3 Nov 2026)
       action: "plan_moved",
       from_value: typeof b.from === "number" ? `position ${b.from + 1}` : null,
       to_value: `position ${(b.to ?? 0) + 1} — ${reason}`,

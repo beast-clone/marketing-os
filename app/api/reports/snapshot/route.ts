@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
+import { getSessionIsAdmin } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 import { saveReportSnapshot, snapshotKey } from "@/lib/report-month";
 
@@ -27,6 +28,11 @@ export async function POST(req: Request) {
   if (denied) return denied;
   const body = (await req.json().catch(() => ({}))) as { month?: string; payload?: unknown };
   if (!body.month || !isMonth(body.month)) return NextResponse.json({ error: "month=YYYY-MM required" }, { status: 400 });
+  // Only this month's copy is refreshed from the page. A closed month's frozen copy
+  // can't be re-fetched from the platforms, so only an admin may overwrite it
+  // (security audit, 3 Nov 2026).
+  const thisMonth = new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 7);
+  if (body.month !== thisMonth && !getSessionIsAdmin()) return NextResponse.json({ error: "A past month's saved report can only be replaced by an admin." }, { status: 403 });
   const at = await saveReportSnapshot(body.month, body.payload).catch(() => null);
   if (!at) return NextResponse.json({ error: "database unavailable" }, { status: 502 });
   return NextResponse.json({ ok: true, month: body.month, savedAt: at });

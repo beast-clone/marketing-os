@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSection } from "@/lib/api-guard";
+import { requireSection, ownPerson } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
 import { toTask, type Row } from "@/lib/my-day-task";
@@ -87,7 +87,7 @@ export async function GET(req: Request) {
     if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
 
     const url = new URL(req.url);
-    const person = (url.searchParams.get("person") || "").trim().toLowerCase();
+    const person = ownPerson(url.searchParams.get("person"));
     if (!person) return NextResponse.json({ error: "person required" }, { status: 400 });
     // An unrecognised range falls back to the card's default window rather than
     // reaching windowFor's own default by accident.

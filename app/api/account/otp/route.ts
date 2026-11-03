@@ -3,6 +3,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { rosterById } from "@/lib/team-db";
 import { getSupabase } from "@/lib/supabase";
 import { hashPassword } from "@/lib/passwords";
+import { newCode } from "@/lib/invites";
 import { sendMail, hasEmail, maskEmail } from "@/lib/email";
 
 // POST /api/account/otp
@@ -29,7 +30,7 @@ export async function POST() {
   const sb = getSupabase();
   if (!sb) return NextResponse.json({ error: "Database not configured." }, { status: 500 });
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const code = newCode();
   const expiresAt = Date.now() + TTL_MS;
 
   const { error } = await sb.from("discover_cache").upsert(

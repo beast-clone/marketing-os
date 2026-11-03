@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSection } from "@/lib/api-guard";
+import { requireSection, ownPerson } from "@/lib/api-guard";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
 import { MH_NAME } from "@/lib/mh-chat";
@@ -24,7 +24,8 @@ export async function POST(req: Request) {
 
   try {
     const b = (await req.json()) as { pendingId?: string; from?: string; candidates?: { id: string; title: string; dur: number; due?: string }[] };
-    const from = (b.from || "").toLowerCase().trim();
+    // Your own day, or (admins) the day you have open — not any name in the body.
+    const from = ownPerson(b.from);
     if (!b.pendingId || !TEAM.has(from)) return NextResponse.json({ error: "pendingId and a valid from are required" }, { status: 400 });
     const candidates = (b.candidates || [])
       .filter((c) => c && typeof c.id === "string" && typeof c.title === "string")

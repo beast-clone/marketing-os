@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sameSecret } from "@/lib/cron-auth";
 import { runWatchers } from "@/lib/watchers";
 import { runPublishAnnounce } from "@/lib/publish-announce";
 import { syncCloneLinks } from "@/lib/mh-linkback";
@@ -12,7 +13,7 @@ export const maxDuration = 60;
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
-  const byCron = !!secret && req.headers.get("x-cron-secret") === secret;
+  const byCron = sameSecret(req.headers.get("x-cron-secret"), secret);
   if (!byCron && !(isLoggedIn() && getSessionIsAdmin())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const t0 = Date.now();
   try {
