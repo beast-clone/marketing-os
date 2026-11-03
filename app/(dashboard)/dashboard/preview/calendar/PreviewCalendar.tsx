@@ -312,14 +312,14 @@ export function PreviewCalendar() {
       <div className="hcal-card">
         <div className="hcal-filters">
           <span className="hcal-flabel">Primary interest / SBU</span>
-          <PreviewSelect value={fSbu} onChange={setFSbu} placeholder="All brands"
-            options={[{ value: "", label: "All brands" },
+          <PreviewSelect value={fSbu} onChange={setFSbu} placeholder="All primary interests"
+            options={[{ value: "", label: "All primary interests" },
                       ...sbusPresent.map((b) => ({ value: b, label: b })),
-                      { value: "__none", label: "No brand set" }]}
+                      { value: "__none", label: "No primary interest" }]}
             addOption={{ label: "Add a primary interest", onAdd: (name) => {
               addBrand(name).then((saved) => {
                 setFSbu(saved);
-                showToast({ who: "Primary interest added", body: `${saved} is now in every brand list.`, color: "#3A57E8", av: "✓" });
+                showToast({ who: "Primary interest added", body: `${saved} is now in every primary interest list.`, color: "#3A57E8", av: "✓" });
               }).catch((e) => showToast({ who: "Couldn't add it", body: (e as Error).message, color: "#C0392B", av: "!" }));
             } }} />
           <span className="hcal-flabel">Status</span>

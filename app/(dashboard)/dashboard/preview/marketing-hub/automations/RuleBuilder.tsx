@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { IconAlertTriangle, IconArrowDown, IconArrowUp, IconCheck, IconDots, IconPlus, IconTrash, IconUsers } from "@tabler/icons-react";
+import { IconAlertTriangle, IconArrowDown, IconArrowUp, IconCheck, IconDots, IconPlus, IconSearch, IconTrash, IconUsers } from "@tabler/icons-react";
 import { confirmDialog } from "@/app/(dashboard)/dashboard/preview/ConfirmDialog";
 import { showToast } from "@/app/(dashboard)/dashboard/preview/Toast";
 import { Overlay } from "@/app/(dashboard)/dashboard/preview/Overlay";
@@ -15,7 +15,7 @@ import type { FilterCondition, FilterModel } from "@/lib/filter-model";
 //
 // Praveen, 27 Oct: the Airtable-style builder (When / conditions / actions) was too
 // confusing. A rule is one sentence —
-//   If status moves to [status] and type is [types] and brand is [brands]
+//   If status moves to [status] and type is [types] and primary interest is [brands]
 //   → assign to [person] · collaborators [people]
 // — and the list shows each rule as a line with the person's avatar. Rules keep their
 // stored shape (trigger_spec / conditions / actions); this screen reads and writes the
@@ -131,7 +131,7 @@ export function RuleBuilder() {
   };
   const brandsText = (b: string[]) => {
     if (!b.length || b.length >= sbus.length) return "";
-    if (b.length > sbus.length / 2) return `every brand except ${list(sbus.filter((x) => !b.includes(x)), "and")}`;
+    if (b.length > sbus.length / 2) return `every primary interest except ${list(sbus.filter((x) => !b.includes(x)), "and")}`;
     return list(b);
   };
   const momentText = (m: string) => (m === CREATED ? "is created" : m === HANDED ? "is handed to someone else" : `moves to ${m}`);
@@ -309,8 +309,8 @@ function RuleForm({ initial, isNew, people, sbus, busy, onCancel, onSave }: {
             <Pick value={s.moment} options={momentOptions} onChange={(v) => set({ moment: v })} /></div>
           <div className={line}><span className={kw}>{s.moment === TYPE_CHANGE ? "new type is" : "and type is"}</span>
             <CheckList value={s.types} groups={[{ name: "DESIGN", items: design }, { name: "VIDEO", items: video }]} empty="Any type" onChange={(v) => set({ types: v })} /></div>
-          <div className={line}><span className={kw}>and brand is</span>
-            <CheckList value={s.brands} groups={[{ name: "BRANDS", items: sbus }]} empty="Any brand" onChange={(v) => set({ brands: v })} /></div>
+          <div className={line}><span className={kw}>and primary interest is</span>
+            <CheckList value={s.brands} groups={[{ name: "PRIMARY INTERESTS", items: sbus }]} empty="Any primary interest" onChange={(v) => set({ brands: v })} /></div>
           <div className={line}><span className={kw}>assign to</span>
             <Pick value={s.owner} options={ownerOptions} onChange={(v) => set({ owner: v })} /></div>
           <div className={line}><span className={kw}>collaborators</span>
@@ -369,15 +369,25 @@ function CheckList({ value, groups, empty, labelOf = (k) => k, onChange }: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useOutside(open, () => setOpen(false));
+  // A long list (primary interests) gets a search box; upper or lower case doesn't matter.
+  const [q, setQ] = useState("");
+  const long = groups.reduce((n, g) => n + g.items.length, 0) > 8;
+  const match = (k: string) => !q.trim() || labelOf(k).toLowerCase().includes(q.trim().toLowerCase());
   const tag = (k: string) => <span key={k} className="bg-brand-light text-[#2138B0] rounded-md px-1.5 py-px text-[12.5px] font-medium">{labelOf(k)}</span>;
   return (
     <div className="relative" ref={ref}>
-      <button type="button" onClick={() => setOpen(!open)} className={`${boxBtn} ${open ? "border-brand" : "border-[#E3E6EE] hover:border-brand"}`}>
+      <button type="button" onClick={() => { setOpen(!open); setQ(""); }} className={`${boxBtn} ${open ? "border-brand" : "border-[#E3E6EE] hover:border-brand"}`}>
         {value.length ? (value.length > 4 ? <>{value.slice(0, 3).map(tag)}<span className="bg-brand-light text-[#2138B0] rounded-md px-1.5 py-px text-[12.5px] font-medium">+{value.length - 3}</span></> : value.map(tag)) : <span className="text-[#8A92A6]">{empty}</span>}
         {chev}
       </button>
       {open && (
         <div className={menuCls}>
+          {long && (
+            <label className="flex items-center gap-2 mx-1 mt-1 mb-1 px-2.5 py-1.5 border border-[#E6E9F2] rounded-lg text-[#8A92A6] focus-within:border-brand">
+              <IconSearch size={14} stroke={1.8} />
+              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="flex-1 min-w-0 bg-transparent outline-none text-[13px] text-[#232D42]" />
+            </label>
+          )}
           {groups.map((g) => {
             const all = g.items.length > 0 && g.items.every((x) => value.includes(x));
             return (
@@ -386,7 +396,7 @@ function CheckList({ value, groups, empty, labelOf = (k) => k, onChange }: {
                   <span>{g.name}</span>
                   <button type="button" className="text-brand font-medium text-[11.5px] tracking-normal" onClick={() => onChange(all ? value.filter((x) => !g.items.includes(x)) : Array.from(new Set([...value, ...g.items])))}>{all ? "Clear" : "Select all"}</button>
                 </div>
-                {g.items.map((k) => {
+                {g.items.filter(match).map((k) => {
                   const on = value.includes(k);
                   return (
                     <button type="button" key={k} onClick={() => onChange(on ? value.filter((x) => x !== k) : [...value, k])}

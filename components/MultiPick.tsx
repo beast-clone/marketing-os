@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { IconChevronDown } from "@tabler/icons-react";
+import { IconChevronDown, IconSearch, IconX } from "@tabler/icons-react";
 
 // A tick-box dropdown: "All SBUs (164)" / "21 of 24 SBUs (164)". Started life inside
 // the Content calendar; moved here so Content Review gets the same filter — "add a
@@ -28,6 +28,10 @@ export function MultiPick({ label, options, selected, onChange, total }: {
   total?: number;
 }) {
   const [open, setOpen] = useState(false);
+  // A long list gets a search box (upper or lower case doesn't matter).
+  const [q, setQ] = useState("");
+  useEffect(() => { if (!open) setQ(""); }, [open]);
+  const visible = q.trim() ? options.filter((o) => o.value.toLowerCase().includes(q.trim().toLowerCase())) : options;
   const box = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!open) return;
@@ -64,7 +68,15 @@ export function MultiPick({ label, options, selected, onChange, total }: {
             <button type="button" onClick={() => onChange(options.map((o) => o.value))}>Select all</button>
             <button type="button" onClick={() => onChange([PICK_NONE])}>Unselect all</button>
           </div>
-          {options.map((o) => (
+          {options.length > 8 && (
+            <label className="gc-mp-search">
+              <IconSearch size={13} stroke={1.8} />
+              <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" />
+              {q && <button type="button" onClick={() => setQ("")} aria-label="Clear search"><IconX size={12} /></button>}
+            </label>
+          )}
+          {q.trim() && !visible.length && <div className="gc-mp-none">Nothing matches “{q.trim()}”.</div>}
+          {visible.map((o) => (
             <label key={o.value} className="gc-mp-row">
               <input type="checkbox" checked={!none && (selected.length === 0 || selected.includes(o.value))} onChange={() => toggle(o.value)} />
               {o.swatch && <span className="gc-mp-sw" style={{ background: o.swatch }} />}
@@ -90,6 +102,11 @@ const MP_CSS = `
 .gc-mp-row{display:flex;align-items:center;gap:.5rem;padding:.32rem .45rem;border-radius:7px;font-size:.78rem;color:#232D42;cursor:pointer;white-space:nowrap}
 .gc-mp-row:hover{background:#F6F7FB}
 .gc-mp-row input{accent-color:#3A57E8;margin:0}
+.gc-mp-search{display:flex;align-items:center;gap:.45rem;margin:0 .1rem .3rem;padding:.35rem .55rem;border:1px solid #E6E9F2;border-radius:8px;color:#8A92A6}
+.gc-mp-search:focus-within{border-color:#3A57E8}
+.gc-mp-search input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:.78rem;color:#232D42}
+.gc-mp-search button{background:none;border:none;color:#8A92A6;cursor:pointer;padding:0;line-height:0}
+.gc-mp-none{padding:.4rem .5rem;font-size:.75rem;color:#8A92A6}
 .gc-mp-n{margin-left:auto;color:#8A92A6;font-size:.72rem;font-weight:500}
 .gc-mp-sw{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
 html[data-theme="dark"] .gc-mp-btn,html[data-theme="dark"] .gc-mp-pop{background:var(--d-card);border-color:var(--d-line);color:var(--d-ink)}
@@ -97,4 +114,6 @@ html[data-theme="dark"] .gc-mp-btn.on{background:var(--d-raised)}
 html[data-theme="dark"] .gc-mp-row{color:var(--d-ink)}
 html[data-theme="dark"] .gc-mp-row:hover{background:var(--d-raised)}
 html[data-theme="dark"] .gc-mp-acts{border-color:var(--d-line)}
+html[data-theme="dark"] .gc-mp-search{border-color:var(--d-line)}
+html[data-theme="dark"] .gc-mp-search input{color:var(--d-ink)}
 `;

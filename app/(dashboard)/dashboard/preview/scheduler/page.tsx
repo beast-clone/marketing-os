@@ -1950,7 +1950,7 @@ function Scheduler() {
                   <label className="text-xs uppercase tracking-wide text-gray-500 font-medium">Primary interest / SBU</label>
                   <div className="mt-1">
                     <PreviewSelect className="w-full justify-between" value={sbu} onChange={setSbu}
-                      placeholder="Which brand or programme is this for?"
+                      placeholder="Which primary interest is this for?"
                       options={sbus.map((o) => ({ value: o, label: o }))} />
                   </div>
                 </div>

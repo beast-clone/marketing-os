@@ -454,7 +454,7 @@ function Review() {
       <div className="flex items-center gap-2 mb-4">
         <span className="text-[11px] font-medium uppercase tracking-wide text-[#8A92A6]">Interest</span>
         <div className="w-[260px]">
-          <MultiPick label="SBUs" options={sbuOptions} selected={sbuSel} onChange={setSbuSel} total={allMain.length} />
+          <MultiPick label="primary interests" options={sbuOptions} selected={sbuSel} onChange={setSbuSel} total={allMain.length} />
         </div>
       </div>
 

@@ -35,7 +35,7 @@ type Group = { key: string; sbu: string | null; kind: string | null; owner?: Rul
 const keyOf = (sbu: string | null, kind: string | null) => `${sbu ?? ""}|${kind ?? ""}`;
 const KIND_LABEL: Record<string, string> = { design: "Design work", video: "Video" };
 const label = (g: { sbu: string | null; kind: string | null }) =>
-  `${g.kind ? KIND_LABEL[g.kind] ?? g.kind : "All work"} for ${g.sbu ?? "any brand"}`;
+  `${g.kind ? KIND_LABEL[g.kind] ?? g.kind : "All work"} for ${g.sbu ?? "any primary interest"}`;
 
 // The three broad choices first, then every exact type (sql/026).
 const TYPE_OPTIONS = [
@@ -53,7 +53,7 @@ function groupRules(rules: Rule[]): Group[] {
     if (r.kind === "owner") g.owner = r; else g.helper = r;
     m.set(k, g);
   }
-  // "Any brand" lines first — they are the defaults everything else overrides.
+  // "Any primary interest" lines first — they are the defaults everything else overrides.
   return [...m.values()].sort((a, b) =>
     Number(!!a.sbu) - Number(!!b.sbu) || (a.sbu ?? "").localeCompare(b.sbu ?? "") ||
     (a.kind ?? "").localeCompare(b.kind ?? ""));
@@ -152,7 +152,7 @@ export function RuleEditor() {
   const nameOf = (k: string | null | undefined) => people.find((p) => p.value === k)?.label || k || "";
   const sentence = (g: Group): string[] => {
     const what = !g.kind ? "a task" : g.kind === "design" ? "design work" : g.kind === "video" ? "video work" : `a ${g.kind}`;
-    const scope = `${what} for ${g.sbu ?? "any brand"}`;
+    const scope = `${what} for ${g.sbu ?? "any primary interest"}`;
     const out: string[] = [];
     if (g.helper?.assign_to) out.push(`When ${scope} is created (Content - Pending), the writer owns it and ${nameOf(g.helper.assign_to)} is added as collaborator.`);
     if (g.owner) {
@@ -235,14 +235,14 @@ export function RuleEditor() {
         <div className="px-4 py-3 border-t border-gray-100">
           {adding ? (
             <div className="flex items-end gap-3 flex-wrap">
-              <label><span className={fieldLabel}>Brand</span>
+              <label><span className={fieldLabel}>Primary interest</span>
                 <PreviewSelect className="w-[210px]" value={newSbu} onChange={setNewSbu}
-                  options={[{ value: "", label: "Any brand" }, ...sbus.map((s) => ({ value: s, label: s }))]}
-                  addOption={{ label: "Add a brand", onAdd: (name) => {
+                  options={[{ value: "", label: "Any primary interest" }, ...sbus.map((s) => ({ value: s, label: s }))]}
+                  addOption={{ label: "Add a primary interest", onAdd: (name) => {
                     setErr(null);
                     addBrand(name).then((saved) => {
                       setNewSbu(saved);
-                      showToast({ who: "Brand added", body: `${saved} is now in every brand list.`, color: "#3A57E8", av: "✓" });
+                      showToast({ who: "Primary interest added", body: `${saved} is now in every primary interest list.`, color: "#3A57E8", av: "✓" });
                     }).catch((e) => setErr((e as Error).message));
                   } }} /></label>
               <label><span className={fieldLabel}>Type of work</span>

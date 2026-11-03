@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { IconCheck, IconChevronDown, IconFilter, IconGripVertical, IconPlus, IconTrash, IconX } from "@tabler/icons-react";
+import { IconCheck, IconChevronDown, IconFilter, IconGripVertical, IconPlus, IconSearch, IconTrash, IconX } from "@tabler/icons-react";
 import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
 import {
   DATE_MODES, EMPTY_FILTER, OPS_BY_TYPE, WITHIN_MODES, countConditions, isGroup,
@@ -35,11 +35,14 @@ function FilterMultiSelect({ options, value, onChange, colorFor }: {
   options: Opt[]; value: string[]; onChange: (v: string[]) => void; colorFor?: (v: string) => { bg: string; text: string } | null;
 }) {
   const [open, setOpen] = useState(false);
+  // A long list (primary interests…) gets a search box; upper or lower case doesn't matter.
+  const [q, setQ] = useState("");
+  const shown = q.trim() ? options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())) : options;
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);
   const label = (v: string) => options.find((o) => o.value === v)?.label || v;
   return (
     <div className="relative">
-      <button onClick={() => setOpen((o) => !o)} className="w-full min-h-[32px] flex items-center justify-between gap-1 border border-gray-200 rounded-lg px-1.5 py-1 text-left bg-white">
+      <button onClick={() => { setOpen((o) => !o); setQ(""); }} className="w-full min-h-[32px] flex items-center justify-between gap-1 border border-gray-200 rounded-lg px-1.5 py-1 text-left bg-white">
         <span className="flex flex-wrap gap-1 min-w-0">
           {value.length ? value.map((v) => <Chip key={v} label={label(v)} color={colorFor?.(v)} onRemove={() => toggle(v)} />)
             : <span className="text-[12px] text-gray-400 px-1">Select…</span>}
@@ -51,7 +54,14 @@ function FilterMultiSelect({ options, value, onChange, colorFor }: {
           <div className="fixed inset-0 z-[55]" onClick={() => setOpen(false)} />
           <div className="absolute left-0 top-[calc(100%+4px)] z-[56] bg-white border border-gray-200 rounded-lg shadow-lg p-1 min-w-[190px] max-h-56 overflow-auto">
             {options.length === 0 && <div className="px-2 py-1.5 text-[12px] text-gray-400">No options</div>}
-            {options.map((o) => (
+            {options.length > 8 && (
+              <label className="flex items-center gap-1.5 m-0.5 mb-1 px-2 py-1 border border-gray-200 rounded-md text-gray-400 focus-within:border-brand">
+                <IconSearch size={12} stroke={1.8} />
+                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…" className="flex-1 min-w-0 bg-transparent outline-none text-[12px] text-[#232D42]" />
+              </label>
+            )}
+            {q.trim() && !shown.length && <div className="px-2 py-1.5 text-[12px] text-gray-400">Nothing matches “{q.trim()}”.</div>}
+            {shown.map((o) => (
               <button key={o.value} onClick={() => toggle(o.value)} className="w-full flex items-center gap-2 px-2 py-1.5 text-[12px] rounded hover:bg-gray-50 text-left">
                 <span className={`w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0 ${value.includes(o.value) ? "bg-brand border-brand text-white" : "border-gray-300"}`}>{value.includes(o.value) && <IconCheck size={10} stroke={3} />}</span>
                 <Chip label={o.label} color={colorFor?.(o.value)} />

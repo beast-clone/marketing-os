@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { IconChevronDown, IconCheck, IconPlus, IconX } from "@tabler/icons-react";
+import { IconChevronDown, IconCheck, IconPlus, IconSearch, IconX } from "@tabler/icons-react";
 
 // Themed custom dropdown (no native <select>). Shared by the Scheduler,
 // Marketing Hub calendar, and anywhere else that needs the branded picker.
@@ -55,6 +55,11 @@ export function PreviewSelect({ value, onChange, options, placeholder, disabled,
   const up = dropUp || flip;
   const [adding, setAdding] = useState("");
   const [showAdd, setShowAdd] = useState(false);
+  // A long list (primary interests…) gets a search box. Upper or lower case doesn't
+  // matter; options with an empty value ("All …") always stay at the top.
+  const [q, setQ] = useState("");
+  const searchable = options.length > 8;
+  const shown = q.trim() ? options.filter((o) => !o.value || o.label.toLowerCase().includes(q.trim().toLowerCase())) : options;
   const current = options.find((o) => o.value === value);
   // Optional per-option avatar (e.g. real Instagram profile pictures in the
   // account picker). 20px round thumbnail; absent img just renders text-only.
@@ -75,7 +80,7 @@ export function PreviewSelect({ value, onChange, options, placeholder, disabled,
           if (disabled) return;
           const r = btnRef.current?.getBoundingClientRect();
           if (r) setFlip(window.innerHeight - r.bottom < 300 && r.top > window.innerHeight - r.bottom);
-          setOpen((o) => !o); setShowAdd(false); setAdding("");
+          setOpen((o) => !o); setShowAdd(false); setAdding(""); setQ("");
         }} disabled={disabled} aria-label={ariaLabel} title={title}
         className={`flex items-center gap-2 rounded-lg border ${
           bare ? "h-7 px-1.5 -mx-1.5 text-[13px] border-transparent bg-transparent text-[#8A92A6] hover:text-[#232D42] hover:border-gray-200"
@@ -93,7 +98,17 @@ export function PreviewSelect({ value, onChange, options, placeholder, disabled,
               menu would otherwise render flat. Inline styles survive the strip. */}
           <div
             className={`absolute left-0 ${up ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"} z-50 bg-white border border-[#EEF0F4] rounded-xl p-1.5 min-w-[190px] max-h-72 overflow-auto`}>
-            {options.map((o) => (
+            {searchable && (
+              <label className="sticky -top-1.5 z-10 -mx-1.5 -mt-1.5 mb-1 flex items-center gap-2 bg-white border-b border-[#EEF0F4] px-3 py-2">
+                <IconSearch size={14} stroke={1.8} className="text-[#8A92A6] flex-shrink-0" />
+                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…"
+                  onKeyDown={(e) => { if (e.key === "Enter") { const first = shown.find((o) => o.value); if (first) { onChange(first.value); setOpen(false); } } }}
+                  className="flex-1 min-w-0 bg-transparent outline-none text-xs text-[#232D42] placeholder:text-[#8A92A6]" />
+                {q && <button type="button" onClick={() => setQ("")} aria-label="Clear search" className="text-[#8A92A6] hover:text-[#232D42]"><IconX size={12} /></button>}
+              </label>
+            )}
+            {searchable && q.trim() && !shown.some((o) => o.value) && <div className="px-3 py-2 text-xs text-[#8A92A6]">Nothing matches “{q.trim()}”.</div>}
+            {shown.map((o) => (
               <div key={o.value} className={`group flex items-center rounded-lg ${o.value === value ? "bg-brand-light" : "hover:bg-[#F6F7FB]"}`}>
                 <button type="button" onClick={() => { onChange(o.value); setOpen(false); }}
                   className={`flex-1 min-w-0 flex items-center gap-2 text-left px-3 py-1.5 text-xs ${o.value === value ? "font-medium text-brand" : "text-[#232D42]"}`}>

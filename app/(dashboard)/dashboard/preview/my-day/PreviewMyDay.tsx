@@ -4465,7 +4465,7 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
                 <label className="created-f">
                   <span className="created-f-lbl">SBU</span>
                   <PreviewSelect className="created-sbu" value={createdSbu} onChange={setCreatedSbu}
-                    options={[{ value: "all", label: "All SBUs" }, ...sbus.map((s) => ({ value: s, label: s }))]} />
+                    options={[{ value: "all", label: "All primary interests" }, ...sbus.map((s) => ({ value: s, label: s }))]} />
                 </label>
                 {narrowed && (
                   <button type="button" className="btn sm created-clear" onClick={() => { setCreatedType("all"); setCreatedSbu("all"); }}>Clear filters</button>

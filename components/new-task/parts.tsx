@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { inNumberOrder } from "@/lib/upload-task-file";
 import { FilesCard, type FileTile } from "@/components/FilesCard";
 import { confirmDialog } from "@/app/(dashboard)/dashboard/preview/ConfirmDialog";
-import { IconLink } from "@tabler/icons-react";
+import { IconLink, IconSearch } from "@tabler/icons-react";
 import { useTeam, NEWCOMER_COLOR } from "@/lib/use-team";
 
 // Presentational pieces the new-task form is built from, lifted out of
@@ -108,10 +108,13 @@ export function MenuDropdown({ value, options, onChange, placeholder = "Select�
   placeholder?: string; icon?: React.ReactNode; wide?: boolean; align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
+  // A long list (primary interests…) gets a search box; upper or lower case doesn't matter.
+  const [q, setQ] = useState("");
+  const shown = q.trim() ? options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())) : options;
   const cur = options.find((o) => String(o.value) === String(value));
   return (
     <div className={`ui-dd ${wide ? "wide" : ""}`}>
-      <button type="button" className="ui-dd-btn" onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="ui-dd-btn" onClick={() => { setOpen((o) => !o); setQ(""); }}>
         {icon && <span className="ui-dd-ic">{icon}</span>}
         <span className="ui-dd-val">{cur ? cur.label : placeholder}</span>
         <span className="ui-dd-caret" />
@@ -120,7 +123,15 @@ export function MenuDropdown({ value, options, onChange, placeholder = "Select�
         <>
           <div className="ui-dd-back" onClick={() => setOpen(false)} />
           <div className="ui-dd-menu" style={wide ? { left: 0, right: 0 } : { [align]: 0 }}>
-            {options.map((o) => (
+            {options.length > 8 && (
+              <label style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", margin: "0 0 4px", border: "1px solid #E6E9F2", borderRadius: 8, color: "#8A92A6" }}>
+                <IconSearch size={14} stroke={1.8} />
+                <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search…"
+                  style={{ flex: 1, minWidth: 0, border: "none", outline: "none", background: "transparent", fontSize: 13, color: "#232D42" }} />
+              </label>
+            )}
+            {q.trim() && !shown.length && <div style={{ padding: "6px 10px", fontSize: 12.5, color: "#8A92A6" }}>Nothing matches “{q.trim()}”.</div>}
+            {shown.map((o) => (
               <button type="button" key={String(o.value)} className={`ui-dd-item ${String(o.value) === String(value) ? "on" : ""}`} onClick={() => { onChange(String(o.value)); setOpen(false); }}>
                 <span className="ui-dd-item-lbl">{o.label}</span>
                 {String(o.value) === String(value) && <span className="ui-dd-check">✓</span>}

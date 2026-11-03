@@ -196,7 +196,7 @@ export function NewTaskForm({ writer, initial, onClose, onCreate, onDirty }: {
   const approving = status === "Content - Approved";
   const missing = [
     !title.trim() && "Particulars (the title)",
-    !sbu && "SBU (which brand it's for)",
+    !sbu && "Primary interest (what it's for)",
     approving && !publishDate && "Publishing date (needed to approve)",
     approving && !content.trim() && "Content (needed to approve)",
     thumbOn && !thumbContent.trim() && "Thumbnail brief",
@@ -250,7 +250,7 @@ export function NewTaskForm({ writer, initial, onClose, onCreate, onDirty }: {
       </div>
       <div className="nt-field"><label className="nt-label">Publishing date <span className="nt-hint">optional — add it now or later</span></label><DatePicker value={publishDate} onChange={setPublishDate} /></div>
       <div className="nt-row">
-        <div className="nt-field"><label className="nt-label">SBU</label><MenuDropdown wide align="left" value={sbu} onChange={setSbu} options={sbus.map((s) => ({ value: s, label: s }))} /></div>
+        <div className="nt-field"><label className="nt-label">Primary interest</label><MenuDropdown wide align="left" value={sbu} onChange={setSbu} options={sbus.map((s) => ({ value: s, label: s }))} /></div>
         <div className="nt-field"><label className="nt-label">Status</label><MenuDropdown wide align="left" value={status} onChange={(v) => setStatus(v as NewTaskStatus)} options={NEW_TASK_STATUSES.map((s) => ({ value: s, label: s }))} /></div>
       </div>
 
