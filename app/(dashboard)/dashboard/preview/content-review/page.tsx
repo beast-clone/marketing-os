@@ -197,9 +197,9 @@ function Review() {
   // Samvaya / other-platform work is a SEPARATE business — it must never sit mixed
   // into the GooCampus review queue (same rule as the My Day timeline). Split it out
   // by interest (SBU) and give it its own clearly-labelled section below.
-  const isSamvaya = (p: ReviewPost) => /samvaya|matrimony/i.test(p.sbu || "");
-  const allMain = posts.filter((p) => !isSamvaya(p));
-  const samvayaPosts = posts.filter(isSamvaya);
+  // Samvaya Matrimony posts to its own linked page now (3 Nov), so it is reviewed in
+  // the same queue as every other Primary Interest instead of a block of its own.
+  const allMain = posts;
 
   // SBU filter — "even here create filters by SBU" (Manya, 5 Oct), then "like you
   // have added in content calendar" (10 Oct): the earlier chips hid themselves when
@@ -213,7 +213,7 @@ function Review() {
   const [sbuSel, setSbuSel] = useState<string[]>([]);
   const sbuOptions = useMemo(() => {
     const m = new Map<string, number>();
-    for (const k of allSbus) if (!/samvaya|matrimony/i.test(k)) m.set(k, 0);
+    for (const k of allSbus) m.set(k, 0);
     for (const p of allMain) { const k = (p.sbu || "").trim(); if (k) m.set(k, (m.get(k) || 0) + 1); }
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([value, count]) => ({ value, count }));
   }, [allMain, allSbus]);
@@ -486,25 +486,6 @@ function Review() {
             </div>
           )}
 
-          {/* Samvaya / other-platform work — a separate business, sorted out of the
-              GooCampus queue so it's never mixed in (same rule as the My Day timeline). */}
-          {samvayaPosts.length > 0 && (
-            <section className="mt-7">
-              <div className="flex items-center gap-2.5 mb-3 flex-wrap">
-                <span className="grid place-items-center w-8 h-8 rounded-lg text-white" style={{ background: "#0E8E86" }}>
-                  <IconChecklist size={16} stroke={1.8} />
-                </span>
-                <div>
-                  <div className="text-[#232D42] font-semibold text-sm">Samvaya · other platforms</div>
-                  <div className="text-xs text-[#8A92A6]">Separate from GooCampus — reviewed and scheduled on its own.</div>
-                </div>
-                <span className="ml-auto text-xs font-medium rounded-full px-3 py-1" style={{ background: "#DEF3F1", color: "#0E8E86" }}>
-                  {samvayaPosts.length} in queue
-                </span>
-              </div>
-              {view === "table" ? renderTable(samvayaPosts) : renderGrid(samvayaPosts)}
-            </section>
-          )}
         </>
       )}
 
