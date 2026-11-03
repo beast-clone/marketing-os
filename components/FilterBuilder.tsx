@@ -35,7 +35,7 @@ function FilterMultiSelect({ options, value, onChange, colorFor }: {
   options: Opt[]; value: string[]; onChange: (v: string[]) => void; colorFor?: (v: string) => { bg: string; text: string } | null;
 }) {
   const [open, setOpen] = useState(false);
-  // A long list (primary interests…) gets a search box; upper or lower case doesn't matter.
+  // A long list (Primary Interests…) gets a search box; upper or lower case doesn't matter.
   const [q, setQ] = useState("");
   const shown = q.trim() ? options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())) : options;
   const toggle = (v: string) => onChange(value.includes(v) ? value.filter((x) => x !== v) : [...value, v]);

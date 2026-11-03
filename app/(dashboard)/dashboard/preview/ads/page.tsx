@@ -1314,7 +1314,7 @@ function MiniSparkline({ data }: { data: { date: string; spend: number }[] }) {
   );
 }
 
-// Auto-classify each campaign into a "primary interest" bucket based on keywords in
+// Auto-classify each campaign into a "Primary Interest" bucket based on keywords in
 // its name. Order matters — the FIRST matching rule wins, so put more-specific rules
 // higher. Tweak this table when you launch a new campaign theme.
 type InterestKey = "amc_australia" | "university_masters" | "mbbs_ug" | "walk_in" | "als" | "samvaya" | "traffic_boost" | "other";

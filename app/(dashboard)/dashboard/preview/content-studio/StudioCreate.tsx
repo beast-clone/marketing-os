@@ -178,7 +178,7 @@ export function StudioCreate({ playbooks }: { playbooks: { slug: string; name: s
               <PreviewSelect value={format} onChange={setFormat}
                 options={CONTENT_TYPES.map((t) => ({ value: t, label: t }))} />
             </Field>
-            <Field label="Primary interest">
+            <Field label="Primary Interest">
               <PreviewSelect value={brand} onChange={setBrand}
                 options={sbus.map((s) => ({ value: s, label: s }))} />
             </Field>
@@ -398,7 +398,7 @@ function ReviewSheet({ brief, draft, check, onClose }: {
         <Row label="Type">
           <PreviewSelect value={type} onChange={setType} options={CONTENT_TYPES.map((t) => ({ value: t, label: t }))} />
         </Row>
-        <Row label="Primary interest">
+        <Row label="Primary Interest">
           <PreviewSelect value={sbu} onChange={setSbu} options={sbus.map((s) => ({ value: s, label: s }))} />
         </Row>
         <Row label="Status" why="Where it lands on the board.">

@@ -28,7 +28,7 @@ const FILTERS: { key: FacetKey; label: string; all: string }[] = [
   { key: "collaborators", label: "Collaborators", all: "All collaborators" },
   { key: "type", label: "Type", all: "All types" },
   { key: "status", label: "Status", all: "All statuses" },
-  { key: "sbu", label: "Primary interest / SBU", all: "All interests" },
+  { key: "sbu", label: "Primary Interest / SBU", all: "All interests" },
 ];
 
 // This modal portals to <body>, outside .preview-scope, where `bg-brand` resolves

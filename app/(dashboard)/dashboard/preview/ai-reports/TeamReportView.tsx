@@ -158,8 +158,8 @@ function PersonReport({ p, month }: { p: Person; month: string }) {
           total={writer ? ["Total", p.delivered, p.sentBack] : ["Total", p.delivered, pct(p.onTime, p.onTimeOf), p.sentBack, days(p.turnaround)]}
         />
       </Section>
-      <Section title="By primary interest">
-        <CopyTable header={["Primary interest", writer ? "Approved" : "Delivered", "Sent back"]} rows={p.bySbu.map((g) => [g.name, g.delivered, g.sentBack])} total={["Total", p.delivered, p.sentBack]} />
+      <Section title="By Primary Interest">
+        <CopyTable header={["Primary Interest", writer ? "Approved" : "Delivered", "Sent back"]} rows={p.bySbu.map((g) => [g.name, g.delivered, g.sentBack])} total={["Total", p.delivered, p.sentBack]} />
       </Section>
       {p.extra.length > 0 && (
         <Section title="Additional roles" note={`Work outside ${p.name.split(" ")[0]}'s main role (${ROLE[p.role].toLowerCase()}) — not counted in the numbers above.`}>
@@ -172,7 +172,7 @@ function PersonReport({ p, month }: { p: Person; month: string }) {
               <div key={e.role}>
                 <div className="text-[12px] font-medium text-[#4A5468] mb-2">{ROLE[e.role]} · {e.delivered} {e.role === "writer" ? "approved" : "delivered"}</div>
                 <CopyTable
-                  header={["Task", "Type", "Primary interest", "Due", e.role === "writer" ? "Approved" : "Delivered", "On time", "Sent back"]}
+                  header={["Task", "Type", "Primary Interest", "Due", e.role === "writer" ? "Approved" : "Delivered", "On time", "Sent back"]}
                   rows={e.items.map((d) => [d.title, d.type, d.sbu, dmy(d.due), dmy(d.delivered), d.onTime == null ? "—" : d.onTime ? "Yes" : "Late", d.sentBack ? `${d.sentBack}×` : "—"])}
                 />
               </div>
@@ -183,7 +183,7 @@ function PersonReport({ p, month }: { p: Person; month: string }) {
       <Section title={writer ? "Pieces" : p.role === "designer" ? "Designs" : "Videos"} note="Everything delivered this month.">
         {p.items.length ? (
           <CopyTable
-            header={["Task", "Type", "Primary interest", "Due", writer ? "Approved" : "Delivered", "On time", "Sent back"]}
+            header={["Task", "Type", "Primary Interest", "Due", writer ? "Approved" : "Delivered", "On time", "Sent back"]}
             rows={p.items.map((d) => [d.title, d.type, d.sbu, dmy(d.due), dmy(d.delivered), d.onTime == null ? "—" : d.onTime ? "Yes" : "Late", d.sentBack ? `${d.sentBack}×` : "—"])}
           />
         ) : <div className="text-[13px] text-gray-400">Nothing delivered this month.</div>}

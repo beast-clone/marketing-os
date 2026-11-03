@@ -5,7 +5,7 @@ import { type ManualSection } from "@/lib/report-manual";
 import type { YearMonth } from "@/lib/report-year";
 import { AddedSections, Loading, Section, Stats } from "./MonthlyReportView";
 
-// One year's report (lib/report-year.ts): what was made, by primary interest, month,
+// One year's report (lib/report-year.ts): what was made, by Primary Interest, month,
 // type and owner, plus leads and platforms month by month. Every table has
 // "Copy table" — rows and columns, ready to paste into a report section or a sheet.
 type Tally = { name: string; tasks: number; published: number; types: Record<string, number> };
@@ -80,8 +80,8 @@ export function YearlyReportView({ year }: { year: string }) {
             ]} />
           </Section>
 
-          <Section title="Content by primary interest" note="Tasks, published, and the four biggest formats.">
-            <TallyTable first="Primary interest" rows={d.content.bySbu} withTypes />
+          <Section title="Content by Primary Interest" note="Tasks, published, and the four biggest formats.">
+            <TallyTable first="Primary Interest" rows={d.content.bySbu} withTypes />
           </Section>
 
           <Section title="Content by month" note="Tasks dated in each month · leads from each month's saved report (all leads, and organic only).">

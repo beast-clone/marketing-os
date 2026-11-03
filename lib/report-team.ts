@@ -119,7 +119,7 @@ export async function buildTeamReport(month: string, only?: string) {
         const began = [...h].reverse().find((x) => x.created_at < d.created_at && x.to_value === "Output - In Progress")?.created_at || post.start_at;
         if (began && began < d.created_at) turnaround = Math.round(((Date.parse(d.created_at) - Date.parse(began)) / 86_400_000) * 10) / 10;
       }
-      items.push({ id: d.post_id, title: post.particulars || "(no title)", type: post.type || "No type", sbu: post.sbu || "No primary interest", due, delivered: day, onTime: due ? day <= due : null, sentBack, turnaround });
+      items.push({ id: d.post_id, title: post.particulars || "(no title)", type: post.type || "No type", sbu: post.sbu || "No Primary Interest", due, delivered: day, onTime: due ? day <= due : null, sentBack, turnaround });
     }
     return items.sort((x, y) => y.delivered.localeCompare(x.delivered));
   };

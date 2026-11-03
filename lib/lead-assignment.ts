@@ -314,7 +314,7 @@ export async function getAssignmentLog(from: string, to: string, bucket: Bucket)
     const day = assignedTimeToDay(pickName(rec.fields["Assigned Time"]));
     if (!day || day < from || day > to) continue;
     const counsellor = pickName(rec.fields["Counsellor"]) || UNASSIGNED;
-    const interest = pickName(rec.fields["Primary Interest"]) || "No primary interest";
+    const interest = pickName(rec.fields["Primary Interest"]) || "No Primary Interest";
     const b = bucketOf(day, bucket);
     let row = rowMap.get(b.key);
     if (!row) { row = { key: b.key, label: b.label, dow: b.dow, total: 0, by: {} }; rowMap.set(b.key, row); }
@@ -375,7 +375,7 @@ export async function getLeadBoard(from: string, to: string, bucket: Bucket): Pr
     const b = bucketOf(date, bucket);
     const idle = idleDays(f);
     const status = pickName(f["Lead Status"]) || "—";
-    const interest = pickName(f["Primary Interest (n8n)"]) || "No primary interest";
+    const interest = pickName(f["Primary Interest (n8n)"]) || "No Primary Interest";
     const ageDays = Math.floor((Date.now() - Date.parse(createdIso)) / 86_400_000);
     const calls = pickNumber(f["Call Attempts"]);
     const cold = idle > COLD_AFTER_DAYS;

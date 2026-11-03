@@ -92,7 +92,7 @@ export const RULE_TABS: RuleTab[] = [
     title: "Content calendar",
     blurb: "Which posts show where.",
     rules: [
-      { id: "account", when: "Which account", what: "Mentorship Platform → GooCampus World. 12thPlus.com and India NEET UG → 12th Plus. 10K Mentorship and everything else → GooCampus Main. Samvaya → none of ours.", where: "Rules · Content calendar · Primary interests and their page", editable: "team" },
+      { id: "account", when: "Which account", what: "Mentorship Platform → GooCampus World. 12thPlus.com and India NEET UG → 12th Plus. 10K Mentorship and everything else → GooCampus Main. Samvaya → none of ours.", where: "Rules · Content calendar · Primary Interests and their page", editable: "team" },
       { id: "drag", when: "Dragging a post", what: "Only people with “Edit calendar” switched on can drag a post to another day.", where: "Team & access · Edit calendar", editable: "team" },
       { id: "views", when: "Calendar views", what: "Anyone can save a calendar view for themselves or the whole team — for example Mentorship.", where: "Content calendar · + New view", editable: "team" },
     ],

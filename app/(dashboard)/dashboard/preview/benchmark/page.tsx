@@ -119,7 +119,7 @@ function BenchmarkInner({ accountId }: { accountId: string; range: { from: strin
   const [trackPlatform, setTrackPlatform] = useState("instagram");
   const [trackPeriod, setTrackPeriod] = useState(30);
   // Narrow the tracked list. "create another filter for instagram and youtube to
-  // choose from" and "filter competitors by primary interest" (Manya, 28 Sept).
+  // choose from" and "filter competitors by Primary Interest" (Manya, 28 Sept).
   const [filterPlatform, setFilterPlatform] = useState("all");
   const [filterSbu, setFilterSbu] = useState("all");
   // false until sql/029_competitors.sql has been run — then this page keeps its old
@@ -328,7 +328,7 @@ function BenchmarkInner({ accountId }: { accountId: string; range: { from: strin
             <IconStar size={13} stroke={1.8} className="inline -mt-0.5 mr-1" />Tracked ({visibleTracked.length}{visibleTracked.length !== tracked.length ? ` of ${tracked.length}` : ""})
           </button>
         )}
-        {/* Narrow the tracked list by platform and by primary interest (Manya,
+        {/* Narrow the tracked list by platform and by Primary Interest (Manya,
             28 Sept). Only shown on the Tracked view — they filter nothing else. */}
         {niche === "__tracked__" && tracked.length > 0 && (
           <>
@@ -357,7 +357,7 @@ function BenchmarkInner({ accountId }: { accountId: string; range: { from: strin
               className="text-xs px-3 py-1.5 rounded-full border border-gray-200 focus:outline-none focus:border-brand w-32"
               onKeyDown={(e) => { if (e.key === "Enter") addTracked(); }}
             />
-            {/* "add a filter for me to select which primary interest when I am adding
+            {/* "add a filter for me to select which Primary Interest when I am adding
                 the competitor name. Just add a box I will fill up by myself" (Manya,
                 28 Sept) — free text on purpose, so a new interest needs no code change. */}
             {/* Paste the channel URL or the UC… id — ytId() takes either. Optional:
@@ -372,7 +372,7 @@ function BenchmarkInner({ accountId }: { accountId: string; range: { from: strin
             <input
               value={trackSbu}
               onChange={(e) => setTrackSbu(e.target.value)}
-              placeholder="primary interest"
+              placeholder="Primary Interest"
               className="text-xs px-3 py-1.5 rounded-full border border-gray-200 focus:outline-none focus:border-brand w-36"
               onKeyDown={(e) => { if (e.key === "Enter") addTracked(); }}
             />

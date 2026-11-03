@@ -15,7 +15,7 @@ import type { FilterCondition, FilterModel } from "@/lib/filter-model";
 //
 // Praveen, 27 Oct: the Airtable-style builder (When / conditions / actions) was too
 // confusing. A rule is one sentence —
-//   If status moves to [status] and type is [types] and primary interest is [brands]
+//   If status moves to [status] and type is [types] and Primary Interest is [brands]
 //   → assign to [person] · collaborators [people]
 // — and the list shows each rule as a line with the person's avatar. Rules keep their
 // stored shape (trigger_spec / conditions / actions); this screen reads and writes the
@@ -131,7 +131,7 @@ export function RuleBuilder() {
   };
   const brandsText = (b: string[]) => {
     if (!b.length || b.length >= sbus.length) return "";
-    if (b.length > sbus.length / 2) return `every primary interest except ${list(sbus.filter((x) => !b.includes(x)), "and")}`;
+    if (b.length > sbus.length / 2) return `every Primary Interest except ${list(sbus.filter((x) => !b.includes(x)), "and")}`;
     return list(b);
   };
   const momentText = (m: string) => (m === CREATED ? "is created" : m === HANDED ? "is handed to someone else" : `moves to ${m}`);
@@ -309,8 +309,8 @@ function RuleForm({ initial, isNew, people, sbus, busy, onCancel, onSave }: {
             <Pick value={s.moment} options={momentOptions} onChange={(v) => set({ moment: v })} /></div>
           <div className={line}><span className={kw}>{s.moment === TYPE_CHANGE ? "new type is" : "and type is"}</span>
             <CheckList value={s.types} groups={[{ name: "DESIGN", items: design }, { name: "VIDEO", items: video }]} empty="Any type" onChange={(v) => set({ types: v })} /></div>
-          <div className={line}><span className={kw}>and primary interest is</span>
-            <CheckList value={s.brands} groups={[{ name: "PRIMARY INTERESTS", items: sbus }]} empty="Any primary interest" onChange={(v) => set({ brands: v })} /></div>
+          <div className={line}><span className={kw}>and Primary Interest is</span>
+            <CheckList value={s.brands} groups={[{ name: "PRIMARY INTERESTS", items: sbus }]} empty="Any Primary Interest" onChange={(v) => set({ brands: v })} /></div>
           <div className={line}><span className={kw}>assign to</span>
             <Pick value={s.owner} options={ownerOptions} onChange={(v) => set({ owner: v })} /></div>
           <div className={line}><span className={kw}>collaborators</span>
@@ -369,7 +369,7 @@ function CheckList({ value, groups, empty, labelOf = (k) => k, onChange }: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useOutside(open, () => setOpen(false));
-  // A long list (primary interests) gets a search box; upper or lower case doesn't matter.
+  // A long list (Primary Interests) gets a search box; upper or lower case doesn't matter.
   const [q, setQ] = useState("");
   const long = groups.reduce((n, g) => n + g.items.length, 0) > 8;
   const match = (k: string) => !q.trim() || labelOf(k).toLowerCase().includes(q.trim().toLowerCase());

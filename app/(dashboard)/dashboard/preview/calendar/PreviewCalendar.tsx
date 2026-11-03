@@ -185,7 +185,7 @@ export function PreviewCalendar() {
       && inRange(p, fFrom, fTo)),
     [unfiltered, fSbu, fStatus, fFrom, fTo],
   );
-  // Every primary interest (the live list) plus any older name a post still carries.
+  // Every Primary Interest (the live list) plus any older name a post still carries.
   const sbusPresent = useMemo(
     () => [...new Set([...sbus, ...unfiltered.map((p) => p.primaryInterest).filter(Boolean)])].sort(),
     [sbus, unfiltered],
@@ -311,15 +311,15 @@ export function PreviewCalendar() {
       {/* The calendar card */}
       <div className="hcal-card">
         <div className="hcal-filters">
-          <span className="hcal-flabel">Primary interest / SBU</span>
-          <PreviewSelect value={fSbu} onChange={setFSbu} placeholder="All primary interests"
-            options={[{ value: "", label: "All primary interests" },
+          <span className="hcal-flabel">Primary Interest / SBU</span>
+          <PreviewSelect value={fSbu} onChange={setFSbu} placeholder="All Primary Interests"
+            options={[{ value: "", label: "All Primary Interests" },
                       ...sbusPresent.map((b) => ({ value: b, label: b })),
-                      { value: "__none", label: "No primary interest" }]}
-            addOption={{ label: "Add a primary interest", onAdd: (name) => {
+                      { value: "__none", label: "No Primary Interest" }]}
+            addOption={{ label: "Add a Primary Interest", onAdd: (name) => {
               addBrand(name).then((saved) => {
                 setFSbu(saved);
-                showToast({ who: "Primary interest added", body: `${saved} is now in every primary interest list.`, color: "#3A57E8", av: "✓" });
+                showToast({ who: "Primary Interest added", body: `${saved} is now in every Primary Interest list.`, color: "#3A57E8", av: "✓" });
               }).catch((e) => showToast({ who: "Couldn't add it", body: (e as Error).message, color: "#C0392B", av: "!" }));
             } }} />
           <span className="hcal-flabel">Status</span>
@@ -531,7 +531,7 @@ function EventChip({ post, onClick, block }: { post: ScheduledPost; onClick: () 
     >
       <span className="hcal-evbody">
         <span className="hcal-evtitle" style={{ color: st.text }}>{post.particulars || "(no title)"}</span>
-        {post.primaryInterest && <span className="hcal-evsbu" style={{ color: st.text }} title="Primary interest / SBU">{post.primaryInterest}</span>}
+        {post.primaryInterest && <span className="hcal-evsbu" style={{ color: st.text }} title="Primary Interest / SBU">{post.primaryInterest}</span>}
       </span>
       {ts && <span className="hcal-evtime" style={{ color: st.text }}>{timeShort(ts)}</span>}
     </button>

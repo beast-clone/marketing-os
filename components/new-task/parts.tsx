@@ -108,7 +108,7 @@ export function MenuDropdown({ value, options, onChange, placeholder = "Select�
   placeholder?: string; icon?: React.ReactNode; wide?: boolean; align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
-  // A long list (primary interests…) gets a search box; upper or lower case doesn't matter.
+  // A long list (Primary Interests…) gets a search box; upper or lower case doesn't matter.
   const [q, setQ] = useState("");
   const shown = q.trim() ? options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())) : options;
   const cur = options.find((o) => String(o.value) === String(value));

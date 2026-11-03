@@ -55,7 +55,7 @@ export function PreviewSelect({ value, onChange, options, placeholder, disabled,
   const up = dropUp || flip;
   const [adding, setAdding] = useState("");
   const [showAdd, setShowAdd] = useState(false);
-  // A long list (primary interests…) gets a search box. Upper or lower case doesn't
+  // A long list (Primary Interests…) gets a search box. Upper or lower case doesn't
   // matter; options with an empty value ("All …") always stay at the top.
   const [q, setQ] = useState("");
   const searchable = options.length > 8;

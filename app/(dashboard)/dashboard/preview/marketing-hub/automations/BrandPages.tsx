@@ -53,7 +53,7 @@ export function BrandPages() {
       const saved = await addBrand(newName, newPage);
       const d = await fetch("/api/sbus", { cache: "no-store" }).then((r) => r.json());
       setPages(d.pages || {}); setNewName("");
-      showToast({ who: "Primary interest added", body: `${saved} is now in every primary interest list.`, color: "#3A57E8", av: "B" });
+      showToast({ who: "Primary Interest added", body: `${saved} is now in every Primary Interest list.`, color: "#3A57E8", av: "B" });
     } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   };
 
@@ -63,7 +63,7 @@ export function BrandPages() {
       <div className="px-4 py-3.5 border-b border-gray-100 flex items-center gap-2.5">
         <span className="w-8 h-8 rounded-lg bg-brand-light text-brand flex items-center justify-center"><IconBuildingStore size={16} stroke={1.8} /></span>
         <div>
-          <h2 className="text-[16px] font-medium text-[#232D42]">Primary interests and their page</h2>
+          <h2 className="text-[16px] font-medium text-[#232D42]">Primary Interests and their page</h2>
           <div className="text-[12.5px] text-[#8A92A6]">Which page a brand’s posts go out on — the calendar’s channels and the Scheduler’s default page follow this.{canEdit ? "" : " Only an admin can change it."}</div>
         </div>
       </div>
@@ -85,13 +85,13 @@ export function BrandPages() {
       )}
       {canEdit && (
         <div className="px-4 py-3 border-t border-gray-100 flex items-end gap-3 flex-wrap">
-          <label className="block"><span className="block text-[11px] text-[#8A92A6] mb-1">New primary interest</span>
+          <label className="block"><span className="block text-[11px] text-[#8A92A6] mb-1">New Primary Interest</span>
             <input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Ireland Pathway"
               className="h-9 w-[230px] rounded-lg border border-gray-200 px-3 text-[13px] text-[#232D42] outline-none focus:border-brand" /></label>
           <label className="block"><span className="block text-[11px] text-[#8A92A6] mb-1">Posts to</span>
             <PreviewSelect className="w-[200px]" value={newPage} options={PAGES} onChange={setNewPage} /></label>
           <button onClick={() => void add()} disabled={busy === "new" || !newName.trim()}
-            className="h-9 inline-flex items-center gap-1.5 rounded-lg bg-brand text-white text-[13px] font-medium px-3.5 hover:bg-brand-dark disabled:opacity-50"><IconPlus size={15} stroke={2} /> Add primary interest</button>
+            className="h-9 inline-flex items-center gap-1.5 rounded-lg bg-brand text-white text-[13px] font-medium px-3.5 hover:bg-brand-dark disabled:opacity-50"><IconPlus size={15} stroke={2} /> Add Primary Interest</button>
         </div>
       )}
       {err && <div className="mx-4 mb-3 rounded-lg bg-rose-50 border border-rose-100 text-rose-700 text-[12.5px] px-3 py-2">{err}</div>}

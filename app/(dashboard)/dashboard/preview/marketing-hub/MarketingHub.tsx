@@ -1033,7 +1033,7 @@ function PersonTimelineRow({ card }: {
         <thead>
           <tr className="text-left text-[11px] text-gray-400">
             <th className="font-normal pb-1">Task</th>
-            <th className="font-normal pb-1 w-[24%]">Primary interest</th>
+            <th className="font-normal pb-1 w-[24%]">Primary Interest</th>
             <th className="font-normal pb-1 w-[14%]">Due</th>
             <th className="font-normal pb-1 w-[20%] text-right">Status</th>
           </tr>
@@ -1973,7 +1973,7 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
             {/* Every SBU, always (user). Choosing brands drops the account filter back to
                 All, so a pick can never land on an empty calendar — which is what the old
                 single-select guarded against by switching accounts for you. */}
-            <MultiPick label="primary interests" selected={brandSel} total={channelRows.length}
+            <MultiPick label="Primary Interests" selected={brandSel} total={channelRows.length}
               // Stays on the account unless every SBU picked belongs to another one
               // (that would leave an empty calendar).
               onChange={(next) => { setBrandSel(next); if (next.length && !isPickNone(next) && !worldOnly && channel !== "all" && !next.some((b) => channelOfSbu(b) === channel)) setChannel("all"); }}
@@ -2135,7 +2135,7 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
                 <span className="mhcal-tip-status" style={{ background: st.bg, borderColor: st.border, color: st.text }}>{tip.r.status}</span>
               </div>
             )}
-            <div className="mhcal-tip-row"><span className="mhcal-tip-k">Primary interest</span><span className="mhcal-tip-v">{tip.r.sbu || "—"}</span></div>
+            <div className="mhcal-tip-row"><span className="mhcal-tip-k">Primary Interest</span><span className="mhcal-tip-v">{tip.r.sbu || "—"}</span></div>
             <div className="mhcal-tip-row"><span className="mhcal-tip-k">Format</span><span className="mhcal-tip-v">{tip.r.type || "—"}</span></div>
             <div className="mhcal-tip-row"><span className="mhcal-tip-k">Owner</span><span className="mhcal-tip-v">{tip.r.owner || "—"}</span></div>
             <div className="mhcal-tip-hint">{canMove ? "Click to open · drag to reschedule" : "Click to open · view only"}</div>
@@ -2227,7 +2227,7 @@ function NewCalViewDialog({ rows, initial, onClose, onSave }: {
               <div className="w-full [&>*]:w-full"><PreviewSelect value={f.channel} onChange={(v) => setF({ ...f, channel: v as CalChannel, brands: [] })} options={calChannels} /></div>
             </div>
             <div>
-              <Label t="Primary interests" />
+              <Label t="Primary Interests" />
               {/* Starts with nothing ticked; tick the brands this view is for (Praveen, 26
                   Oct). The calendar's own picker starts all-ticked, so clicking there
                   REMOVES a brand — the wrong way round for building a view. */}
@@ -2244,7 +2244,7 @@ function NewCalViewDialog({ rows, initial, onClose, onSave }: {
                   );
                 })}
               </div>
-              <div className="text-[11.5px] text-[#8A92A6] mt-1">{f.brands.length ? `${f.brands.length} picked` : "None ticked = every primary interest"}</div>
+              <div className="text-[11.5px] text-[#8A92A6] mt-1">{f.brands.length ? `${f.brands.length} picked` : "None ticked = every Primary Interest"}</div>
             </div>
             <div>
               <Label t="Statuses" />
@@ -3589,7 +3589,7 @@ function RecycleBin({ items, notReady, error, onChanged }: { items?: TrashItem[]
                   <PickBox on={allOn} partial={chosen.length > 0 && !allOn} label="Select all" />
                 </th>
                 <th className="px-4 py-2.5 font-normal">Task</th>
-                <th className="px-4 py-2.5 font-normal">Primary interest / SBU</th>
+                <th className="px-4 py-2.5 font-normal">Primary Interest / SBU</th>
                 <th className="px-4 py-2.5 font-normal">Type</th>
                 <th className="px-4 py-2.5 font-normal">Status</th>
                 <th className="px-4 py-2.5 font-normal">Owner</th>
@@ -4164,7 +4164,7 @@ export const ACT_VERB: Record<string, string> = {
   date_change_requested: "asked to change the publish date", date_change_approved: "approved the date change request",
   date_change_rejected: "declined the date change request",
   priority_changed: "changed the priority", type_changed: "changed the type", content_edited: "edited the content",
-  caption_edited: "edited the caption", notes_edited: "edited the notes", sbu_changed: "changed the primary interest",
+  caption_edited: "edited the caption", notes_edited: "edited the notes", sbu_changed: "changed the Primary Interest",
   platforms_changed: "changed platforms", review_changed: "toggled review", output_link_changed: "updated the output link",
   creative_added: "added a creative", creative_removed: "removed a creative", post_media_removed: "took a file off the post in the Scheduler (it stays on the task)", creatives_reordered: "changed the order of the creatives", claim: "claimed this",
   reference_added: "added a reference", reference_removed: "removed a reference",
@@ -4789,7 +4789,7 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
       const j = await r.json() as Record<string, PlatformRes> & { error?: string; reason?: string };
       if (!r.ok) { setLinkHunt({ state: "done", note: j.error || `Couldn't look it up (HTTP ${r.status}).`, picks: [] }); return; }
       if (j.reason === "no-publishing-date") { setLinkHunt({ state: "done", note: "No publishing date on this task, so there's nothing to search around.", picks: [] }); return; }
-      if (j.reason === "no-account-for-brand") { setLinkHunt({ state: "done", note: "This primary interest doesn't go out on any of our accounts.", picks: [] }); return; }
+      if (j.reason === "no-account-for-brand") { setLinkHunt({ state: "done", note: "This Primary Interest doesn't go out on any of our accounts.", picks: [] }); return; }
 
       const linked: string[] = [];
       const picks: LinkPick[] = [];

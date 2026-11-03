@@ -22,7 +22,7 @@ const PALETTE = ["#3A57E8", "#0EA5E9", "#1AA053", "#F2B01E", "#8B5CF6", "#EC4899
 // `noun` is the already-cased form for the heading — lowercasing the label turned
 // the SBU acronym into "sbu".
 const BREAKDOWNS = [
-  { v: "interest", label: "Primary interest", noun: "primary interest" },
+  { v: "interest", label: "Primary Interest", noun: "Primary Interest" },
   { v: "sbu", label: "SBU", noun: "SBU" },
   { v: "counsellor", label: "Counsellor", noun: "counsellor" },
   { v: "source", label: "Source", noun: "source" },
@@ -56,7 +56,7 @@ type BoardLead = {
 // everything the search can't express, like "pool AND older than a date".
 const TRACKER_FILTER_FIELDS: FilterFieldDef<BoardLead>[] = [
   { key: "name", label: "Name", type: "text", get: (l) => l.name || "" },
-  { key: "interest", label: "Primary interest", type: "select", get: (l) => l.interest || "" },
+  { key: "interest", label: "Primary Interest", type: "select", get: (l) => l.interest || "" },
   { key: "sbu", label: "SBU", type: "select", get: (l) => l.sbu || "" },
   { key: "source", label: "Source", type: "select", get: (l) => l.source || "" },
   { key: "status", label: "Status", type: "select", get: (l) => l.status || "" },
@@ -174,7 +174,7 @@ export function LeadAssignment({ range, only }: { range: { from: string; to: str
       breakBy === "sbu" ? (l.sbu || "Other")
       : breakBy === "counsellor" ? (l.counsellor || "Unassigned")
       : breakBy === "source" ? (l.source || "—")
-      : (l.interest || "No primary interest");
+      : (l.interest || "No Primary Interest");
     const tally = new Map<string, number>();
     for (const l of chartSrc.allLeads) { const k = fieldOf(l); tally.set(k, (tally.get(k) || 0) + 1); }
     const top = [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6).map((e) => e[0]);
@@ -454,7 +454,7 @@ export function LeadAssignment({ range, only }: { range: { from: string; to: str
                         <IconBrandTelegram size={13} className="text-brand" /> same breakdown as your daily Telegram · {data.assignments.range.from} → {data.assignments.range.to}
                       </div>
                     </div>
-                    <div className="text-[12.5px] text-gray-500 mb-4">Leads assigned per counsellor in this window, split by primary interest.</div>
+                    <div className="text-[12.5px] text-gray-500 mb-4">Leads assigned per counsellor in this window, split by Primary Interest.</div>
                     <div className="space-y-3">
                       {src.counsellors.map((c) => {
                         const ints = data.assignments.byInterest.filter((x) => x.counsellor === c).sort((a, b) => b.n - a.n);
@@ -538,7 +538,7 @@ export function LeadAssignment({ range, only }: { range: { from: string; to: str
         <>
           <div className="overflow-x-auto">
             <table className="w-full text-sm tabular-nums">
-              <Head cols={["Primary interest", "Leads", "Assigned", "In pool", "Partner", "Other", "New >2d", "Stuck in pool"]} firstLeft />
+              <Head cols={["Primary Interest", "Leads", "Assigned", "In pool", "Partner", "Other", "New >2d", "Stuck in pool"]} firstLeft />
               <tbody>
                 {data.interests.map((i) => {
                   const orphan = i.assigned === 0 && i.pool > 0;
@@ -757,7 +757,7 @@ function TrackerDrill({ kind, leads, generated, onClose, onOpenLead }: {
     return (
       <DrillShell title="New leads — where they came from" sub={`${fmtInt(generated)} new leads in the selected period`} onClose={onClose}>
         <div className="flex flex-col gap-6 p-6">
-          <Bars heading="By primary interest" rows={group((l) => l.interest)} />
+          <Bars heading="By Primary Interest" rows={group((l) => l.interest)} />
           <Bars heading="By lead source" rows={group((l) => l.source)} />
         </div>
       </DrillShell>
@@ -933,10 +933,10 @@ function TrackerTab({ data, since, starred, persisted, onStar, onTrack }: {
       )}
       {/* Find a lead to watch — search this period, then star it into Pinned below. */}
       <div className="text-sm font-medium text-[#232D42] mb-1">Find a lead to track</div>
-      <div className="text-[12.5px] text-gray-500 mb-3">Don&apos;t know the name? Search by primary interest (or name/source/counsellor), then click the ☆ star to pin it to your list below.</div>
+      <div className="text-[12.5px] text-gray-500 mb-3">Don&apos;t know the name? Search by Primary Interest (or name/source/counsellor), then click the ☆ star to pin it to your list below.</div>
       <div className="relative mb-4 max-w-md">
         <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search by name, primary interest, source or counsellor…"
+        <input value={q} onChange={(e) => { setQ(e.target.value); setPage(0); }} placeholder="Search by name, Primary Interest, source or counsellor…"
           className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-brand" />
       </div>
       <div className="mb-4 flex items-center gap-2">

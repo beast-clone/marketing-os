@@ -104,7 +104,7 @@ export async function buildYearReport(year: string) {
       total: items.length,
       published: items.filter((x) => x.status === PUBLISHED).length,
       from: datesWithContent[0] ?? null, to: datesWithContent[datesWithContent.length - 1] ?? null,
-      bySbu: tally(items, (x) => x.sbu || "No primary interest"),
+      bySbu: tally(items, (x) => x.sbu || "No Primary Interest"),
       byType: tally(items, (x) => x.type || "No type"),
       byOwner: tally(items, (x) => x.owner || "No owner"),
     },

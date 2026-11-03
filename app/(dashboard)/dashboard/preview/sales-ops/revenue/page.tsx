@@ -101,7 +101,7 @@ function Revenue({ from, to }: { from: string; to: string }) {
         {([
           ["By counsellor", <IconUsers key="c" size={17} stroke={1.8} />, data.byCounsellor, "Owner in the Revenue Tracker"],
           ["By lead source", <IconSourceCode key="s" size={17} stroke={1.8} />, data.bySource, "Where the lead came from"],
-          ["By programme", <IconSchool key="p" size={17} stroke={1.8} />, data.byProgramme, "Primary interest (split evenly if more than one)"],
+          ["By programme", <IconSchool key="p" size={17} stroke={1.8} />, data.byProgramme, "Primary Interest (split evenly if more than one)"],
         ] as const).map(([title, icon, rows, sub]) => {
           const max = Math.max(1, ...rows.map((r) => r.revenue));
           return (

@@ -31,7 +31,7 @@ type FKey = "year" | "month" | "sbu" | "type" | "status" | "owner" | "collab" | 
 const FILTERS: { key: FKey; label: string; get: (r: Row) => string | string[] | null; byDate?: boolean }[] = [
   { key: "year", label: "years", get: (r) => yearOf(r) || null, byDate: true },
   { key: "month", label: "months", get: (r) => (monthOf(r) ? monthName(monthOf(r)) : null), byDate: true },
-  { key: "sbu", label: "primary interests", get: (r) => r.sbu },
+  { key: "sbu", label: "Primary Interests", get: (r) => r.sbu },
   { key: "type", label: "types", get: (r) => r.type },
   { key: "status", label: "statuses", get: (r) => r.status },
   { key: "owner", label: "owners", get: (r) => r.owner },
@@ -84,21 +84,21 @@ function Archive() {
   }, [rows, q, f]);
   useEffect(() => { setShown(100); }, [q, f]);
 
-  // By primary interest: tasks, published, and the four biggest formats as columns.
+  // By Primary Interest: tasks, published, and the four biggest formats as columns.
   const summary = useMemo(() => {
     const typeCount = new Map<string, number>();
     for (const r of list) if (r.type) typeCount.set(r.type, (typeCount.get(r.type) || 0) + 1);
     const types = [...typeCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([t]) => t);
     const by = new Map<string, { tasks: number; published: number; types: Record<string, number> }>();
     for (const r of list) {
-      const k = r.sbu || "No primary interest";
+      const k = r.sbu || "No Primary Interest";
       const o = by.get(k) || { tasks: 0, published: 0, types: {} };
       o.tasks++; if (r.status === PUBLISHED) o.published++;
       if (r.type && types.includes(r.type)) o.types[r.type] = (o.types[r.type] || 0) + 1;
       by.set(k, o);
     }
     const lines = [...by.entries()].sort((a, b) => b[1].tasks - a[1].tasks);
-    const header = ["Primary interest", "Tasks", "Published", ...types];
+    const header = ["Primary Interest", "Tasks", "Published", ...types];
     const body = lines.map(([k, o]) => [k, o.tasks, o.published, ...types.map((t) => o.types[t] || 0)]);
     const total = ["Total", list.length, list.filter((r) => r.status === PUBLISHED).length, ...types.map((t) => typeCount.get(t) || 0)];
     return { header, body, total };
@@ -119,7 +119,7 @@ function Archive() {
         <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-gray-100 bg-brand-light">
           <span className="w-8 h-8 rounded-lg bg-white text-brand grid place-items-center"><IconChartBar size={16} stroke={1.8} /></span>
           <div className="mr-auto">
-            <div className="text-[14px] font-medium text-[#232D42]">By primary interest</div>
+            <div className="text-[14px] font-medium text-[#232D42]">By Primary Interest</div>
             <div className="text-[12px] text-[#4A5468]">{scope} · {list.length} tasks</div>
           </div>
           <CopyButton label="Copy table" text={() => tsv([summary.header, ...summary.body, summary.total])} />
@@ -159,7 +159,7 @@ function Archive() {
               {q && <button onClick={() => setQ("")} aria-label="Clear search" className="text-[#8A92A6] hover:text-[#232D42]"><IconX size={14} /></button>}
             </label>
             {filtered && <button onClick={() => { setF(NO_FILTERS); setQ(""); }} className="h-9 px-3 rounded-lg text-[13px] font-medium text-[#4A5468] hover:text-brand whitespace-nowrap">Clear all</button>}
-            <CopyButton label="Copy list" text={() => tsv([["Task", "Type", "Status", "Primary interest", "Owner", "Publishing date"],
+            <CopyButton label="Copy list" text={() => tsv([["Task", "Type", "Status", "Primary Interest", "Owner", "Publishing date"],
               ...list.map((r) => [r.title || "(no title)", r.type || "", r.status || "", r.sbu || "", r.owner || "", r.publishing_date || ""])])} />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -172,7 +172,7 @@ function Archive() {
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
             <thead className="text-[11px] uppercase tracking-wide text-[#8A92A6]">
-              <tr>{["Task", "Type", "Status", "Primary interest", "Owner", "Publishing date", ""].map((h) => <th key={h} className="px-4 py-2.5 font-medium text-left whitespace-nowrap">{h}</th>)}</tr>
+              <tr>{["Task", "Type", "Status", "Primary Interest", "Owner", "Publishing date", ""].map((h) => <th key={h} className="px-4 py-2.5 font-medium text-left whitespace-nowrap">{h}</th>)}</tr>
             </thead>
             <tbody>
               {list.slice(0, shown).map((r) => (
@@ -223,7 +223,7 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
     fetch(`/api/archive?id=${encodeURIComponent(id)}`, { cache: "no-store" }).then((r) => r.json()).then((j) => setRow(j.row as Full)).catch(() => {});
   }, [id]);
   const facts: [string, string | null | undefined][] = row ? [
-    ["Type", row.type], ["Status", row.status], ["Primary interest", row.sbu], ["Priority", row.priority],
+    ["Type", row.type], ["Status", row.status], ["Primary Interest", row.sbu], ["Priority", row.priority],
     ["Owner", row.owner], ["Collaborators", row.collaborators?.join(", ")], ["Created by", row.created_by],
     ["Publishing date", row.publishing_date && fmtDateShort(row.publishing_date)], ["Due date", row.due_date && fmtDateShort(row.due_date)],
     ["Platforms", row.platforms?.join(", ")], ["Created in Airtable", row.created_at && fmtDateShort(row.created_at)],

@@ -231,7 +231,7 @@ function ClaudeConnector() {
           <Can yes>Change status, dates, priority, owner and copy</Can>
           <Can yes>Read what Content Radar has found</Can>
           <Can>Delete anything — there is no such tool</Can>
-          <Can>Move a task to a different primary interest</Can>
+          <Can>Move a task to a different Primary Interest</Can>
           <Can>Publish anything, anywhere</Can>
           <Can>See another person&apos;s key, or act as them</Can>
         </div>

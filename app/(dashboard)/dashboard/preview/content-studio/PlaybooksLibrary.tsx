@@ -253,7 +253,7 @@ function DerivedCard({ d, skillName, source, isNew, onTokens }: { d: DeriveDraft
               <span className="text-[11.5px] text-[#8A92A6]">Assign to</span>
               <PreviewSelect size="sm" value={assignee} onChange={setAssignee}
                 options={TEAM.map((t) => ({ value: t.key, label: t.label }))} />
-              <PreviewSelect size="sm" value={sbu} onChange={setSbu} title="Primary interest — what this is for" placeholder="Primary interest…"
+              <PreviewSelect size="sm" value={sbu} onChange={setSbu} title="Primary Interest — what this is for" placeholder="Primary Interest…"
                 options={sbus.map((o) => ({ value: o, label: o }))} />
               <button onClick={approve} disabled={sending} className="text-[11.5px] inline-flex items-center gap-1 bg-brand text-white rounded-md px-3 py-1.5 hover:bg-brand-dark disabled:opacity-60">{sending ? "Sending…" : "Confirm"}</button>
               <button onClick={() => setPickOpen(false)} className="text-[11.5px] text-[#8A92A6] hover:text-[#232D42] px-1">Cancel</button>

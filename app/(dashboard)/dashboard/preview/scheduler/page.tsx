@@ -1947,10 +1947,10 @@ function Scheduler() {
                   className="w-full mt-1 mb-2 text-sm text-gray-900 rounded-lg border border-gray-200 px-3 py-2"
                 />
                 <div className="mb-2">
-                  <label className="text-xs uppercase tracking-wide text-gray-500 font-medium">Primary interest / SBU</label>
+                  <label className="text-xs uppercase tracking-wide text-gray-500 font-medium">Primary Interest / SBU</label>
                   <div className="mt-1">
                     <PreviewSelect className="w-full justify-between" value={sbu} onChange={setSbu}
-                      placeholder="Which primary interest is this for?"
+                      placeholder="Which Primary Interest is this for?"
                       options={sbus.map((o) => ({ value: o, label: o }))} />
                   </div>
                 </div>
