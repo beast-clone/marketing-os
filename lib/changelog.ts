@@ -32,6 +32,27 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-03",
+    title: "Reports for every month, year and person, Airtable Backup, and Samvaya in the Scheduler",
+    summary: "Every month's report in one list, a yearly report and team reports, a read-only backup of Airtable's Content Calendar, Marketing OS as an app, and Samvaya Matrimony wherever our pages are — plus \"Primary Interest\" instead of \"brand\" and a search box in long dropdowns.",
+    changes: [
+      { kind: "new", what: "Every monthly report in a list", detail: "Monthly Reports has All reports on the left — click a month to open it. Each report shows only its own month. A month that has ended opens from its saved copy in a moment (October used to take about 10 seconds), and every month is saved on its own when it ends.", where: "Reports" },
+      { kind: "fixed", what: "Monthly report numbers", detail: "Stories always showed 0 — they're now counted from the saved stories. A 31-day month showed no reach (Meta allows 30 days at a time); it now shows the last 30 days and says so. LinkedIn counted the latest posts whatever their date; it now counts only the month's.", where: "Reports" },
+      { kind: "new", what: "Yearly report", detail: "Content made and published by Primary Interest, month, type and owner (Airtable Backup and the Master sheet together, each task counted once), and leads, Instagram, YouTube and LinkedIn month by month. Every table has Copy table.", where: "Reports" },
+      { kind: "new", what: "Team report and each person's report", detail: "Team, then each person under their role. A person's report is their own job only — content writer: content approved; designer: designs delivered; video editor: videos delivered — with on time, sent back, turnaround and every task. Work they did in another role is listed under Additional roles. Admins see everyone; others see only their own.", where: "Reports" },
+      { kind: "new", what: "Add a section to a report", detail: "Give it a title and paste a table — copied cells come out as a table. Each month, year or person keeps its own sections.", where: "Reports" },
+      { kind: "new", what: "Airtable Backup", detail: "A read-only copy of Airtable's Content Calendar from April 2026 — 1,607 tasks with all their fields and files — so nothing is lost. Tick-box filters, a count by Primary Interest with Copy table, and every task's details. It never shows up in My Day or notifications.", where: "Content" },
+      { kind: "new", what: "Install Marketing OS as an app", detail: "In Chrome or Edge, the card at the bottom of the sidebar installs it on your Mac or Windows — it opens in its own window from the Dock or Start menu, always up to date.", where: "Overview" },
+      { kind: "new", what: "Samvaya Matrimony in the Scheduler and calendars", detail: "Samvaya Matrimony is a page you can post to, has its own calendar in Content calendar, and is a Primary Interest. Any brand linked on the Brands page now shows up in the Scheduler, the calendars and Team & access by itself.", where: "Scheduler" },
+      { kind: "fixed", what: "A post can't go to the wrong page", detail: "A page the publisher didn't recognise used to go out on GooCampus. It now fails with a clear message instead, and only GooCampus and GooCampus World posts cross-post to LinkedIn.", where: "Scheduler" },
+      { kind: "changed", what: "\"Primary Interest\", not \"brand\"", detail: "Filters, columns and forms that meant an SBU now say Primary Interest. \"Brand\" is kept for the real brands on the Brands page. Add a Primary Interest from the Publishing Calendar's filter.", where: "Content calendar" },
+      { kind: "new", what: "Search in long dropdowns", detail: "Any dropdown with more than 8 choices — Primary Interests above all — has a search box at the top. Capitals don't matter.", where: "Overview" },
+      { kind: "changed", what: "Important notifications drop from the bell", detail: "They appear in one place, just under the bell (which rings): with the sender's photo when a person needs you, as a Marketing OS card otherwise, and stacked with a count when there are several.", where: "Overview" },
+      { kind: "changed", what: "New loading animation", detail: "The Marketing OS M with a blue ring running round it, instead of the bars.", where: "Overview" },
+      { kind: "fixed", what: "Plan board on Team & access", detail: "Plan board had no switch, so it couldn't be given or taken away. It has one now — and a new page can't go live without its switch.", where: "System" },
+    ],
+  },
+  {
     date: "2026-10-30",
     title: "Plan board, Copy link, approval history, and rules that are really in charge",
     summary: "Plan by hand on the new Plan board, share any task or post with one link, see every date change that was approved, and the Rules page now decides who gets each task.",
