@@ -90,7 +90,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pa
         <ul className="space-y-1.5">
           <Li>Delete anything — there is no such tool</Li>
           <Li>Move a task to a different Primary Interest</Li>
-          <Li>Publish anything, anywhere</Li>
+          <Li>Publish posts — unless an admin has switched on Publish from Claude for you</Li>
           <Li>See your password, or act as anyone else</Li>
         </ul>
       </div>

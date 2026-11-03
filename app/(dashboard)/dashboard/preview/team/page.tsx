@@ -7,7 +7,7 @@ import {
 import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/PreviewDashboardShell";
 import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
 import { usePublishPages } from "@/lib/use-publish-pages";
-import { CAPABILITIES, DATE_APPROVAL_RULE, DATE_REASON_RULE, TABS, TASK_ACTIONS, canConnectClaude, hasCapability, needsDateApproval, needsDateReason, canEditCalendar, type Capability } from "@/lib/permissions";
+import { CAPABILITIES, DATE_APPROVAL_RULE, DATE_REASON_RULE, TABS, TASK_ACTIONS, canConnectClaude, canPublishFromClaude, hasCapability, needsDateApproval, needsDateReason, canEditCalendar, type Capability } from "@/lib/permissions";
 
 type Member = {
   id: string;
@@ -32,7 +32,7 @@ type WorkRole = "writer" | "designer" | "editor" | "manager";
 const WORK_ROLES: { v: WorkRole; label: string }[] = [
   { v: "writer", label: "Writer" }, { v: "designer", label: "Designer" }, { v: "editor", label: "Editor" }, { v: "manager", label: "Manager" },
 ];
-type Perm = Record<string, unknown> & { tabs?: Record<string, boolean>; scheduler_pages?: string[]; task_access?: "full" | "partial"; calendar_edit?: boolean; date_needs_approval?: boolean; date_needs_reason?: boolean; manage_access?: boolean };
+type Perm = Record<string, unknown> & { tabs?: Record<string, boolean>; scheduler_pages?: string[]; task_access?: "full" | "partial"; calendar_edit?: boolean; date_needs_approval?: boolean; date_needs_reason?: boolean; manage_access?: boolean; claude_publish?: boolean };
 type AccessReq = { id: string; from: string; fromName: string; text: string; at: string };
 
 export default function TeamPage() {
@@ -391,6 +391,10 @@ function PersonEditor({ m, team, busy, viewerId, onSave, onAction }: { m: Member
         <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-gray-50">
           <div><div className="text-[13px] text-[#232D42]">Connect Claude</div><div className="text-[12px] text-[#8A92A6]">Create tasks from Claude with a personal key (My Account).</div></div>
           <Toggle checked={canConnectClaude({ isAdmin: d.isAdmin, permissions: d.permissions as never })} disabled={busy} label="Connect Claude" onChange={(v) => setPerm({ claude_connector: v })} />
+        </div>
+        <div className="flex items-center justify-between gap-3 mt-3">
+          <div><div className="text-[13px] text-[#232D42]">Publish from Claude</div><div className="text-[12px] text-[#8A92A6]">{canConnectClaude({ isAdmin: d.isAdmin, permissions: d.permissions as never }) ? "Claude can schedule a ready post or publish it now — only to their Scheduler pages." : "Needs Connect Claude to be on first."}</div></div>
+          <Toggle checked={canPublishFromClaude({ isAdmin: d.isAdmin, permissions: d.permissions as never })} disabled={busy || !canConnectClaude({ isAdmin: d.isAdmin, permissions: d.permissions as never })} label="Publish from Claude" onChange={(v) => setPerm({ claude_publish: v })} />
         </div>
       </Section>
 

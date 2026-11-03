@@ -5,7 +5,9 @@ import { ALL_TYPES } from "@/lib/mh-content-types";
 import { SBU_OPTIONS } from "@/lib/sbus";
 import { listItems } from "@/lib/content-radar";
 import { rosterById } from "@/lib/team-db";
-import { needsDateApproval, needsDateReason } from "@/lib/permissions";
+import { needsDateApproval, needsDateReason, canPublishFromClaude, maySchedulePage } from "@/lib/permissions";
+import { enqueuePost } from "@/lib/scheduler-enqueue";
+import { pageForSbu } from "@/lib/sbu-pages";
 import { requestDateChange, supersedeDateChange } from "@/lib/date-approvals";
 import { freshPublishState } from "@/lib/scheduler-lock";
 
@@ -259,3 +261,82 @@ export async function listRadar(args: Record<string, unknown>) {
 }
 
 export const VALID_BRANDS = SBU_OPTIONS;
+
+/* ---------------------------------------------------------------- schedule_post
+ *
+ * Claude scheduling or publishing a post (Praveen, 3 Nov 2026). Only for people with
+ * "Publish from Claude" on (Team & access), only to their own Scheduler pages, and
+ * only a post that cleared review ("Ready to Publish") or is already in the queue.
+ * It goes through lib/scheduler-enqueue — the same code as the Scheduler page — so
+ * the publisher, its checks and the publish history are exactly the same.
+ */
+export async function schedulePost(args: Record<string, unknown>, userId: string, via?: string) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const whenRaw = typeof args.when === "string" ? args.when.trim() : "";
+  if (!id) throw new Error("id is required — find the task with search_tasks first.");
+  if (!whenRaw) throw new Error("when is required: \"now\", or a date and time in India time like \"2026-11-05 18:30\". Ask the user.");
+
+  const me = await rosterById(userId);
+  if (!canPublishFromClaude(me)) throw new Error("Publishing from Claude isn't switched on for you. An admin can turn on \"Publish from Claude\" for you on Team & access.");
+
+  const { data: post } = await sb().from("mh_posts")
+    .select("id, particulars, status, sbu, type, caption, media_urls, publish_status, publish_to_page, publish_to_pages, custom")
+    .eq("id", id).maybeSingle();
+  if (!post) throw new Error("No task with that id.");
+  if (post.publish_status === "published") throw new Error("That post has already been published.");
+  if (post.publish_status === "publishing") throw new Error("That post is being published right now.");
+  if (post.status !== "Ready to Publish" && !post.publish_status) throw new Error(`It isn't ready yet — it's in "${post.status}". It has to clear Content Review (Ready to Publish) first.`);
+
+  // Same media as the Scheduler shows: uploaded files, then creative attachments.
+  const { data: atts } = await sb().from("mh_attachments").select("storage_path, kind")
+    .eq("post_id", id).not("kind", "in", "(reference,attachment)")
+    .order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true });
+  const attUrls = ((atts || []) as { storage_path: string | null }[]).map((a) => a.storage_path).filter((u): u is string => !!u);
+  const media = [...new Set([...((post.media_urls as string[] | null) || []).filter((u) => !u.includes("/mh-creatives/") || attUrls.includes(u)), ...attUrls])]
+    .filter((u) => !/\.pdf(\?|#|$)/i.test(u));
+  if (!media.length) throw new Error("It has no image or video to post — upload the creative to the task first.");
+
+  const isStory = /story/i.test(post.type || "");
+  const isVideo = (u: string) => /\.(mp4|mov|webm|m4v)(\?|$)/i.test(u);
+  const format = typeof args.format === "string" && ["post", "reel", "story"].includes(args.format) ? args.format
+    : isStory ? "story" : media.length === 1 && isVideo(media[0]) ? "reel" : "post";
+  if (format !== "story" && !(post.caption || "").trim()) throw new Error("It has no caption yet. Ask the user for one and set it with update_task first.");
+  if (format === "story" && media.length !== 1) throw new Error("A story is one image or one video — this task has several.");
+
+  const asked = Array.isArray(args.pages) ? (args.pages as unknown[]).filter((p): p is string => typeof p === "string" && !!p.trim()) : [];
+  const pages = asked.length ? asked
+    : (Array.isArray(post.publish_to_pages) && post.publish_to_pages.length ? post.publish_to_pages as string[]
+      : [post.publish_to_page || pageForSbu(post.sbu) || ""].filter(Boolean));
+  if (!pages.length) throw new Error(`No page is linked to "${post.sbu}". Ask the user which page to post to (pages).`);
+  const notMine = pages.filter((p) => !maySchedulePage(me, p));
+  if (notMine.length) throw new Error(`You can't post to ${notMine.join(", ")} — it isn't in your Scheduler pages on Team & access.`);
+
+  // "now", or a date and time in India (UTC+5:30) unless it carries its own offset.
+  let scheduleTimeISO = "";
+  if (whenRaw.toLowerCase() !== "now") {
+    const m = whenRaw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})$/);
+    const t = m ? Date.parse(`${m[1]}T${m[2].padStart(2, "0")}:${m[3]}:00+05:30`) : Date.parse(whenRaw);
+    if (!Number.isFinite(t)) throw new Error("when must be \"now\" or like \"2026-11-05 18:30\" (India time).");
+    if (t < Date.now() + 60_000) throw new Error("That time has passed — use \"now\" to post straight away, or a later time.");
+    scheduleTimeISO = new Date(t).toISOString();
+  }
+
+  const res = await enqueuePost(sb(), {
+    taskId: id, particulars: post.particulars || "Post", pages, publishToPage: pages[0],
+    caption: post.caption || "", mediaUrls: media, format, sbu: post.sbu || undefined,
+    scheduleTimeISO, alsoStory: args.also_story === true,
+  }, userId);
+  if ("error" in res) throw new Error(res.error);
+  await sb().from("mh_activity").insert({
+    post_id: id, actor_key: userId, action: res.when === "now" ? "publish_requested" : "schedule_requested",
+    to_value: res.when === "now" ? "now" : res.scheduleTime, detail: { source: "claude-connector", ...(via ? { via } : {}), pages },
+  }).then(() => {}, () => {});
+  bustMarketingHubCache();
+  const at = new Date(res.scheduleTime).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  return {
+    title: post.particulars, format, pages,
+    message: res.when === "now"
+      ? `Queued to publish now to ${pages.join(", ")} — it goes live within a couple of minutes.`
+      : `Scheduled for ${at} (India time) on ${pages.join(", ")}.`,
+  };
+}

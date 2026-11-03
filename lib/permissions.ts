@@ -37,6 +37,9 @@ export type Permissions = Partial<Record<Capability, boolean>> & {
   /** Moving a publishing date asks them why (the reason goes in the task's history).
    *  Unset = yes, as it has been since 22 Oct. */
   date_needs_reason?: boolean;
+  /** Claude may schedule and publish posts for them (to their Scheduler pages only).
+   *  Off unless switched on, for admins too (Praveen, 3 Nov 2026). */
+  claude_publish?: boolean;
   // Everything below is a switch on Team & access — nothing is fixed per person in
   // code (Praveen, 22 Oct). Unset always means "behave as before".
   /** "full" = every task action; "partial" = only the ticked capabilities. Applies to
@@ -109,6 +112,11 @@ export function canConnectClaude(user: { isAdmin?: boolean; active?: boolean; pe
   return user.isAdmin ? v !== false : v === true;
 }
 
+/** May Claude schedule and publish posts for them? Needs Connect Claude as well. */
+export function canPublishFromClaude(user: { isAdmin?: boolean; active?: boolean; permissions?: Permissions } | null | undefined): boolean {
+  return canConnectClaude(user) && user?.permissions?.claude_publish === true;
+}
+
 /** Brand pages they may schedule to; null = all of them. */
 export function schedulerPages(user: { isAdmin?: boolean; permissions?: Permissions } | null | undefined): string[] | null {
   const v = user?.permissions?.scheduler_pages;
@@ -133,6 +141,7 @@ export function cleanPermissions(raw: unknown): Permissions {
     if (typeof r.calendar_edit === "boolean") out.calendar_edit = r.calendar_edit;
     if (typeof r.manage_access === "boolean") out.manage_access = r.manage_access;
     if (r.claude_connector === false) out.claude_connector = false;
+    if (typeof r.claude_publish === "boolean") out.claude_publish = r.claude_publish;
     if (Array.isArray(r.scheduler_pages)) out.scheduler_pages = r.scheduler_pages.filter((x): x is string => typeof x === "string");
     if (r.tabs && typeof r.tabs === "object") {
       const t: Record<string, boolean> = {};

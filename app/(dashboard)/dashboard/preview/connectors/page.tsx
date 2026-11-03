@@ -20,7 +20,7 @@ import {
 // never set up a connector before.
 
 type Grant = { clientId: string; name: string; createdAt: string; lastUsedAt?: string };
-type KeyState = { allowed: boolean; connected: boolean; createdAt?: string; lastUsedAt?: string; grants?: Grant[]; who?: string; isAdmin?: boolean };
+type KeyState = { allowed: boolean; connected: boolean; createdAt?: string; lastUsedAt?: string; grants?: Grant[]; who?: string; isAdmin?: boolean; canPublish?: boolean };
 type Person = { id: string; name: string; key: { createdAt?: string; lastUsedAt?: string } | null; grants: Grant[] };
 
 const when = (iso?: string) =>
@@ -292,7 +292,9 @@ function ClaudeConnector() {
           <Can yes>Read what Content Radar has found</Can>
           <Can>Delete anything — there is no such tool</Can>
           <Can>Move a task to a different Primary Interest</Can>
-          <Can>Publish anything, anywhere</Can>
+          {st.canPublish
+            ? <Can yes>Schedule or publish posts — to your Scheduler pages, after you say yes</Can>
+            : <Can>Publish posts — an admin can switch on Publish from Claude for you</Can>}
           <Can>See another person&apos;s key, or act as them</Can>
         </div>
         <p className="text-[12px] text-[#A6ACBE] mt-3">

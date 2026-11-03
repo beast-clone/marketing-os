@@ -8,7 +8,7 @@ import { fetchSbus } from "@/lib/sbus-db";
 import { CONTENT_TYPES, ALL_TYPES } from "@/lib/mh-content-types";
 import { hasCapability } from "@/lib/permissions";
 import { createTask, normalizeOwner } from "@/lib/task-create";
-import { listTasks, getTask, searchTasks, updateTask, whatsDue, listRadar } from "@/lib/mcp-tools";
+import { listTasks, getTask, searchTasks, updateTask, whatsDue, listRadar, schedulePost } from "@/lib/mcp-tools";
 import { fetchContentTypes } from "@/lib/content-types-db";
 
 // The Claude connector, protocol and all.
@@ -125,6 +125,26 @@ const TOOLS = [
     },
   },
   {
+    name: "schedule_post",
+    title: "Schedule or publish a post",
+    description:
+      "Put a finished post into the Scheduler for a date and time, or publish it now, to Instagram/Facebook. " +
+      "Only works for people with 'Publish from Claude' switched on, only to their own Scheduler pages, and only for a task that has cleared review (status Ready to Publish) or is already queued. " +
+      "Publishing is public and can't be undone: before calling, tell the user exactly which post, which page(s) and when, and get a clear yes. Never call it on your own initiative. " +
+      "when: \"now\" or a date and time in India time like \"2026-11-05 18:30\". The page comes from the post's Primary Interest unless the user names pages. Format is worked out from the task (story, reel or post) unless given.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "The task id." },
+        when: { type: "string", description: "\"now\", or \"YYYY-MM-DD HH:mm\" in India time." },
+        pages: { type: "array", items: { type: "string" }, description: "Optional. Page names to post to, e.g. \"Samvaya Matrimony\". Default: the post's own page." },
+        format: { type: "string", enum: ["post", "reel", "story"], description: "Optional. Default: worked out from the task." },
+        also_story: { type: "boolean", description: "Optional. Also share a single image/reel as a Story at the same time." },
+      },
+      required: ["id", "when"], additionalProperties: false,
+    },
+  },
+  {
     name: "whats_due",
     title: "What is due, and what is overdue",
     description: "Tasks with a publishing date on or before N days from today (IST), split into overdue and due. Anything already published or ready to publish is left out.",
@@ -223,6 +243,10 @@ async function callTool(id: Rpc["id"], userId: string, name: string, args: Recor
       }
       const res = await updateTask(args, userId, origin, via);
       return say(id, `Changed ${res.updated.join(", ")} on “${res.task.title}”.\n${res.task.link}\n\n${JSON.stringify(res.task, null, 1)}`);
+    }
+    case "schedule_post": {
+      const res = await schedulePost(args, userId, via);
+      return say(id, `${res.message}\n“${res.title}” · ${res.format}`);
     }
     default: return fail(id, -32602, `Unknown tool: ${name}`);
   }
