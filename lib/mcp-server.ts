@@ -226,7 +226,7 @@ export async function handleRpc(msg: Rpc, userId: string, origin: string) {
           "Read and write the GooCampus Marketing OS content board. " +
           "Before creating a task you MUST know the primary interest (brand) and the content type — if the user has not said them, ask; never guess. " +
           "Prefer looking before acting: use search_tasks or list_tasks to find the task the user means rather than assuming an id. " +
-          "You cannot delete anything, and you cannot move a task to a different brand.",
+          "You cannot delete anything, and you cannot move a task to a different Primary Interest.",
       });
     case "ping": return ok(msg.id, {});
     case "tools/list": return ok(msg.id, { tools: await liveTools() });

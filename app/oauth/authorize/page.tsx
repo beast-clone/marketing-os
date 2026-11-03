@@ -89,7 +89,7 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pa
         <p className="text-[12px] font-semibold text-[#8A92A6] uppercase tracking-wider mt-3.5 mb-2">It will not be able to</p>
         <ul className="space-y-1.5">
           <Li>Delete anything — there is no such tool</Li>
-          <Li>Move a task to a different brand</Li>
+          <Li>Move a task to a different Primary Interest</Li>
           <Li>Publish anything, anywhere</Li>
           <Li>See your password, or act as anyone else</Li>
         </ul>
