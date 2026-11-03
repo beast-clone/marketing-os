@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSessionUserId } from "@/lib/auth";
 import { canUseConnector, connectorStatus, issueKey, revokeKey } from "@/lib/claude-connector";
 import { listGrants, revokeAllGrants } from "@/lib/oauth";
+import { rosterById } from "@/lib/team-db";
 
 // GET    → { allowed, connected, createdAt, lastUsedAt, grants[] }   (System → Connectors)
 // POST   → { key }  a new personal key (shown once; replaces any old one)
@@ -19,8 +20,8 @@ export async function GET() {
   if (!uid) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   const allowed = await canUseConnector(uid);
   if (!allowed) return NextResponse.json({ allowed: false, connected: false, grants: [] });
-  const [status, grants] = await Promise.all([connectorStatus(uid), listGrants(uid)]);
-  return NextResponse.json({ allowed, ...status, grants });
+  const [status, grants, me] = await Promise.all([connectorStatus(uid), listGrants(uid), rosterById(uid)]);
+  return NextResponse.json({ allowed, ...status, grants, who: me?.first || me?.name || uid, isAdmin: !!me?.isAdmin });
 }
 
 export async function POST() {

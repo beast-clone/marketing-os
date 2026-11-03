@@ -34,7 +34,7 @@ export const REFRESH_TTL_MS = 90 * 24 * 60 * 60_000;
 export type OAuthClient = { clientId: string; name: string; redirectUris: string[]; createdAt: string };
 type CodeRow = { userId: string; clientId: string; redirectUri: string; challenge: string; expiresAt: number };
 type TokenRow = { userId: string; clientId: string; expiresAt: number; gen: number };
-type GrantRow = { clientId: string; name: string; createdAt: string };
+type GrantRow = { clientId: string; name: string; createdAt: string; lastUsedAt?: string };
 
 const sb = () => {
   const c = getSupabase();
@@ -169,6 +169,7 @@ export async function revokeAllGrants(userId: string): Promise<void> {
   for (const g of grants) await drop(`oauth-grant:${userId}:${g.clientId}`);
 }
 
+export type { GrantRow };
 export async function listGrants(userId: string): Promise<GrantRow[]> {
   const { data } = await sb().from("discover_cache").select("payload")
     .like("cache_key", `oauth-grant:${userId}:%`).eq("source", SOURCE);
@@ -182,8 +183,11 @@ export async function issueTokens(userId: string, clientId: string, clientName?:
   await put(`oauth-at:${sha(access)}`, { userId, clientId, expiresAt: now + ACCESS_TTL_MS, gen } satisfies TokenRow);
   await put(`oauth-rt:${sha(refresh)}`, { userId, clientId, expiresAt: now + REFRESH_TTL_MS, gen } satisfies TokenRow);
   // So Connectors can show what is connected, and offer to disconnect it.
+  // Kept across refreshes so "connected on" stays the day they approved it.
+  const prev = await get<GrantRow>(`oauth-grant:${userId}:${clientId}`);
   await put(`oauth-grant:${userId}:${clientId}`, {
-    clientId, name: clientName || (await getClient(clientId))?.name || "Claude", createdAt: new Date().toISOString(),
+    clientId, name: clientName || prev?.name || (await getClient(clientId))?.name || "Claude",
+    createdAt: prev?.createdAt || new Date().toISOString(), lastUsedAt: prev?.lastUsedAt,
   } satisfies GrantRow);
   return { access, refresh, expiresIn: Math.floor(ACCESS_TTL_MS / 1000) };
 }
@@ -193,7 +197,9 @@ export async function issueTokens(userId: string, clientId: string, clientName?:
  *  Permission is re-checked here, not just at sign-in: taking "Connect Claude" away on
  *  the Team page has to stop an already-issued token, or revoking access would mean
  *  waiting up to eight hours for it to lapse. */
-export async function userForAccessToken(tok: string | null | undefined): Promise<string | null> {
+/** Access token → who and which app (e.g. Nandu, "Claude Code"), so each call can be
+ *  told apart. Also stamps the connection's "last used" (at most every 5 minutes). */
+export async function connectionForAccessToken(tok: string | null | undefined): Promise<{ userId: string; app: string } | null> {
   if (!tok) return null;
   const key = `oauth-at:${sha(tok)}`;
   const row = await get<TokenRow>(key);
@@ -202,7 +208,12 @@ export async function userForAccessToken(tok: string | null | undefined): Promis
   // Minted before the last Disconnect → dead, whatever its expiry says.
   if ((row.gen ?? 0) !== (await currentGen(row.userId))) return null;
   if (!(await canUseConnector(row.userId))) return null;
-  return row.userId;
+  const gkey = `oauth-grant:${row.userId}:${row.clientId}`;
+  const grant = await get<GrantRow>(gkey);
+  if (grant && (!grant.lastUsedAt || Date.now() - Date.parse(grant.lastUsedAt) > 5 * 60_000)) {
+    put(gkey, { ...grant, lastUsedAt: new Date().toISOString() }).catch(() => {});
+  }
+  return { userId: row.userId, app: grant?.name || "Claude" };
 }
 
 /** Refresh tokens rotate: the old one dies as the new pair is minted, so a stolen

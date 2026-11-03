@@ -136,7 +136,7 @@ export async function whatsDue(args: Record<string, unknown>, origin: string) {
 // who is accountable for it and which page it publishes to.
 const UPDATABLE = ["status", "publishing_date", "due_date", "priority", "owner", "caption", "content", "type"] as const;
 
-export async function updateTask(args: Record<string, unknown>, userId: string, origin: string) {
+export async function updateTask(args: Record<string, unknown>, userId: string, origin: string, via?: string) {
   const id = typeof args.id === "string" ? args.id.trim() : "";
   if (!id) throw new Error("id is required");
 
@@ -226,7 +226,7 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
     await sb().from("mh_activity").insert({
       post_id: id, actor_key: userId, action: "updated",
       to_value: changed.join(", "),
-      detail: { source: "claude-connector", fields: changed },
+      detail: { source: "claude-connector", ...(via ? { via } : {}), fields: changed },
     });
   } catch { /* courtesy trail */ }
   bustMarketingHubCache();

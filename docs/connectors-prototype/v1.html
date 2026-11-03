@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Add a connector — prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  :root{--brand:#3A57E8;--brand-dark:#2138B0;--brand-light:#E9ECFB;--ink:#232D42;--muted:#8A92A6;--line:#EEF0F5;--canvas:#F6F7FB;--ok:#1AA053;--ok-bg:#E8F6EE;--warn:#B76E00;--warn-bg:#FFF4E0}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--canvas);color:var(--ink);font-size:14px}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 16px 80px}
+  .note{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:18px}
+  .note h1{font-size:18px;font-weight:600;margin:0 0 6px}
+  .note p{margin:4px 0;color:var(--muted);line-height:1.5}
+  .note ol{margin:8px 0 0;padding-left:20px;line-height:1.6}
+  .note b{color:var(--ink);font-weight:500}
+  .q{display:inline-block;background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:1px 7px;font-size:12px;font-weight:500;margin-right:6px}
+  .hero{background:linear-gradient(90deg,var(--brand),#6B83F2);border-radius:16px;color:#fff;padding:22px 24px;margin-bottom:16px}
+  .hero h2{margin:0;font-size:20px;font-weight:600}.hero p{margin:4px 0 0;opacity:.85}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:12px}
+  .row{display:flex;align-items:center;gap:12px}
+  .ico{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;font-size:20px;flex-shrink:0}
+  .t{font-weight:600;font-size:14.5px}.s{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:8px 14px;font:500 13px Inter;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-dark)}
+  .btn.danger{color:#C03221}
+  .pill{font-size:12px;font-weight:500;border-radius:999px;padding:3px 10px;display:inline-flex;gap:5px;align-items:center}
+  .pill.ok{background:var(--ok-bg);color:var(--ok)}
+  .sec{font-size:11.5px;font-weight:600;letter-spacing:.08em;color:var(--muted);margin:18px 2px 8px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .chip{background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:3px 9px;font-size:12px;color:#4A5268}
+  .meta{display:flex;gap:18px;margin-top:10px;color:var(--muted);font-size:12.5px;flex-wrap:wrap}
+  /* modal */
+  .scrim{position:fixed;inset:0;background:rgba(35,45,66,.35);display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+  .scrim.on{display:flex}
+  .modal{background:#fff;border-radius:16px;width:100%;max-width:640px;border:1px solid var(--line)}
+  .mh{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .mh .t{font-size:16px}
+  .steps{display:flex;gap:6px;padding:12px 20px 0}
+  .steps span{flex:1;height:4px;border-radius:4px;background:var(--line)}.steps span.on{background:var(--brand)}
+  .mb{padding:16px 20px}
+  .mf{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:space-between}
+  .pick{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .opt{border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+  .opt.sel{border-color:var(--brand);background:var(--brand-light)}
+  label.f{display:block;font-size:12.5px;font-weight:500;margin:12px 0 6px}
+  input[type=text],select{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font:14px Inter;color:var(--ink)}
+  .perm{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-bottom:1px solid var(--line)}
+  .perm:last-child{border:0}
+  .perm input{margin-top:3px;accent-color:var(--brand)}
+  .no{color:#C03221}
+  .key{display:flex;gap:8px;margin-top:8px}
+  .key code{flex:1;background:var(--brand-light);border-radius:10px;padding:10px 12px;font:13px ui-monospace,Menlo,monospace;overflow:auto;white-space:nowrap}
+  .warn{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:12.5px;margin-top:10px}
+  .how{margin-top:14px;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .how ol{margin:6px 0 0;padding-left:18px;line-height:1.7;font-size:13px}
+  .how code{background:var(--canvas);border-radius:6px;padding:1px 6px;font-size:12px}
+  @media(max-width:600px){.pick{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="note">
+    <h1>Plan: a real “Add a connector”</h1>
+    <p>Today the “Add another connector” card is only a note — the one working connector is Claude, and it acts as the person who signed in. This adds a proper way for an admin to connect any outside tool, each with its own key, its own name in the task history, and only the permissions you tick.</p>
+    <ol>
+      <li><b>Add a connector</b> (admins only): name it, tick what it may do, and choose whose name its changes go under. It gets its own key, shown once, plus step-by-step setup for that tool.</li>
+      <li><b>Connected list</b>: every connector with what it can do, whose name it uses, when it was last used, and <b>Make a new key</b> / <b>Disconnect</b>. Disconnecting stops it at once.</li>
+      <li><b>Under the hood</b>: the same server Claude already uses, so nothing new to maintain. Each key is stored only as a fingerprint; every change it makes is recorded in the task's history as “via n8n” (or whatever you named it).</li>
+    </ol>
+    <p style="margin-top:10px"><span class="q">Decide</span>Whose name should a connector's changes go under — its own name (e.g. “n8n”), or a person you pick? <span class="q">Decide</span>Should a connector also be <i>told</i> when something happens (e.g. “a task moved to Ready to Publish → tell n8n”)? That's what n8n triggers need; it can come later.</p>
+  </div>
+
+  <div class="hero"><h2>Connectors</h2><p>Tools outside the dashboard that read or write it.</p></div>
+
+  <div class="card row" style="justify-content:space-between">
+    <div class="row">
+      <span class="ico" style="background:var(--brand-light);color:var(--brand)"><i class="ti ti-plug-connected"></i></span>
+      <div><div class="t">Add a connector</div><div class="s">Any outside tool — n8n, another AI tool, a script. Each gets its own key and only the permissions you tick.</div></div>
+    </div>
+    <button class="btn primary" onclick="openM()"><i class="ti ti-plus"></i>Add a connector</button>
+  </div>
+
+  <div class="sec">CONNECTED</div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <div class="row"><span class="ico" style="background:#FDEEE6;color:#D97757"><i class="ti ti-asterisk"></i></span>
+        <div><div class="t">Claude</div><div class="s">Each person signs in with their own login · acts as them</div></div></div>
+      <span class="pill ok"><i class="ti ti-check"></i>Connected</span>
+    </div>
+    <div class="meta"><span>3 people connected</span><span>Last used today, 4:09 PM</span></div>
+  </div>
+
+  <div class="card" id="n8nCard">
+    <div class="row" style="justify-content:space-between">
+      <div class="row"><span class="ico" style="background:#FFE9EF;color:#EA4B71"><i class="ti ti-hierarchy-3"></i></span>
+        <div><div class="t">n8n — Publisher</div><div class="s">Changes recorded as <b style="font-weight:500;color:var(--ink)">n8n — Publisher</b> · added by Praveen, 3 Nov</div></div></div>
+      <span class="pill ok"><i class="ti ti-check"></i>Connected</span>
+    </div>
+    <div class="chips"><span class="chip">Read tasks</span><span class="chip">Change status</span><span class="chip">Mark as published</span></div>
+    <div class="meta"><span>Last used 12 min ago</span><span>Key ending …7f3a</span></div>
+    <div class="row" style="margin-top:12px;gap:8px"><button class="btn"><i class="ti ti-refresh"></i>Make a new key</button><button class="btn"><i class="ti ti-adjustments"></i>Change what it can do</button><button class="btn danger"><i class="ti ti-plug-x"></i>Disconnect</button></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="if(event.target===this)closeM()">
+  <div class="modal">
+    <div class="mh"><div class="t" id="mt">Add a connector</div><button class="btn" onclick="closeM()"><i class="ti ti-x"></i></button></div>
+    <div class="steps"><span id="s1" class="on"></span><span id="s2"></span><span id="s3"></span></div>
+
+    <div class="mb" id="p1">
+      <div class="s" style="margin-bottom:10px">Any tool that can send a key with its request — n8n, another AI tool, a script, a partner's system.</div>
+      <label class="f" style="margin-top:0">Name it</label>
+      <input type="text" id="nm" value="n8n — Publisher" placeholder="e.g. n8n — Publisher, Lead form, Gemini">
+      <div class="s" style="margin-top:6px">This name shows in each task's history next to what it changed.</div>
+    </div>
+
+    <div class="mb" id="p2" style="display:none">
+      <div class="s" style="margin-bottom:6px">What may it do? Only what you tick.</div>
+      <div class="perm"><input type="checkbox" checked><div><div class="t" style="font-size:13.5px">Read tasks</div><div class="s">See tasks, search them, see what's due</div></div></div>
+      <div class="perm"><input type="checkbox"><div><div class="t" style="font-size:13.5px">Create tasks</div><div class="s">Owner is picked by your Rules, as usual</div></div></div>
+      <div class="perm"><input type="checkbox" checked><div><div class="t" style="font-size:13.5px">Change status</div><div class="s">Follows the same checks as a person (approval, required fields)</div></div></div>
+      <div class="perm"><input type="checkbox"><div><div class="t" style="font-size:13.5px">Change dates</div><div class="s">Date changes still wait for admin approval</div></div></div>
+      <div class="perm"><input type="checkbox" checked><div><div class="t" style="font-size:13.5px">Mark as published</div><div class="s">Record the live link after it goes out</div></div></div>
+      <div class="perm"><input type="checkbox" disabled><div><div class="t no" style="font-size:13.5px">Delete or publish — never</div><div class="s">No connector can delete anything or post to Instagram, Facebook or LinkedIn</div></div></div>
+      <label class="f">Whose name do its changes go under?</label>
+      <select><option>Its own name — “n8n — Publisher”</option><option>Praveen</option><option>Nandu</option><option>Maheen</option></select>
+    </div>
+
+    <div class="mb" id="p3" style="display:none">
+      <div class="row"><span class="pill ok"><i class="ti ti-check"></i>Connected</span><span class="s" id="okname">n8n — Publisher</span></div>
+      <label class="f">Its key</label>
+      <div class="key"><code>gcx_9f1c2e7a4b8d0e3f6a1b5c9d2e8f7f3a</code><button class="btn primary"><i class="ti ti-copy"></i>Copy</button></div>
+      <div class="warn"><i class="ti ti-alert-triangle"></i> Shown once. Paste it into the tool now — if you lose it, make a new one here and the old one stops working.</div>
+      <div class="how" id="how"></div>
+    </div>
+
+    <div class="mf"><button class="btn" id="back" onclick="go(-1)" style="visibility:hidden">Back</button><button class="btn primary" id="next" onclick="go(1)">Next</button></div>
+  </div>
+</div>
+
+<script>
+  let step=1;
+  const HOW='<div class="t" style="font-size:13.5px">Set it up in the tool</div><ol><li>Server address: <code>https://goocampus-ig-dashboard.netlify.app/api/mcp</code></li><li>Send the key in a header: <code>x-api-key</code> (or <code>Authorization: Bearer …</code>). Never in the address — addresses end up in logs.</li><li>Run one request to test. It shows here under “Last used”.</li></ol>';
+  function openM(){step=1;render();document.getElementById('scrim').classList.add('on')}
+  function closeM(){document.getElementById('scrim').classList.remove('on')}
+    function go(d){if(step===3&&d>0){closeM();return}step=Math.max(1,Math.min(3,step+d));render()}
+  function render(){
+    for(let i=1;i<=3;i++){document.getElementById('p'+i).style.display=i===step?'block':'none';document.getElementById('s'+i).classList.toggle('on',i<=step)}
+    document.getElementById('back').style.visibility=step>1&&step<3?'visible':'hidden';
+    document.getElementById('next').textContent=step===2?'Connect':step===3?'Done':'Next';
+    document.getElementById('mt').textContent=step===3?'Connected':'Add a connector';
+    document.getElementById('okname').textContent=document.getElementById('nm').value;
+    document.getElementById('how').innerHTML=HOW;
+  }
+</script>
+</body>
+</html>

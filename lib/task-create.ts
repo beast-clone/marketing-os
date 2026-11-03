@@ -88,7 +88,7 @@ export function missingForCreate(t: TaskInput): string[] {
   return missing;
 }
 
-export async function createTask(t: TaskInput, actorId: string | null, source: string): Promise<CreatedTask> {
+export async function createTask(t: TaskInput, actorId: string | null, source: string, via?: string): Promise<CreatedTask> {
   await fetchRoster();   // so normalizeOwner knows anyone added on the Team page
   await fetchContentTypes();   // registers dashboard-added types into VIDEO_TYPES (sql/028)
   const sb = getSupabase();
@@ -128,7 +128,7 @@ export async function createTask(t: TaskInput, actorId: string | null, source: s
   // Best-effort: the task is committed; a logging hiccup must not fail the create
   // (the caller would retry → duplicate task).
   try {
-    await sb.from("mh_activity").insert({ post_id: data.id, actor_key: actorId || normalizeOwner(t.owner), action: "created", to_value: "Content - Pending", detail: { source } });
+    await sb.from("mh_activity").insert({ post_id: data.id, actor_key: actorId || normalizeOwner(t.owner), action: "created", to_value: "Content - Pending", detail: { source, ...(via ? { via } : {}) } });
   } catch { /* courtesy trail */ }
   bustMarketingHubCache();
   return data as CreatedTask;

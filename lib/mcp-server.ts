@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { userForKey } from "@/lib/claude-connector";
-import { userForAccessToken, issuer } from "@/lib/oauth";
+import { connectionForAccessToken, issuer } from "@/lib/oauth";
 import { rosterById, fetchRoster, activeTeamIds } from "@/lib/team-db";
 import { SBU_OPTIONS } from "@/lib/sbus";
 import { fetchSbus } from "@/lib/sbus-db";
@@ -154,7 +154,7 @@ async function liveTools() {
   });
 }
 
-async function createOne(id: Rpc["id"], userId: string, args: Record<string, unknown>, origin: string) {
+async function createOne(id: Rpc["id"], userId: string, args: Record<string, unknown>, origin: string, via?: string) {
   const me = await rosterById(userId);
   if (!hasCapability(me, "create_tasks")) {
     return say(id, "You don't have permission to create tasks in the dashboard. Ask an admin (Team page → Create tasks).", true);
@@ -186,18 +186,18 @@ async function createOne(id: Rpc["id"], userId: string, args: Record<string, unk
     publishingDate: date || undefined, priority: s("priority") || "Medium",
     owner: ownerKey,
     platforms: Array.isArray(args.platforms) ? (args.platforms as unknown[]).filter((p): p is string => typeof p === "string") : undefined,
-  }, userId, "claude-connector");
+  }, userId, "claude-connector", via);
 
   return say(id,
     `Created “${task.particulars}” (${type} · ${sbu}) — owner ${task.owner_key || "none"}, status ${task.status}${task.publishing_date ? `, publishing ${task.publishing_date}` : ""}.\n` +
     `Open it: ${origin}/dashboard/preview/marketing-hub?tab=master&open=${task.id}`);
 }
 
-async function callTool(id: Rpc["id"], userId: string, name: string, args: Record<string, unknown>, origin: string) {
+async function callTool(id: Rpc["id"], userId: string, name: string, args: Record<string, unknown>, origin: string, via?: string) {
   await fetchRoster();   // owner names below resolve against the Team page roster
   await fetchContentTypes();   // registers dashboard-added types into VIDEO_TYPES (sql/028)
   switch (name) {
-    case "create_task":  return createOne(id, userId, args, origin);
+    case "create_task":  return createOne(id, userId, args, origin, via);
     case "list_tasks":   return json(id, await listTasks(args, origin));
     case "get_task":     return json(id, await getTask(args, origin));
     case "search_tasks": return json(id, await searchTasks(args, origin));
@@ -208,14 +208,14 @@ async function callTool(id: Rpc["id"], userId: string, name: string, args: Recor
       if (!hasCapability(me, "create_tasks")) {
         return say(id, "You don't have permission to change tasks in the dashboard. Ask an admin (Team page → Create tasks).", true);
       }
-      const res = await updateTask(args, userId, origin);
+      const res = await updateTask(args, userId, origin, via);
       return say(id, `Changed ${res.updated.join(", ")} on “${res.task.title}”.\n${res.task.link}\n\n${JSON.stringify(res.task, null, 1)}`);
     }
     default: return fail(id, -32602, `Unknown tool: ${name}`);
   }
 }
 
-export async function handleRpc(msg: Rpc, userId: string, origin: string) {
+export async function handleRpc(msg: Rpc, userId: string, origin: string, via?: string) {
   switch (msg.method) {
     case "initialize":
       return ok(msg.id, {
@@ -232,7 +232,7 @@ export async function handleRpc(msg: Rpc, userId: string, origin: string) {
     case "tools/list": return ok(msg.id, { tools: await liveTools() });
     case "tools/call": {
       const p = msg.params || {};
-      try { return await callTool(msg.id, userId, String(p.name || ""), (p.arguments as Record<string, unknown>) || {}, origin); }
+      try { return await callTool(msg.id, userId, String(p.name || ""), (p.arguments as Record<string, unknown>) || {}, origin, via); }
       catch (e) { return say(msg.id, `That didn't work: ${(e as Error).message}`, true); }
     }
     default: return fail(msg.id, -32601, `Method not found: ${msg.method}`);
@@ -267,7 +267,10 @@ export async function serve(req: Request, key: string) {
   // /api/mcp/<key> URL carries; an OAuth access token is what the desktop app and
   // claude.ai get after someone approves. Both arrive in the same place, so try the
   // cheap prefix check first and fall through.
-  const userId = key.startsWith("gck_") ? await userForKey(key) : await userForAccessToken(key);
+  const conn = key.startsWith("gck_")
+    ? await userForKey(key).then((u) => (u ? { userId: u, app: "personal key" } : null))
+    : await connectionForAccessToken(key);
+  const userId = conn?.userId ?? null;
   if (!userId) {
     // A bare 401 is what broke the first desktop setup: the client read it as "this
     // server wants OAuth", went looking for a sign-in service, found nothing and gave
@@ -292,7 +295,11 @@ export async function serve(req: Request, key: string) {
   const msgs: Rpc[] = Array.isArray(body) ? body : [body];
   const replies = [];
   // Notifications carry no id and expect no reply.
-  for (const m of msgs) if (m && m.id !== undefined && m.id !== null) replies.push(await handleRpc(m, userId, origin));
+  // "Nandu's Claude Code" — recorded on every change it makes, so a task's history
+  // says whose connection did it, not just whose name.
+  const who = await rosterById(userId);
+  const via = `${who?.first || who?.name || userId}'s ${conn!.app}`;
+  for (const m of msgs) if (m && m.id !== undefined && m.id !== null) replies.push(await handleRpc(m, userId, origin, via));
   if (!replies.length) return new NextResponse(null, { status: 202, headers: CORS });
   return NextResponse.json(Array.isArray(body) ? replies : replies[0], { headers: CORS });
 }

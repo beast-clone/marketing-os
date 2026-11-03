@@ -19,8 +19,12 @@ import {
 // here telling them how. Hence one card per platform, written for somebody who has
 // never set up a connector before.
 
-type Grant = { clientId: string; name: string; createdAt: string };
-type KeyState = { allowed: boolean; connected: boolean; createdAt?: string; lastUsedAt?: string; grants?: Grant[] };
+type Grant = { clientId: string; name: string; createdAt: string; lastUsedAt?: string };
+type KeyState = { allowed: boolean; connected: boolean; createdAt?: string; lastUsedAt?: string; grants?: Grant[]; who?: string; isAdmin?: boolean };
+type Person = { id: string; name: string; key: { createdAt?: string; lastUsedAt?: string } | null; grants: Grant[] };
+
+const when = (iso?: string) =>
+  iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "never";
 
 export default function ConnectorsPage() {
   return (
@@ -43,7 +47,7 @@ function Connectors() {
         <div className="min-w-0">
           <div className="text-[13.5px] font-semibold text-[#232D42]">Add another connector</div>
           <p className="text-[12.5px] text-[#8A92A6] mt-0.5">
-            Anything that should read or write this dashboard from outside — n8n, Zapier,
+            Anything that should read or write this dashboard from outside — n8n,
             another AI tool — gets set up here. Ask Praveen to add it.
           </p>
         </div>
@@ -52,6 +56,61 @@ function Connectors() {
       <div className="pt-1">
         <h2 className="text-[11.5px] font-semibold text-[#8A92A6] uppercase tracking-wider px-1 mb-2">Connected</h2>
         <ClaudeConnector />
+      </div>
+      <EveryonesConnections />
+    </div>
+  );
+}
+
+// Admins: every Claude connection on the team, each named after its person and app,
+// with a way to end one person's connections. Hidden for everyone else (the API is
+// System-section only).
+function EveryonesConnections() {
+  const [people, setPeople] = useState<Person[] | null>(null);
+  const load = () =>
+    fetch("/api/admin/connectors", { cache: "no-store", credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null)).then((j) => setPeople(j?.people ?? null)).catch(() => setPeople(null));
+  useEffect(() => { load(); }, []);
+  if (!people) return null;
+
+  const end = async (p: Person) => {
+    if (!(await confirmDialog({
+      title: `Disconnect ${p.name}?`,
+      body: `Every Claude connection and any personal key ${p.name} has stop working immediately. They can connect again with their own login.`,
+      action: "Disconnect", danger: true,
+    }))) return;
+    await fetch(`/api/admin/connectors?user=${encodeURIComponent(p.id)}`, { method: "DELETE", credentials: "same-origin" });
+    load();
+  };
+
+  return (
+    <div className="pt-1">
+      <h2 className="text-[11.5px] font-semibold text-[#8A92A6] uppercase tracking-wider px-1 mb-2">Everyone&apos;s connections</h2>
+      <div className="bg-white border border-gray-100 rounded-2xl divide-y divide-gray-100">
+        {people.length === 0 && <div className="p-4 text-[12.5px] text-[#8A92A6]">Nobody has connected Claude yet.</div>}
+        {people.map((p) => (
+          <div key={p.id} className="p-4 flex items-start gap-3">
+            <span className="grid place-items-center w-9 h-9 rounded-lg bg-brand-light text-brand text-[13px] font-semibold shrink-0">{p.name.slice(0, 1).toUpperCase()}</span>
+            <div className="flex-1 min-w-0 space-y-1">
+              {p.grants.map((g) => (
+                <div key={g.clientId} className="text-[13px] text-[#232D42]">
+                  <span className="font-medium">{p.name}&apos;s {g.name}</span>
+                  <span className="text-[#8A92A6]"> · connected {when(g.createdAt)} · last used {when(g.lastUsedAt)}</span>
+                </div>
+              ))}
+              {p.key && (
+                <div className="text-[13px] text-[#232D42]">
+                  <span className="font-medium">{p.name}&apos;s personal key</span>
+                  <span className="text-[#8A92A6]"> · made {when(p.key.createdAt)} · last used {when(p.key.lastUsedAt)}</span>
+                </div>
+              )}
+            </div>
+            <button onClick={() => end(p)}
+              className="text-[12.5px] font-medium border border-gray-200 rounded-lg px-3 py-1.5 text-[#4A5468] hover:border-[#C03221] hover:text-[#C03221] transition shrink-0">
+              Disconnect
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -69,8 +128,6 @@ function ClaudeConnector() {
   useEffect(() => { load(); }, []);
 
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const when = (iso?: string) =>
-    iso ? new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : "never";
 
   const create = async () => {
     setBusy(true);
@@ -167,15 +224,24 @@ function ClaudeConnector() {
       </Step>
 
       <Step n={2} title="Your connections">
-        {st.grants?.length ? (
+        {/* Named after the person and the app ("Nandu's Claude Code"), so it's clear
+            whose connection it is — on this list and in each task's history. */}
+        {st.grants?.length || st.connected ? (
           <div className="space-y-1.5 mb-2">
-            {st.grants.map((g) => (
-              <div key={g.clientId} className="flex items-center gap-2 text-[13px] text-[#3B4457]">
+            {(st.grants || []).map((g) => (
+              <div key={g.clientId} className="flex items-center gap-2 text-[13px] text-[#3B4457] flex-wrap">
                 <IconCheck size={14} stroke={2.2} className="text-[#0F6E3C] shrink-0" />
-                <b className="font-medium">{g.name}</b>
-                <span className="text-[#8A92A6]">connected {when(g.createdAt)}</span>
+                <b className="font-medium">{st.who}&apos;s {g.name}</b>
+                <span className="text-[#8A92A6]">connected {when(g.createdAt)} · last used {when(g.lastUsedAt)}</span>
               </div>
             ))}
+            {st.connected && (
+              <div className="flex items-center gap-2 text-[13px] text-[#3B4457] flex-wrap">
+                <IconCheck size={14} stroke={2.2} className="text-[#0F6E3C] shrink-0" />
+                <b className="font-medium">{st.who}&apos;s personal key</b>
+                <span className="text-[#8A92A6]">made {when(st.createdAt)} · last used {when(st.lastUsedAt)}</span>
+              </div>
+            )}
           </div>
         ) : (
           <p className="text-[12.5px] text-[#8A92A6] mb-2">

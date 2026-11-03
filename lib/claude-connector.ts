@@ -43,7 +43,9 @@ export async function issueKey(userId: string): Promise<string> {
   const sb = getSupabase();
   if (!sb) throw new Error("Supabase not configured");
   await revokeKey(userId);
-  const key = `gck_${randomBytes(24).toString("base64url")}`;
+  // The person's id is part of the key (gck_nandu_…) so anyone looking at one can
+  // tell whose it is — it identifies, it doesn't unlock; the random part does.
+  const key = `gck_${userId.toLowerCase().replace(/[^a-z0-9]/g, "")}_${randomBytes(24).toString("base64url")}`;
   const h = hash(key), now = new Date().toISOString();
   const { error } = await sb.from("discover_cache").upsert([
     { cache_key: `claude-key:${h}`, source: SOURCE, last_fetched: now, payload: { userId, createdAt: now } satisfies KeyRow },
