@@ -31,7 +31,9 @@ import type { TrashItem } from "@/lib/task-trash";
 import { IconRestore, IconSearch, IconPaperclip, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandYoutube, IconFilter, IconLayoutList, IconPalette, IconBookmark, IconDeviceFloppy, IconUser, IconUsers, IconLock, IconDots, IconPencil, IconFileDescription, IconCopy, IconClipboardCopy, IconUserShare, IconDownload, IconPrinter, IconTrash, IconCheck, IconPlus, IconPhoto, IconCloudUpload, IconMessageCircle2, IconHistory, IconCalendarEvent, IconExternalLink, IconFileText, IconChevronLeft, IconChevronRight, IconChevronDown, IconX, IconPlayerPlay, IconArrowsSort, IconColumns, IconAlertTriangle, IconArrowRight, IconLink } from "@tabler/icons-react";
 import MissingFieldsModal, { gateFromResponse, type GateBlock } from "../MissingFieldsModal";
 import { alertDialog, confirmDialog, promptDialog } from "@/app/(dashboard)/dashboard/preview/ConfirmDialog";
-import { pageForSbu, type SbuPage } from "@/lib/sbu-pages";
+import { pageForSbu } from "@/lib/sbu-pages";
+import { pageInfo } from "@/lib/publish-pages";
+import { usePublishPages } from "@/lib/use-publish-pages";
 import { compressImage } from "@/lib/compress-image";
 import { useUploadQueue } from "@/lib/use-upload-queue";
 import { removeTaskFile, reorderTaskFiles } from "@/lib/upload-task-file";
@@ -1697,22 +1699,22 @@ type CalView = "month" | "week" | "day" | "list";
 
 // ── Channels (docs/CALENDAR_SPEC.md) ──
 // Each Instagram account, worked out from the SBU via lib/sbu-pages (the same list the
-// Scheduler uses). Samvaya is on none of ours, so it shows only under "All accounts".
-type CalChannel = "all" | "goocampus" | "goocampusworld" | "12thplusdotcom";
-const CAL_CHANNELS: { value: CalChannel; label: string }[] = [
-  { value: "all", label: "All accounts" },
-  { value: "goocampus", label: "GooCampus" },
-  { value: "goocampusworld", label: "GooCampus World" },
-  { value: "12thplusdotcom", label: "12th Plus" },
-];
-const PAGE_CHANNEL: Record<SbuPage, Exclude<CalChannel, "all">> = { "GooCampus Main": "goocampus", "GooCampus World": "goocampusworld", "12Plus / GC India": "12thplusdotcom" };
-const channelOfSbu = (sbu: string): Exclude<CalChannel, "all"> | null => { const p = pageForSbu(sbu); return (p && PAGE_CHANNEL[p]) || null; };
+// Scheduler uses): the GooCampus accounts plus every brand linked on the Brands page
+// (lib/publish-pages.ts), so a newly linked brand gets its own calendar by itself.
+type CalChannel = string;   // "all" or an account id
+function useCalChannels(): { value: CalChannel; label: string }[] {
+  const pages = usePublishPages();
+  return [{ value: "all", label: "All accounts" },
+    ...pages.map((p) => ({ value: p.accountId, label: p.value === "12Plus / GC India" ? "12th Plus" : p.label }))];
+}
+const channelOfSbu = (sbu: string): string | null => { const p = pageForSbu(sbu); return (p && pageInfo(p).accountId) || null; };
 
 // Pick several at once — "I don't select single SBU each time to see, I want see all
 // the SBUs of my together" (Manya, 5 Oct). An empty selection means everything, so the
 // calendar opens unfiltered and the button can always say what is being left out.
 export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows: Row[]; facets?: Facets; onOpen: (id: string) => void; onSaved: () => void; loading: boolean }) {
   const sbus = useSbus();   // live brand list (sql/027)
+  const calChannels = useCalChannels();
   // The Mentorship calendar (sidebar → "Mentorship calendar", ?channel=goocampusworld):
   // the same calendar locked to the GooCampus World SBUs — "please create a separate
   // content calendar for mentorship because this is confusing for me" (Manya, 10 Oct).
@@ -1741,7 +1743,8 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
       // The account: saved with the filters since 28 Oct; before that, read it off the
       // calendar highlighted in the left list ("acc-goocampus" → GooCampus).
       const ch = (v && typeof v === "object" && v.channel) || (localStorage.getItem(CAL_VIEW_KEY) || "").replace(/^acc-/, "") || "all";
-      if (CAL_CHANNELS.some((c) => c.value === ch)) setChannel(ch as CalChannel);
+      // Any saved account is kept — a linked brand's is only in the list once it loads.
+      if (typeof ch === "string" && ch) setChannel(ch);
     } catch { /* private mode, or an older shape — open unfiltered */ }
     setCalReady(true);
   }, [filterKey]);
@@ -1963,7 +1966,7 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
         <div className="mhcal-tc-right">
           {!worldOnly && (
             <div style={{ width: 190 }}>
-              <PreviewSelect value={channel} onChange={(v) => { setChannel(v as CalChannel); setBrandSel(sbusFor(v as CalChannel)); }} options={CAL_CHANNELS} />
+              <PreviewSelect value={channel} onChange={(v) => { setChannel(v as CalChannel); setBrandSel(sbusFor(v as CalChannel)); }} options={calChannels} />
             </div>
           )}
           <div style={{ width: 240 }}>
@@ -2177,6 +2180,7 @@ function NewCalViewDialog({ rows, initial, onClose, onSave }: {
   onSave: (d: { name: string; group: "saved" | "account"; access: "personal" | "collaborative"; f: CalFilters }) => Promise<void>;
 }) {
   const sbus = useSbus();
+  const calChannels = useCalChannels();
   const [name, setName] = useState("");
   const [group, setGroup] = useState<"saved" | "account">("saved");
   const [access, setAccess] = useState<"personal" | "collaborative">("personal");
@@ -2220,7 +2224,7 @@ function NewCalViewDialog({ rows, initial, onClose, onSave }: {
           <div className="grid grid-cols-1 gap-3">
             <div>
               <Label t="Account" />
-              <div className="w-full [&>*]:w-full"><PreviewSelect value={f.channel} onChange={(v) => setF({ ...f, channel: v as CalChannel, brands: [] })} options={CAL_CHANNELS} /></div>
+              <div className="w-full [&>*]:w-full"><PreviewSelect value={f.channel} onChange={(v) => setF({ ...f, channel: v as CalChannel, brands: [] })} options={calChannels} /></div>
             </div>
             <div>
               <Label t="Brands (SBUs)" />
@@ -2278,7 +2282,8 @@ function CalendarViewsRail({ rows, current, apply, sbusFor }: { rows: Row[]; cur
   useEffect(() => { try { const v = localStorage.getItem(CAL_VIEW_KEY); if (v) setActive(v); } catch { /* private mode */ } }, []);
   const choose = (id: string, f: CalFilters) => { setActive(id); apply(f); try { localStorage.setItem(CAL_VIEW_KEY, id); } catch { /* private mode */ } };
   const ALL: CalFilters = { channel: "all", brands: [], statuses: [] };
-  const builtIn = CAL_CHANNELS.filter((c) => c.value !== "all").map((c) => ({ id: `acc-${c.value}`, label: c.label, f: { ...ALL, channel: c.value } as CalFilters }));
+  const calChannels = useCalChannels();
+  const builtIn = calChannels.filter((c) => c.value !== "all").map((c) => ({ id: `acc-${c.value}`, label: c.label, f: { ...ALL, channel: c.value } as CalFilters }));
   // A remembered view that has since been deleted falls back to All tasks — its
   // filters too, not just the highlight.
   useEffect(() => {
@@ -2361,7 +2366,7 @@ function CalendarViewsRail({ rows, current, apply, sbusFor }: { rows: Row[]; cur
       <Item id="all" label="All tasks" f={ALL} color="#94A3B8" />
       <div className="mt-2" />
       <Head t="By account" />
-      {builtIn.map((b) => <Item key={b.id} id={b.id} label={b.label} f={b.f} color={ACC_COLOR[b.id] || "#94A3B8"} />)}
+      {builtIn.map((b) => <Item key={b.id} id={b.id} label={b.label} f={b.f} color={ACC_COLOR[b.id] || "#8B5CF6"} />)}
       {accountViews.map((v) => <SavedItem key={v.id} v={v} />)}
       {creating && <NewCalViewDialog rows={rows} initial={current} onClose={() => setCreating(false)} onSave={createView} />}
     </div>

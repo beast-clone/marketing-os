@@ -2,6 +2,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { IconChevronLeft, IconChevronRight, IconRefresh, IconBrandInstagram, IconBrandFacebook } from "@tabler/icons-react";
 import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
+import { pageInfo } from "@/lib/publish-pages";
+import { usePublishPages } from "@/lib/use-publish-pages";
+import { useSbus, addBrand } from "@/lib/use-sbus";
+import { showToast } from "../Toast";
 import { PreviewDatePicker } from "@/app/(dashboard)/dashboard/preview/PreviewDatePicker";
 import { fmtDateTime } from "@/lib/date";
 import { SoundVideo } from "@/components/SoundVideo";
@@ -58,18 +62,13 @@ export function laneKeyFor(type: string): LaneKey {
   return "post";
 }
 
-export type AccountKey = "main" | "world" | "india" | "other";
-export const ACCOUNT_STYLE: Record<AccountKey, { name: string; handle: string; color: string; soft: string }> = {
-  main:  { name: "GooCampus Main",    handle: "@goocampus",      color: "#3A57E8", soft: "#E9ECFB" },
-  world: { name: "GooCampus World",   handle: "@goocampusworld", color: "#0EA5E9", soft: "#E4F4FD" },
-  india: { name: "12Plus / GC India", handle: "@12thplusdotcom", color: "#E11D48", soft: "#FCE8EC" },
-  other: { name: "—",                 handle: "—",               color: "#9AA3B2", soft: "#F1F3F8" },
-};
-export function accountKeyFor(publishToPage: string): AccountKey {
-  if (publishToPage === "GooCampus Main") return "main";
-  if (publishToPage === "GooCampus World") return "world";
-  if (publishToPage === "12Plus / GC India") return "india";
-  return "other";
+// An account's name / handle / colour, for any page we post to — the GooCampus pages
+// or a brand linked on the Brands page (lib/publish-pages.ts).
+const SOFT: Record<string, string> = { "#3A57E8": "#E9ECFB", "#0EA5E9": "#E4F4FD", "#E11D48": "#FCE8EC", "#8B5CF6": "#EFEBFE" };
+export function accountStyle(publishToPage: string): { name: string; handle: string; color: string; soft: string } {
+  const p = pageInfo(publishToPage);
+  if (!p.handle) return { name: "—", handle: "—", color: "#9AA3B2", soft: "#F1F3F8" };
+  return { name: p.value, handle: p.handle, color: p.color, soft: SOFT[p.color] || "#F1F3F8" };
 }
 
 
@@ -96,12 +95,6 @@ export function timeShort(ts: string): string {
 type View = "month" | "week" | "day" | "list" | "format";
 const VIEW_LABEL: Record<View, string> = { month: "Month", week: "Week", day: "Day", list: "List", format: "By format" };
 
-// The three connected IG accounts → the calendar page label (drives the account colour).
-const IG_CALENDAR_ACCOUNTS = [
-  { id: "goocampus", page: "GooCampus Main" },
-  { id: "goocampusworld", page: "GooCampus World" },
-  { id: "12thplusdotcom", page: "12Plus / GC India" },
-] as const;
 
 // A post from /api/posts (real published Instagram media).
 type IgPost = { id: string; caption?: string; mediaUrl?: string; mediaUrls?: string[]; permalink?: string; type?: string; timestamp?: string };
@@ -135,6 +128,9 @@ function igToScheduled(m: IgPost, page: string): ScheduledPost {
 }
 
 export function PreviewCalendar() {
+  // Every account we post to — GooCampus's and the brands linked on the Brands page.
+  const pages = usePublishPages();
+  const sbus = useSbus();
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
@@ -156,7 +152,7 @@ export function PreviewCalendar() {
     const to = ymd(new Date());
     const from = ymd(new Date(Date.now() - 150 * 86_400_000));
     const publishedP = Promise.all(
-      IG_CALENDAR_ACCOUNTS.map(({ id, page }) =>
+      pages.map(({ accountId: id, value: page }) =>
         fetch(`/api/posts?accountId=${id}&from=${from}&to=${to}&limit=60`)
           .then((r) => (r.ok ? r.json() : { posts: [] }))
           .then((d: { posts?: IgPost[] }) => (d.posts || []).map((m) => igToScheduled(m, page)))
@@ -169,7 +165,8 @@ export function PreviewCalendar() {
       .catch(() => {})
       .finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, [pages]);
 
   // Narrow by brand and by outcome. "How many 12thPlus posts went out this month"
   // was unanswerable before — every view showed everything.
@@ -188,10 +185,10 @@ export function PreviewCalendar() {
       && inRange(p, fFrom, fTo)),
     [unfiltered, fSbu, fStatus, fFrom, fTo],
   );
-  // Brands actually present, so the picker never offers one with nothing behind it.
+  // Every primary interest (the live list) plus any older name a post still carries.
   const sbusPresent = useMemo(
-    () => [...new Set(unfiltered.map((p) => p.primaryInterest).filter(Boolean))].sort(),
-    [unfiltered],
+    () => [...new Set([...sbus, ...unfiltered.map((p) => p.primaryInterest).filter(Boolean)])].sort(),
+    [sbus, unfiltered],
   );
   // What the filters are showing, for the month on screen.
   const ranged = Boolean(fFrom || fTo);
@@ -318,7 +315,13 @@ export function PreviewCalendar() {
           <PreviewSelect value={fSbu} onChange={setFSbu} placeholder="All brands"
             options={[{ value: "", label: "All brands" },
                       ...sbusPresent.map((b) => ({ value: b, label: b })),
-                      { value: "__none", label: "No brand set" }]} />
+                      { value: "__none", label: "No brand set" }]}
+            addOption={{ label: "Add a primary interest", onAdd: (name) => {
+              addBrand(name).then((saved) => {
+                setFSbu(saved);
+                showToast({ who: "Primary interest added", body: `${saved} is now in every brand list.`, color: "#3A57E8", av: "✓" });
+              }).catch((e) => showToast({ who: "Couldn't add it", body: (e as Error).message, color: "#C0392B", av: "!" }));
+            } }} />
           <span className="hcal-flabel">Status</span>
           <PreviewSelect value={fStatus} onChange={(v) => setFStatus(v as "" | EffectiveStatus)}
             placeholder="Any status"
@@ -429,7 +432,7 @@ export function PreviewCalendar() {
                   <div className="hcal-aitems">
                     {items.map((p) => {
                       const ts = p.publishedAt || p.scheduleTime;
-                      const acct = ACCOUNT_STYLE[accountKeyFor(p.publishToPage)];
+                      const acct = accountStyle(p.publishToPage);
                       const st = STATUS_STYLE[p.effectiveStatus];
                       return (
                         <button key={p.id} className="hcal-arow" onClick={() => setSelected(p)}>
@@ -465,7 +468,7 @@ export function PreviewCalendar() {
                     <div className="hcal-laneitems">
                       {items.map((p) => {
                         const ts = p.publishedAt || p.scheduleTime;
-                        const acct = ACCOUNT_STYLE[accountKeyFor(p.publishToPage)];
+                        const acct = accountStyle(p.publishToPage);
                         const st = STATUS_STYLE[p.effectiveStatus];
                         const d = ts ? new Date(ts) : null;
                         return (
@@ -516,7 +519,7 @@ function inRange(p: ScheduledPost, from: string, to: string): boolean {
 }
 
 function EventChip({ post, onClick, block }: { post: ScheduledPost; onClick: () => void; block?: boolean }) {
-  const acct = ACCOUNT_STYLE[accountKeyFor(post.publishToPage)];
+  const acct = accountStyle(post.publishToPage);
   const st = STATUS_STYLE[post.effectiveStatus];
   const ts = post.publishedAt || post.scheduleTime;
   return (
@@ -661,7 +664,7 @@ function DetailModal({ post, onClose, onRetried, onReschedule }: {
 }) {
   const [retrying, setRetrying] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const acct = ACCOUNT_STYLE[accountKeyFor(post.publishToPage)];
+  const acct = accountStyle(post.publishToPage);
   const st = STATUS_STYLE[post.effectiveStatus];
 
   // "Publish now instead" moves the time to now (publish-now); "Try again" re-arms a
