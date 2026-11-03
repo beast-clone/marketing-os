@@ -18,7 +18,13 @@ type IG = { available: boolean; followers: number | null; followersAsOf: string 
 type YT = { available: boolean; subscribers: number; views: number; video: number; shorts: number; leads: number };
 type LI = { available: boolean; followers: number; impressions: number; reactions: number; posts: number; comments: number; postsComplete?: boolean };
 type Organic = { month: string; igfb: number; dmBookings: number; ytEnquiries: number; website: number; inboundCall: number; total: number };
-type Snapshot = { savedAt: string | null; payload: { window?: { to: string }; youtube?: YT | null; linkedin?: LI | null } | null };
+type Top = { posts: { permalink: string; thumb: string; type: string; likes: number; comments: number }[] };
+type SavedMonth = {
+  window?: { to: string }; instagram?: IG | null; youtube?: YT | null; linkedin?: LI | null;
+  organic?: { rows?: Organic[] } | null; leadStatus?: LeadStatusResp | null; topPosts?: Top | null;
+  pointInTime?: { asOf: string; youtubeSubs: number | null; linkedinFollowers: number | null };
+};
+type Snapshot = { savedAt: string | null; payload: SavedMonth | null };
 
 export function MonthlyReportView({ month }: { month: string }) {
   const now = new Date();
@@ -75,17 +81,33 @@ export function MonthlyReportView({ month }: { month: string }) {
   const [li, setLi] = useState<LI | null>(null);
   const [organic, setOrganic] = useState<Organic | null | undefined>(undefined);
   const [snap, setSnap] = useState<Snapshot | null>(null);
+  // A month that has ended opens from its saved full-month copy — one quick read,
+  // instead of re-counting every platform (YouTube alone took ~10s). undefined while
+  // deciding, the copy when there is a full one, null when counting live.
+  const [copy, setCopy] = useState<SavedMonth | null | undefined>(undefined);
   useEffect(() => {
-    setIg(null); setYt(null); setLi(null); setOrganic(undefined); setSnap(null);
+    setIg(null); setYt(null); setLi(null); setOrganic(undefined); setSnap(null); setCopy(undefined);
     if (imported) return;
     const q = `from=${from}&to=${to}`;
     const j = (u: string) => fetch(u, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-    j(`/api/reports/instagram-month?${q}`).then(setIg);
-    j(`/api/reports/platform-month?platform=youtube&${q}`).then(setYt);
-    j(`/api/reports/platform-month?platform=linkedin&${q}`).then(setLi);
-    j(`/api/reports/organic-leads?${q}`).then((r) => setOrganic((r?.rows as Organic[] | undefined)?.find((x) => x.month === month) ?? null));
-    j(`/api/reports/snapshot?month=${month}`).then((r) => setSnap(r ? { savedAt: r.savedAt, payload: r.payload } : { savedAt: null, payload: null }));
-  }, [month, from, to, imported]);
+    const live = () => {
+      setCopy(null);
+      j(`/api/reports/instagram-month?${q}`).then(setIg);
+      j(`/api/reports/platform-month?platform=youtube&${q}`).then(setYt);
+      j(`/api/reports/platform-month?platform=linkedin&${q}`).then(setLi);
+      j(`/api/reports/organic-leads?${q}`).then((r) => setOrganic((r?.rows as Organic[] | undefined)?.find((x) => x.month === month) ?? null));
+    };
+    if (isCurrent) live();
+    j(`/api/reports/snapshot?month=${month}`).then((r) => {
+      const p = (r?.payload ?? null) as SavedMonth | null;
+      setSnap({ savedAt: r?.savedAt ?? null, payload: p });
+      if (isCurrent) return;
+      if (p?.window?.to !== monthEnd || !p.instagram) return live();
+      const off = { available: false } as never;
+      setCopy(p); setIg(p.instagram); setYt(p.youtube ?? off); setLi(p.linkedin ?? off);
+      setOrganic(p.organic?.rows?.find((x) => x.month === month) ?? null);
+    });
+  }, [month, from, to, imported, isCurrent, monthEnd]);
 
   // This month: save a copy a few seconds after it settles (the daily cron does too).
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -114,16 +136,21 @@ export function MonthlyReportView({ month }: { month: string }) {
   // Subscribers / LinkedIn followers for a past month: the saved copy's figure.
   const saved = snap?.payload;
   const savedTo = saved?.window?.to;
+  // Which day the copy's subscriber / follower counts are from. Within a week of the
+  // month's end they stand for the month; further off they'd mislead, so "—".
+  const pit = saved?.pointInTime ?? (saved && savedTo ? { asOf: savedTo, youtubeSubs: saved.youtube?.subscribers ?? null, linkedinFollowers: saved.linkedin?.followers ?? null } : null);
+  const daysOff = pit ? Math.abs(Date.parse(pit.asOf) - Date.parse(monthEnd)) / 86_400_000 : Infinity;
   const asOf = (d: string | null | undefined) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : null;
   const pinNote = (d: string | null | undefined) => (isCurrent ? undefined : !d ? "not saved for this month" : d < monthEnd ? `as of ${asOf(d)}` : undefined);
-  const ytSubs = isCurrent ? yt?.subscribers ?? null : saved?.youtube?.subscribers ?? null;
-  const liFollowers = isCurrent ? li?.followers ?? null : saved?.linkedin?.followers ?? null;
+  const pitNote = isCurrent ? undefined : daysOff > 7 ? "not saved for this month" : daysOff > 1 ? `as of ${asOf(pit!.asOf)}` : undefined;
+  const ytSubs = isCurrent ? yt?.subscribers ?? null : daysOff > 7 ? null : pit!.youtubeSubs;
+  const liFollowers = isCurrent ? li?.followers ?? null : daysOff > 7 ? null : pit!.linkedinFollowers;
 
   const status = imported
     ? { cls: "bg-[#F3F4F7] border-gray-200 text-[#4A5468]", text: "From the Notion report — imported before the dashboard kept reports." }
     : isCurrent
       ? { cls: "bg-brand-light border-[#D5DBF8] text-[#2138B0]", text: `Live — ${range}. Numbers update each time you open it, and the whole month is saved on its own when it ends.` }
-      : { cls: "bg-[#E8F6EE] border-[#CBEBD8] text-[#126B39]", text: `Full month — ${range}.` };
+      : { cls: "bg-[#E8F6EE] border-[#CBEBD8] text-[#126B39]", text: `Full month — ${range}.${copy && snap?.savedAt ? ` From the copy saved ${new Date(snap.savedAt).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}.` : ""}` };
 
   // Imported rows, by column.
   const hIg = imported ? historyRow(H.instagram, month) : null;
@@ -173,7 +200,7 @@ export function MonthlyReportView({ month }: { month: string }) {
         )}
       </Section>
 
-      {!imported && <LeadGrids from={from} to={to} />}
+      {!imported && (copy === undefined ? <Loading /> : <LeadGrids from={from} to={to} saved={copy ? copy.leadStatus ?? null : undefined} />)}
 
       <PlatformHeader name="Instagram" />
       <Section title="Instagram" note={imported ? undefined : `Followers · reach · content interactions · posts · reels · stories · leads (CRM IG/Fb estimate).${ig && ig.reachFrom !== from ? ` Reach covers ${asOf(ig.reachFrom)}–${asOf(to)} — Meta allows 30 days at a time.` : ""}`}>
@@ -192,14 +219,14 @@ export function MonthlyReportView({ month }: { month: string }) {
           <Stats items={[["Likes", hEng.Likes], ["Comments", hEng.Comments], ["Saves", hEng.Saves], ["Shares", hEng.Shares]]} />
         </Section>
       )}
-      {!imported && <InstagramTopContent from={from} to={to} />}
+      {!imported && (copy === undefined ? <Loading /> : <InstagramTopContent from={from} to={to} saved={copy ? copy.topPosts ?? { posts: [] } : undefined} />)}
 
       <PlatformHeader name="YouTube" />
       <Section title="YouTube" note={imported ? undefined : "Subscribers · views · videos · shorts · leads (CRM estimate). Views reach YouTube 2–3 days late."}>
         {imported ? (
           hYt ? <Stats items={[["Subscribers", hYt[0]], ["Views", hYt[1]], ["Videos", hYt[2]], ["Shorts", hYt[3]], ["Leads", hYt[4]]]} /> : <Missing what="YouTube" />
         ) : yt === null ? <Loading /> : !yt.available ? <Missing what="YouTube" live /> : (
-          <Stats items={[["Subscribers", ytSubs, pinNote(isCurrent ? to : saved?.youtube ? savedTo : null)], ["Views", compact(yt.views)], ["Videos", yt.video], ["Shorts", yt.shorts], ["Leads", yt.leads]]} />
+          <Stats items={[["Subscribers", ytSubs, pitNote], ["Views", compact(yt.views)], ["Videos", yt.video], ["Shorts", yt.shorts], ["Leads", yt.leads]]} />
         )}
       </Section>
 
@@ -215,7 +242,7 @@ export function MonthlyReportView({ month }: { month: string }) {
           hLi ? <Stats items={[["Followers", hLi[0]], ["Impressions", hLi[1]], ["Reactions", hLi[2]], ["Posts", hLi[3]], ["Comments", hLi[4]]]} /> : <Missing what="LinkedIn" />
         ) : li === null ? <Loading /> : !li.available ? <Missing what="LinkedIn" live /> : (
           <Stats items={[
-            ["Followers", liFollowers, pinNote(isCurrent ? to : saved?.linkedin ? savedTo : null)], ["Impressions", li.impressions],
+            ["Followers", liFollowers, pitNote], ["Impressions", li.impressions],
             // Too far back for LinkedIn's latest-25 posts: unknown, not 0.
             ...(li.postsComplete === false
               ? [["Posts", null, "too far back for LinkedIn"], ["Reactions", null], ["Comments", null]] as [string, null, string?][]
@@ -264,15 +291,16 @@ function Missing({ what, live }: { what: string; live?: boolean }) {
 }
 
 // Best-performing Instagram content in the month — thumbnails ranked by engagement.
-function InstagramTopContent({ from, to }: { from: string; to: string }) {
-  const [d, setD] = useState<{ posts: { permalink: string; thumb: string; type: string; likes: number; comments: number }[] } | null>(null);
+function InstagramTopContent({ from, to, saved }: { from: string; to: string; saved?: Top }) {
+  const [d, setD] = useState<Top | null>(saved ?? null);
   useEffect(() => {
+    if (saved) { setD(saved); return; }
     setD(null);
     fetch(`/api/reports/instagram-top?from=${from}&to=${to}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
       .then((j) => setD(j))
       .catch(() => setD({ posts: [] }));
-  }, [from, to]);
+  }, [from, to, saved]);
   return (
     <Section title="Best-performing content · Instagram" note="The month's top posts, ranked by likes + comments.">
       {!d ? <Loading />
@@ -302,16 +330,17 @@ type LeadStatusResp = {
 };
 
 // Lead Status + Total Lead Status (SBU) — live from the CRM for the report window.
-function LeadGrids({ from, to }: { from: string; to: string }) {
-  const [d, setD] = useState<LeadStatusResp | null>(null);
-  const [err, setErr] = useState<string | null>(null);
+function LeadGrids({ from, to, saved }: { from: string; to: string; saved?: LeadStatusResp | null }) {
+  const [d, setD] = useState<LeadStatusResp | null>(saved ?? null);
+  const [err, setErr] = useState<string | null>(saved === null ? "not in the saved copy" : null);
   useEffect(() => {
+    if (saved !== undefined) return;
     setD(null); setErr(null);
     fetch(`/api/reports/lead-status?from=${from}&to=${to}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((j) => setD(j as LeadStatusResp))
       .catch((e) => setErr(e instanceof Error ? e.message : "failed"));
-  }, [from, to]);
+  }, [from, to, saved]);
 
   if (err) return <Placeholder title="Lead Status" note={`Couldn't load — ${err}`} />;
   if (!d) return <div className="border border-gray-200 rounded-xl"><LoadingBlock className="!py-8" size={24} label="Loading lead status…" /></div>;

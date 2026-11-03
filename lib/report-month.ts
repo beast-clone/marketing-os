@@ -189,5 +189,12 @@ export async function buildReportSnapshot(month: string, to: string) {
     settle(leadStatus(from, to)), settle(organicLeads(from, to)), settle(instagramMonth(from, to)),
     settle(youtubeMonth(from, to)), settle(linkedinMonth(from, to)), settle(instagramTop(from, to)), settle(getManual(month)),
   ]);
-  return { label, window: { from, to }, leadStatus: leadStatusR, organic, instagram, youtube, linkedin, topPosts, manual };
+  // Subscribers and LinkedIn followers can only be read as "today's" count, so the
+  // copy records which day they are from (Instagram's come from the daily snapshots).
+  const pointInTime = {
+    asOf: today(),
+    youtubeSubs: youtube && "subscribers" in youtube ? youtube.subscribers : null,
+    linkedinFollowers: linkedin && "followers" in linkedin ? linkedin.followers : null,
+  };
+  return { label, window: { from, to }, leadStatus: leadStatusR, organic, instagram, youtube, linkedin, topPosts, manual, pointInTime };
 }
