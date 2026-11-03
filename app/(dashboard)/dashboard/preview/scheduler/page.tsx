@@ -4146,7 +4146,7 @@ const FORMAT_WHY_NOT: Record<"post" | "reel" | "story", string> = {
 const FORMAT_NOTE: Record<"post" | "reel" | "story", string> = {
   post: "Set from your file. A feed post — it stays on the profile.",
   reel: "Set from your file. Instagram publishes a single video as a reel either way; Facebook posts it to the Page as one.",
-  story: "Full screen, gone in 24 hours. With several files, each goes out as its own story, in order, a minute apart.",
+  story: "Full screen, gone in 24 hours. With several files, each goes out as its own story — all at the same time, in order.",
 };
 const PREVIEW_SURFACES: { value: PreviewPlatform; label: string }[] = [
   { value: "instagram", label: "Instagram feed" },

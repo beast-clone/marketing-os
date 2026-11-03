@@ -68,9 +68,12 @@ async function syncStory(sb: Sb, postId: string, want: boolean, row: Record<stri
 // A story with several frames (Praveen, 3 Nov 2026). Meta publishes one image or one
 // video per story — there is no carousel story — so each frame after the first is
 // its own queue row, linked to the post by custom.story_of (so Cancel, Delete draft
-// and Reschedule take it along) and numbered by custom.frame, a minute apart so they
-// go out in order. Re-queueing updates the frames; ones no longer wanted are binned;
+// and Reschedule take it along) and numbered by custom.frame. All frames share the
+// post's time — 10 ms apart, so the publisher's run (every minute) sends them
+// together, in frame order (it sorts what's due by schedule_time). No minute gaps:
+// Praveen, 3 Nov 2026 — "it should go all at once". Re-queueing updates the frames; ones no longer wanted are binned;
 // a frame already out is never sent again.
+export const FRAME_STEP_MS = 10;
 async function syncFrames(sb: Sb, postId: string, frames: string[], row: Record<string, unknown>, title: string, when: string, draft: boolean, actor: string) {
   const { data: found } = await sb.from("mh_posts").select("id, publish_status, custom").eq("custom->>story_of", postId).not("custom->>frame", "is", null);
   const byFrame = new Map<number, { id: string; publish_status: string | null }>();
@@ -79,7 +82,7 @@ async function syncFrames(sb: Sb, postId: string, frames: string[], row: Record<
   const total = frames.length + 1;
   for (let i = 0; i < frames.length; i++) {
     const n = i + 2;
-    const at = new Date(base + (i + 1) * 60_000).toISOString();
+    const at = new Date(base + (i + 1) * FRAME_STEP_MS).toISOString();
     const fields = { ...row, media_urls: [frames[i]], schedule_time: at, custom: { ...(row.custom as object), frame: n } };
     const have = byFrame.get(n);
     if (have && (have.publish_status === "published" || have.publish_status === "publishing")) continue;

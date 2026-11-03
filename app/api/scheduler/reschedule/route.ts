@@ -1,3 +1,4 @@
+import { FRAME_STEP_MS } from "@/lib/scheduler-enqueue";
 import { NextResponse } from "next/server";
 import { requireSection, requireSchedulerPost, requireCapability } from "@/lib/api-guard";
 import { getSupabase } from "@/lib/supabase";
@@ -42,12 +43,12 @@ export async function POST(req: Request) {
     if (!data?.length) return notUpdated(sb, body.recordId);
     await logQueueAction(sb, body.recordId, "publish_rescheduled", istTime(was?.schedule_time), istTime(body.scheduleTime));
     // Its "also as a Story" moves with it (enqueue syncStory, 27 Oct), and a
-    // multi-frame story's other frames keep their minute apart (syncFrames, 3 Nov).
+    // multi-frame story's other frames keep their order (syncFrames, 3 Nov).
     const { data: linked } = await sb.from("mh_posts").select("id, custom").eq("custom->>story_of", body.recordId).eq("publish_status", "scheduled");
     const base = new Date(body.scheduleTime).getTime();
     for (const r of (linked || []) as { id: string; custom: Record<string, unknown> | null }[]) {
       const frame = Number(r.custom?.frame) || 0;
-      await sb.from("mh_posts").update({ schedule_time: new Date(base + (frame > 1 ? (frame - 1) * 60_000 : 0)).toISOString() }).eq("id", r.id);
+      await sb.from("mh_posts").update({ schedule_time: new Date(base + (frame > 1 ? (frame - 1) * FRAME_STEP_MS : 0)).toISOString() }).eq("id", r.id);
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
