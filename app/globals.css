@@ -158,19 +158,21 @@ html { scrollbar-gutter: stable; }
 /* Brand loader — a clean, on-brand animated "building bars" loader used on the
    slow AI waits (report / planner). Pure CSS, no library, tinted to the brand
    indigo. Rendered by <BrandLoader/> (components/BrandLoader.tsx). */
-.brand-loader { display: inline-flex; align-items: flex-end; justify-content: space-between; gap: 15%; }
+.brand-loader { position: relative; display: inline-grid; place-items: center; width: var(--bl, 30px); height: var(--bl, 30px); flex: none; }
+/* The M, as a mask so it takes the brand colour (white on dark). */
 .brand-loader > i {
-  display: block; width: 18%; height: 100%; border-radius: 2px;
-  background: linear-gradient(180deg, #3A57E8 0%, #7488F1 100%);
-  transform: scaleY(0.35); transform-origin: bottom;
-  animation: brandLoaderBar 1s ease-in-out infinite;
+  display: block; width: 50%; aspect-ratio: 256 / 208; background: #3A57E8;
+  -webkit-mask: url(/loader-m.png) center / contain no-repeat; mask: url(/loader-m.png) center / contain no-repeat;
 }
-@keyframes brandLoaderBar {
-  0%, 100% { transform: scaleY(0.35); opacity: 0.55; }
-  50%      { transform: scaleY(1);    opacity: 1; }
-}
+/* Faint ring, and the blue arc running round it. */
+.brand-loader::before, .brand-loader::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: max(2px, calc(var(--bl, 30px) * .055)) solid rgba(58, 87, 232, .12); }
+.brand-loader::after { border-color: transparent; border-top-color: #3A57E8; border-right-color: #3A57E8; animation: brandLoaderSpin .9s cubic-bezier(.5, .15, .5, .85) infinite; }
+html[data-theme="dark"] .brand-loader > i { background: #fff; }
+html[data-theme="dark"] .brand-loader::before { border-color: rgba(255, 255, 255, .12); }
+html[data-theme="dark"] .brand-loader::after { border-top-color: #fff; border-right-color: #fff; }
+@keyframes brandLoaderSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .brand-loader > i { animation-duration: 2.2s; }
+  .brand-loader::after { animation-duration: 2.2s; }
 }
 
 /* ────────────────────────────────────────────────────────────────────────────

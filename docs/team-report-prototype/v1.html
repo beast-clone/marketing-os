@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Team and people reports — plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3A57E8;--brand-dark:#2138B0;--brand-light:#E9ECFB;--ink:#232D42;--muted:#8A92A6;--line:#EEF0F5;--canvas:#F6F7FB;--green:#126B39;--green-bg:#E8F6EE;--rose:#BE123C;--rose-bg:#FFF1F2}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--canvas);color:var(--ink);font-size:14px}
+  .wrap{max-width:1200px;margin:0 auto;padding:22px 16px 60px}
+  .proto{font-size:12px;color:var(--muted);margin-bottom:12px}
+  .proto b{color:var(--ink);font-weight:500}
+  .cad{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+  .cad span{font-size:12px;font-weight:500;padding:6px 12px;border-radius:8px;border:1px solid #E3E6EE;background:#fff;color:#4A5468}
+  .cad span.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .cad span.new::after{content:"new";font-size:9.5px;margin-left:6px;padding:1px 5px;border-radius:4px;background:#FFE7B0;color:#8A5A00}
+  .layout{display:grid;grid-template-columns:240px 1fr;gap:16px;align-items:start}
+  aside{background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;position:sticky;top:16px}
+  aside h4{margin:2px 8px 10px;font-size:15px;font-weight:600}
+  aside .grp{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;padding:12px 8px 6px}
+  aside button{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:10px;width:100%;padding:9px 10px;border-radius:12px;cursor:pointer;font-size:13.5px}
+  aside button:hover{background:var(--canvas)}
+  aside button.on{background:var(--brand-light);color:var(--brand-dark);font-weight:500}
+  .av{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;color:#fff;flex:none}
+  article{background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:26px 30px}
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;border-bottom:1px solid #F1F2F6;padding-bottom:16px;margin-bottom:22px;flex-wrap:wrap}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--brand)}
+  h1{font-size:20px;font-weight:600;margin:4px 0 2px}
+  .head .sub{font-size:12.5px;color:#6B7280}
+  .month{display:flex;align-items:center;gap:8px;font-size:13px;border:1px solid #E3E6EE;border-radius:10px;padding:7px 12px;background:#fff}
+  .note{border-radius:12px;border:1px solid #D5DBF8;background:var(--brand-light);color:var(--brand-dark);font-size:12.5px;padding:10px 14px;margin-bottom:24px}
+  .sec{margin-bottom:28px}
+  .sec .t{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#6B7280;display:flex;justify-content:space-between;align-items:center}
+  .sec .n{font-size:12px;color:#9CA3AF;margin:2px 0 12px}
+  .copy{font-size:11.5px;font-weight:500;color:#4A5468;border:1px solid #E3E6EE;border-radius:8px;padding:4px 9px;background:#fff;letter-spacing:0;text-transform:none}
+  .tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .tile{border:1px solid #E5E7EB;border-radius:12px;padding:12px}
+  .tile .v{font-size:22px;font-weight:600;line-height:1}
+  .tile .l{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6B7280;margin-top:5px}
+  .tile .s{font-size:11px;color:#9CA3AF;margin-top:2px}
+  .good{color:var(--green)} .bad{color:var(--rose)}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;border:1px solid #E5E7EB;border-radius:12px;overflow:hidden}
+  th{background:#F9FAFB;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#6B7280;font-weight:600;text-align:right;padding:8px 12px;white-space:nowrap}
+  td{padding:8px 12px;border-top:1px solid #F1F2F6;text-align:right;white-space:nowrap;color:#4B5563}
+  th:first-child,td:first-child{text-align:left;color:var(--ink)}
+  tr.tot td{font-weight:600;color:var(--ink);background:#F7F8FD}
+  .chip{font-size:11px;padding:2px 7px;border-radius:6px;background:#F0F2F8;color:#4A5468}
+  .chip.g{background:var(--green-bg);color:var(--green)} .chip.r{background:var(--rose-bg);color:var(--rose)}
+  .plan{margin-top:20px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 22px}
+  .plan h3{margin:0 0 8px;font-size:15px;font-weight:600}
+  .plan ul{margin:0;padding-left:18px;line-height:1.75;color:#4A5468;font-size:13px}
+  .plan .q{margin-top:12px;padding:10px 14px;border-radius:10px;background:#FFF8E6;color:#7A5200;font-size:13px}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media (max-width:860px){.layout{grid-template-columns:1fr}aside{position:static}.tiles{grid-template-columns:repeat(2,1fr)}.two{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="proto"><b>Plan · clickable mock-up</b> — the delivered / approved / on-time / sent-back / edits / uploads counts are October 2026's real activity; the breakdown tables, open / overdue counts and task rows are examples. Click the people on the left.</div>
+  <div class="cad"><span>Monthly report</span><span>Weekly report</span><span>Quarterly report</span><span>Yearly report</span><span class="on new">Team report</span></div>
+  <div class="layout">
+    <aside id="list"></aside>
+    <article id="rep"></article>
+  </div>
+
+  <div class="plan">
+    <h3>How it would work</h3>
+    <ul>
+      <li><b>Team report</b> (new button next to Yearly): the left list has <b>Team</b> at the top, then each person grouped by their role on the Team page.</li>
+      <li><b>Each person's report is only about their role.</b> Content writer → content written, approved, sent back, edits. Graphic designer → designs delivered, on time, revisions, creatives uploaded. Video editor → videos delivered (reels, YouTube), on time, revisions, turnaround. Nothing from other roles.</li>
+      <li><b>Team</b> puts everyone side by side, then one section per role — so all designers' work is in one place, all editors' in another.</li>
+      <li><b>Pick a month</b> at the top (like the Monthly report). Each month is saved at month end, so old months open instantly; a year view adds the months up.</li>
+      <li>Every table has <b>Copy table</b>, and each report has <b>Add a section</b> for notes.</li>
+      <li>Who sees what: admins see everyone; each person sees only their own report (switch on Team &amp; access).</li>
+      <li>Numbers come from what people already do in the dashboard (status changes, uploads, dates) — nothing new to fill in.</li>
+    </ul>
+    <div class="q"><b>One thing to decide:</b> Nandu is a video editor on the Team page but also writes 12thPlus content (30 pieces approved in October). Should his report show <b>only editing</b>, or <b>editing plus a writing section</b>? Same for anyone doing two jobs.</div>
+  </div>
+</div>
+
+<script>
+const P = {
+  team: { name: "Team", role: "team" },
+  manya: { name: "Manya BM", role: "writer", av: "MB", c: "#8B5CF6" },
+  praveen: { name: "Praveen L", role: "designer", av: "PL", c: "#3A57E8" },
+  nikhil: { name: "Nikhil S", role: "editor", av: "NS", c: "#0EA5E9" },
+  nandu: { name: "Nandu C", role: "editor", av: "NC", c: "#F59E0B" },
+};
+const ROLE = { writer: "Content writer", designer: "Graphic designer", editor: "Video editor" };
+let cur = "team";
+
+function list() {
+  const b = (k) => `<button class="${cur === k ? "on" : ""}" onclick="cur='${k}';render()">${k === "team" ? `<span class="av" style="background:#232D42">T</span>` : `<span class="av" style="background:${P[k].c}">${P[k].av}</span>`}${P[k].name}</button>`;
+  document.getElementById("list").innerHTML = `<h4>Reports</h4>${b("team")}
+    <div class="grp">Content writers</div>${b("manya")}
+    <div class="grp">Graphic designers</div>${b("praveen")}
+    <div class="grp">Video editors</div>${b("nikhil")}${b("nandu")}`;
+}
+const tile = (v, l, s, cls = "") => `<div class="tile"><div class="v ${cls}">${v}</div><div class="l">${l}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
+const sec = (t, n, body) => `<div class="sec"><div class="t">${t}<span class="copy">Copy table</span></div><div class="n">${n || ""}</div>${body}</div>`;
+const table = (h, rows, tot) => `<table><tr>${h.map((x) => `<th>${x}</th>`).join("")}</tr>${rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join("")}</tr>`).join("")}${tot ? `<tr class="tot">${tot.map((c) => `<td>${c}</td>`).join("")}</tr>` : ""}</table>`;
+const head = (title, sub) => `<div class="head"><div><div class="eyebrow">${cur === "team" ? "Team performance" : ROLE[P[cur].role]}</div><h1>${title}</h1><div class="sub">${sub}</div></div><div class="month">October 2026 ▾</div></div>`;
+
+const views = {
+  team: () => head("Team report · October 2026", "Everyone, side by side · full month") +
+    `<div class="note">Each person's numbers count only their own role's work.</div>` +
+    sec("Everyone", "Delivered = finished their part (content approved / design or video ready).", table(
+      ["Person", "Role", "Delivered", "On time", "Sent back", "Open now", "Overdue now"],
+      [["Manya BM", "Content writer", 59, "—", 2, 18, 3], ["Praveen L", "Graphic designer", 32, "100%", 1, 9, 0], ["Nikhil S", "Video editor", 32, "97%", 0, 6, 1], ["Nandu C", "Video editor", 15, "100%", 1, 7, 0]],
+      ["Team", "", 138, "99%", 4, 40, 4])) +
+    `<div class="two">` +
+    sec("Graphic designers", "", table(["Person", "Designs", "On time", "Revisions"], [["Praveen L", 32, "100%", 1]])) +
+    sec("Video editors", "", table(["Person", "Videos", "On time", "Revisions"], [["Nikhil S", 32, "97%", 0], ["Nandu C", 15, "100%", 1]], ["Total", 47, "98%", 1])) +
+    `</div>` +
+    sec("Content writers", "", table(["Person", "Approved", "Sent back", "Edits", "Tasks created"], [["Manya BM", 59, 2, 198, 62]])),
+
+  writer: (k) => head(`${P[k].name} · October 2026`, "Content writer · writing work only") +
+    sec("The month in numbers", "", `<div class="tiles">${tile(59, "Content approved")}${tile(2, "Sent back for changes", "3% of pieces", "good")}${tile(198, "Content edits")}${tile(62, "Tasks created")}</div>`) +
+    sec("By primary interest", "Pieces approved this month.", table(["Primary interest", "Approved", "Sent back"], [["General Content", 21, 1], ["Australia-PGCP", 14, 0], ["Mentorship Platform", 11, 1], ["Middle East", 8, 0], ["Standard Consulting Program - USA", 5, 0]], ["Total", 59, 2])) +
+    sec("By type", "", table(["Type", "Approved"], [["Carousel", 34], ["Reel - Original", 15], ["Post", 6], ["Story (Image)", 4]], ["Total", 59])) +
+    sec("Pieces", "Every piece approved this month, with its date.", table(["Task", "Type", "Primary interest", "Approved on", ""], [["UAE Webinar - Carousel", "Carousel", "Middle East", "30 Oct", `<span class="chip g">Approved</span>`], ["NZ Ebook - Carousel", "Carousel", "General Content", "29 Oct", `<span class="chip g">Approved</span>`], ["MTE 2026 - Carousel", "Carousel", "General Content", "28 Oct", `<span class="chip r">Sent back once</span>`]])),
+
+  designer: (k) => head(`${P[k].name} · October 2026`, "Graphic designer · design work only") +
+    sec("The month in numbers", "", `<div class="tiles">${tile(32, "Designs delivered")}${tile("100%", "On time", "32 of 32 by their date", "good")}${tile(1, "Revisions", "sent back after delivery")}${tile(232, "Creatives uploaded")}</div>`) +
+    sec("By type", "", table(["Type", "Delivered", "On time", "Avg. turnaround"], [["Carousel", 18, "100%", "1.4 days"], ["Reel Thumbnail", 9, "100%", "0.6 days"], ["Post", 5, "100%", "0.9 days"]], ["Total", 32, "100%", "1.1 days"])) +
+    sec("By primary interest", "", table(["Primary interest", "Delivered"], [["Australia-PGCP", 9], ["Mentorship Platform", 8], ["General Content", 7], ["India NEET UG Consulting", 5], ["Middle East", 3]], ["Total", 32])) +
+    sec("Designs", "", table(["Task", "Type", "Due", "Delivered", ""], [["AMC Ebook - Carousel", "Carousel", "17 Oct", "16 Oct", `<span class="chip g">On time</span>`], ["Aus Ebook - Carousel", "Carousel", "15 Oct", "14 Oct", `<span class="chip g">On time</span>`]])),
+
+  editor: (k) => {
+    const n = k === "nikhil" ? { d: 32, ot: "97%", ots: "31 of 32 by their date", rev: 0, cr: 11, reel: 24, yt: 5, sh: 3 } : { d: 15, ot: "100%", ots: "15 of 15 by their date", rev: 1, cr: 27, reel: 11, yt: 2, sh: 2 };
+    return head(`${P[k].name} · October 2026`, "Video editor · editing work only") +
+      sec("The month in numbers", "", `<div class="tiles">${tile(n.d, "Videos delivered")}${tile(n.ot, "On time", n.ots, "good")}${tile(n.rev, "Revisions", "sent back after delivery")}${tile(n.cr, "Files uploaded")}</div>`) +
+      sec("By format", "", table(["Format", "Delivered", "On time", "Avg. turnaround"], [["Reels", n.reel, n.ot, "1.2 days"], ["YouTube long-form", n.yt, "100%", "2.8 days"], ["YouTube Shorts", n.sh, "100%", "0.7 days"]], ["Total", n.d, n.ot, "1.4 days"])) +
+      sec("Videos", "", table(["Task", "Format", "Due", "Delivered", ""], [["UAE - Speaking Reel", "Reel", "30 Oct", "29 Oct", `<span class="chip g">On time</span>`], ["Ireland Reel Cut from Podcast", "Reel - Cut", "6 Oct", "6 Oct", `<span class="chip g">On time</span>`]]));
+  },
+};
+function render() { list(); document.getElementById("rep").innerHTML = cur === "team" ? views.team() : views[P[cur].role](cur); }
+render();
+</script>
+</body>
+</html>

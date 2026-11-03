@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Loader options — Marketing OS</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--brand:#3A57E8;--brand-light:#E9ECFB;--ink:#232D42;--muted:#8A92A6;--line:#EEF0F5;--canvas:#F6F7FB}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--canvas);color:var(--ink)}
+  .wrap{max-width:1120px;margin:0 auto;padding:28px 16px 60px}
+  h1{font-size:20px;font-weight:600;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 22px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+  .stage{height:170px;display:grid;place-items:center;border-bottom:1px solid var(--line)}
+  .stage.dark{background:#12151C}
+  .row{display:flex;gap:0}
+  .row .stage{flex:1}
+  .meta{padding:12px 14px}
+  .meta b{font-weight:500;font-size:14px;display:flex;align-items:center;gap:8px}
+  .meta b span{font-size:11px;font-weight:500;color:var(--brand);background:var(--brand-light);padding:2px 7px;border-radius:6px}
+  .meta p{margin:4px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45}
+  .small{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);margin-top:8px}
+
+  /* The M — a mask, so it can be filled with any colour */
+  .m{display:block;background:var(--brand);-webkit-mask:url(m.png) center/contain no-repeat;mask:url(m.png) center/contain no-repeat;aspect-ratio:256/208}
+  .dark .m{background:#fff}
+
+  /* A — Orbit ring: an arc runs round the M */
+  .a{position:relative;width:var(--s);height:var(--s);display:grid;place-items:center}
+  .a .m{width:50%}
+  .a::before{content:"";position:absolute;inset:0;border-radius:50%;border:calc(var(--s)*.055) solid rgba(58,87,232,.12)}
+  .a::after{content:"";position:absolute;inset:0;border-radius:50%;border:calc(var(--s)*.055) solid transparent;border-top-color:var(--brand);border-right-color:var(--brand);animation:spin .9s cubic-bezier(.5,.15,.5,.85) infinite}
+  .dark .a::before{border-color:rgba(255,255,255,.12)} .dark .a::after{border-top-color:#fff;border-right-color:#fff}
+
+  /* B — Orbiting dot with a soft trail */
+  .b{position:relative;width:var(--s);height:var(--s);display:grid;place-items:center}
+  .b .m{width:50%}
+  .b .orb{position:absolute;inset:0;animation:spin 1.3s linear infinite;border-radius:50%;background:conic-gradient(from 0deg,transparent 0 70%,rgba(58,87,232,.35) 100%);-webkit-mask:radial-gradient(circle,transparent calc(50% - var(--s)*.05),#000 calc(50% - var(--s)*.05));mask:radial-gradient(circle,transparent calc(50% - var(--s)*.05),#000 calc(50% - var(--s)*.05))}
+  .b .dot{position:absolute;inset:0;animation:spin 1.3s linear infinite}
+  .b .dot::after{content:"";position:absolute;top:0;left:50%;width:calc(var(--s)*.11);height:calc(var(--s)*.11);margin-left:calc(var(--s)*-.055);border-radius:50%;background:var(--brand)}
+  .dark .b .dot::after{background:#fff}
+
+  /* C — Breathing M with an expanding ring */
+  .c{position:relative;width:var(--s);height:var(--s);display:grid;place-items:center}
+  .c .m{width:52%;animation:breathe 1.6s ease-in-out infinite}
+  .c::before,.c::after{content:"";position:absolute;inset:12%;border-radius:50%;border:2px solid var(--brand);opacity:0;animation:ripple 1.6s ease-out infinite}
+  .c::after{animation-delay:.8s}
+  .dark .c::before,.dark .c::after{border-color:#fff}
+
+  /* D — The M fills up, bottom to top */
+  .d{position:relative;width:calc(var(--s)*.8)}
+  .d .m{width:100%;background:rgba(58,87,232,.15)}
+  .d .m.fill{position:absolute;inset:0;background:var(--brand);animation:fill 1.5s cubic-bezier(.6,0,.4,1) infinite}
+  .dark .d .m{background:rgba(255,255,255,.15)} .dark .d .m.fill{background:#fff}
+
+  /* E — A light sweeps across the M */
+  .e{width:calc(var(--s)*.8)}
+  .e .m{background:linear-gradient(110deg,var(--brand) 40%,#A9B8FF 50%,var(--brand) 60%);background-size:250% 100%;animation:sweep 1.4s linear infinite}
+  .dark .e .m{background:linear-gradient(110deg,#fff 40%,#7F93F3 50%,#fff 60%);background-size:250% 100%}
+
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes breathe{0%,100%{transform:scale(.92)}50%{transform:scale(1.04)}}
+  @keyframes ripple{0%{transform:scale(.7);opacity:.55}100%{transform:scale(1.25);opacity:0}}
+  @keyframes fill{0%{clip-path:inset(100% 0 0 0)}55%,75%{clip-path:inset(0 0 0 0)}100%{clip-path:inset(0 0 0 0);opacity:0}}
+  @keyframes sweep{from{background-position:100% 0}to{background-position:-150% 0}}
+  @media (prefers-reduced-motion:reduce){*{animation-duration:3s!important}}
+
+  .now{display:flex;gap:6px;align-items:flex-end;height:30px}
+  .now i{width:6px;background:var(--brand);border-radius:2px;animation:bars 1s ease-in-out infinite}
+  @keyframes bars{0%,100%{height:30%}50%{height:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Loading animation — options with the Marketing OS “M”</h1>
+  <p class="sub">Each shown at page size and as a small inline loader, on light and dark. Pick one (or say what to mix) and it replaces the current bars everywhere.</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="row"><div class="stage"><div class="a" style="--s:72px"><span class="m"></span></div></div><div class="stage dark"><div class="a" style="--s:72px"><span class="m"></span></div></div></div>
+      <div class="meta"><b>A · Orbit ring <span>Recommended</span></b><p>A blue arc runs round the M on a faint ring. Clean and familiar — reads as “loading” at any size.</p>
+        <div class="small"><div class="a" style="--s:22px"><span class="m"></span></div>Loading tasks…</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><div class="stage"><div class="b" style="--s:72px"><span class="orb"></span><span class="dot"></span><span class="m"></span></div></div><div class="stage dark"><div class="b" style="--s:72px"><span class="orb"></span><span class="dot"></span><span class="m"></span></div></div></div>
+      <div class="meta"><b>B · Orbiting dot</b><p>A single dot circles the M, leaving a soft fading trail.</p>
+        <div class="small"><div class="b" style="--s:22px"><span class="orb"></span><span class="dot"></span><span class="m"></span></div>Loading tasks…</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><div class="stage"><div class="c" style="--s:72px"><span class="m"></span></div></div><div class="stage dark"><div class="c" style="--s:72px"><span class="m"></span></div></div></div>
+      <div class="meta"><b>C · Pulse</b><p>The M breathes gently while rings ripple out from it. Calm; good for longer waits.</p>
+        <div class="small"><div class="c" style="--s:22px"><span class="m"></span></div>Loading tasks…</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><div class="stage"><div class="d" style="--s:72px"><span class="m"></span><span class="m fill"></span></div></div><div class="stage dark"><div class="d" style="--s:72px"><span class="m"></span><span class="m fill"></span></div></div></div>
+      <div class="meta"><b>D · Fill up</b><p>The M fills with blue from the bottom, like a progress bar in the shape of the logo.</p>
+        <div class="small"><div class="d" style="--s:22px"><span class="m"></span><span class="m fill"></span></div>Loading tasks…</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><div class="stage"><div class="e" style="--s:72px"><span class="m"></span></div></div><div class="stage dark"><div class="e" style="--s:72px"><span class="m"></span></div></div></div>
+      <div class="meta"><b>E · Shine</b><p>A soft light sweeps across the M. The most subtle.</p>
+        <div class="small"><div class="e" style="--s:22px"><span class="m"></span></div>Loading tasks…</div></div>
+    </div>
+    <div class="card">
+      <div class="row"><div class="stage"><div class="now"><i></i><i style="animation-delay:.13s"></i><i style="animation-delay:.26s"></i><i style="animation-delay:.39s"></i></div></div></div>
+      <div class="meta"><b>Today · Bars</b><p>What the dashboard shows now, for comparison.</p></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

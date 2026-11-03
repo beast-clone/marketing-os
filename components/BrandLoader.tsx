@@ -1,25 +1,19 @@
 import type { CSSProperties } from "react";
 
-// Clean, on-brand animated loader (no external library) — a small "building bars"
-// motif tinted to the brand indigo, used on the slow AI waits (AI report / planner)
-// where a static skeleton feels dead. Styles + keyframes live in app/globals.css
-// (.brand-loader / @keyframes brandLoaderBar); this just lays out the bars and
-// staggers their animation so they ripple.
+// The dashboard's loader (Praveen picked "A · Orbit ring", 3 Nov 2026 — prototype
+// docs/loader-prototype/v1.html): the Marketing OS "M" with a blue arc running round
+// it. Styles + keyframes live in app/globals.css (.brand-loader).
 export function BrandLoader({
   size = 30,
-  bars = 4,
   className = "",
 }: {
   size?: number;
-  bars?: number;
   className?: string;
 }) {
-  const style: CSSProperties = { width: size, height: size };
+  const style = { "--bl": `${size}px` } as CSSProperties;
   return (
     <span className={`brand-loader ${className}`} style={style} role="status" aria-label="Loading">
-      {Array.from({ length: bars }).map((_, i) => (
-        <i key={i} style={{ animationDelay: `${i * 0.13}s` }} />
-      ))}
+      <i />
     </span>
   );
 }
