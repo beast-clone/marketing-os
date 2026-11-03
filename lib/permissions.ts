@@ -150,7 +150,7 @@ export type Section = "overview" | "content" | "analytics" | "ads" | "sales" | "
 // The 7 sections + the tabs inside each (system is admin-only, never grantable via UI).
 export const SECTIONS: { key: Section; label: string; tabs: string; adminOnly?: boolean }[] = [
   { key: "overview", label: "Overview", tabs: "Overview" },
-  { key: "content", label: "Content", tabs: "Marketing Hub, My Day, Plan board, Content Radar, Calendar, Review, Scheduler, Community Broadcast, Post Planner, Watchers, Airtable backup" },
+  { key: "content", label: "Content", tabs: "Marketing Hub, My Day, Plan board, Content Radar, Calendar, Review, Scheduler, Community Broadcast, Post Planner, Watchers, Airtable Backup" },
   { key: "analytics", label: "Analytics", tabs: "Instagram, LinkedIn, YouTube, Facebook, Website, All platforms" },
   { key: "ads", label: "Ads", tabs: "Ads, Competitor Ads, Benchmark" },
   { key: "sales", label: "Sales", tabs: "Marketing Campaigns, Marketing Leads, Sales Hub" },
@@ -229,7 +229,7 @@ export const TABS: TabDef[] = [
   { key: "content-studio", label: "Content Studio", group: "Content", sec: "content", paths: [`${P}/content-studio`] },
   { key: "watchers", label: "Watchers", group: "Content", sec: "content", paths: [`${P}/watchers`] },
   // Old data, not work — off for non-admins until switched on (3 Nov).
-  { key: "archive", label: "Airtable backup", group: "Content", sec: "content", adminDefault: true, paths: [`${P}/archive`] },
+  { key: "archive", label: "Airtable Backup", group: "Content", sec: "content", adminDefault: true, paths: [`${P}/archive`] },
   { key: "publishing-calendar", label: "Publishing Calendar", group: "Social media", sec: "content", paths: [`${P}/calendar`] },
   { key: "content-review", label: "Content Review", group: "Social media", sec: "content", paths: [`${P}/content-review`] },
   { key: "scheduler", label: "Scheduler", group: "Social media", sec: "content", paths: [`${P}/scheduler`] },

@@ -7,7 +7,7 @@ import { Overlay } from "@/app/(dashboard)/dashboard/preview/Overlay";
 import { LoadingBlock } from "@/components/LoadingBlock";
 import { fmtDateShort } from "@/lib/date";
 
-// Airtable backup (Content → Airtable backup, 3 Nov 2026): Airtable's Content
+// Airtable Backup (Content → Airtable Backup, 3 Nov 2026): Airtable's Content
 // Calendar from April 2026, kept read-only so nothing is lost after the move to the
 // dashboard. Nothing here is live work. The summary counts content by primary
 // interest for whatever is filtered, and "Copy table" puts it on the clipboard as
@@ -27,7 +27,7 @@ const yearOf = (r: Row) => monthOf(r).slice(0, 4);
 
 export default function ArchivePage() {
   return (
-    <PreviewDashboardShell active="archive" title="Airtable backup" hideAccountPicker hideRange
+    <PreviewDashboardShell active="archive" title="Airtable Backup" hideAccountPicker hideRange
       subtitle="Airtable's Content Calendar from April 2026 — a read-only backup, for looking things up and yearly counts.">
       {() => <Archive />}
     </PreviewDashboardShell>
@@ -211,7 +211,7 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
       <div className="preview-scope bg-white rounded-2xl w-[min(860px,94vw)] max-h-[88vh] overflow-y-auto">
         <div className="flex items-start gap-3 px-5 py-4 border-b border-gray-100 bg-brand-light sticky top-0">
           <div className="mr-auto min-w-0">
-            <div className="text-[11px] uppercase tracking-widest text-brand font-medium">Airtable backup · read-only</div>
+            <div className="text-[11px] uppercase tracking-widest text-brand font-medium">Airtable Backup · read-only</div>
             <div className="text-[16px] font-medium text-[#232D42] mt-0.5">{row ? row.title || "(no title)" : "Loading…"}</div>
           </div>
           <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-lg bg-white grid place-items-center text-[#4A5468] hover:text-[#232D42]"><IconX size={16} /></button>

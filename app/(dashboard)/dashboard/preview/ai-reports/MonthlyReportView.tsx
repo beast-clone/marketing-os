@@ -389,7 +389,7 @@ function PlatformHeader({ name }: { name: string }) {
 }
 
 // Sections added to this month's report: a title and text. Text pasted from a
-// table (tab-separated lines — the Airtable backup's "Copy table", or cells copied
+// table (tab-separated lines — the Airtable Backup's "Copy table", or cells copied
 // from a spreadsheet) shows as a table; "Edit" brings the text back.
 function asTable(body: string): string[][] | null {
   const lines = body.trim().split(/\r?\n/).filter((l) => l.trim());

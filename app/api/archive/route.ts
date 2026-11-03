@@ -5,7 +5,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { rosterById } from "@/lib/team-db";
 import { canSeeTab } from "@/lib/permissions";
 
-// Airtable backup (sql/airtable_archive.sql) — read-only. There is no write here:
+// Airtable Backup (sql/airtable_archive.sql) — read-only. There is no write here:
 // the rows are a backup, filled by scripts/archive-airtable-calendar.mjs.
 //   GET          → { rows }  every task, list columns only
 //   GET ?id=rec… → { row }   one task in full (content, caption, files, other fields)
@@ -14,7 +14,7 @@ const LIST = "airtable_id, title, type, status, sbu, owner, publishing_date, cre
 
 export async function GET(req: Request) {
   const me = await rosterById(getSessionUserId());
-  if (!canSeeTab(me, "archive")) return NextResponse.json({ error: "Your access doesn't include the Airtable backup — ask an admin to switch it on in Team & access." }, { status: 403 });
+  if (!canSeeTab(me, "archive")) return NextResponse.json({ error: "Your access doesn't include the Airtable Backup — ask an admin to switch it on in Team & access." }, { status: 403 });
   const sb = getSupabase(); if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
   try {
     const id = new URL(req.url).searchParams.get("id");

@@ -7,7 +7,7 @@ const SOURCE = "report_manual";
 const keyFor = (month: string) => `report-manual:${month}`;
 
 // A section someone added to the month's report — a title and free text. Text pasted
-// from a table (tab-separated, e.g. the Airtable backup's "Copy table") shows as a table.
+// from a table (tab-separated, e.g. the Airtable Backup's "Copy table") shows as a table.
 export type ManualSection = { id: string; title: string; body: string };
 
 export type ManualFields = {

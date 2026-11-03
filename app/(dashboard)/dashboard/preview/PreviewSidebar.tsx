@@ -86,7 +86,7 @@ const GROUPS: Group[] = [
     // Web pages we follow for news — KEA / MCC counselling notices first (1 Oct).
     { label: "Watchers",            href: `${HUB}/watchers`,     icon: IconEye },
     // Read-only backup of Airtable's Content Calendar from April 2026 (3 Nov).
-    { label: "Airtable backup",     href: `${HUB}/archive`,      icon: IconDatabase },
+    { label: "Airtable Backup",     href: `${HUB}/archive`,      icon: IconDatabase },
   ] },
   { label: "Social Media", sec: "content", items: [
     { label: "Publishing Calendar", href: `${HUB}/calendar`,        icon: IconCalendarEvent },
