@@ -36,7 +36,21 @@ export async function POST(req: Request) {
 
 // GET /api/comments → { comments } — every dashboard comment, newest first.
 // Admin only (the System section), like Team and Integrations.
-export async function GET() {
+// GET /api/comments?status=<id>,<id> → { status: [{ id, resolved, note }] } — any signed-in
+// person, for their own pins: the Comment button counts from the browser's copy, which
+// never heard that a comment was resolved, so the badge stayed on "1" (3 Nov).
+export async function GET(req: Request) {
+  const ids = new URL(req.url).searchParams.get("status");
+  if (ids !== null) {
+    if (!getSessionUserId()) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    const want = new Set(ids.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 200));
+    try {
+      const status = (await listComments()).filter((c) => want.has(c.id)).map((c) => ({ id: c.id, resolved: !!c.resolved, note: c.resolvedNote || null }));
+      return NextResponse.json({ status });
+    } catch (err) {
+      return NextResponse.json(safeError(err, "Could not check comments"), { status: 502 });
+    }
+  }
   const denied = await requireSection("system");
   if (denied) return denied;
   try {

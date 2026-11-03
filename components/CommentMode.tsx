@@ -148,7 +148,21 @@ export function CommentMode() {
 
   useEffect(() => {
     setMounted(true);
-    setAll(loadAll());
+    const local = loadAll();
+    setAll(local);
+    // Pick up resolves done elsewhere (System → Comments, or by whoever fixed it) — this
+    // browser's copy never hears about them, so the badge kept counting fixed comments.
+    const open = local.filter((c) => !c.resolved).map((c) => c.id);
+    if (!open.length) return;
+    fetch(`/api/comments?status=${encodeURIComponent(open.join(","))}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { status?: { id: string; resolved: boolean }[] } | null) => {
+        const done = new Set((d?.status || []).filter((s) => s.resolved).map((s) => s.id));
+        if (!done.size) return;
+        const next = local.map((c) => (done.has(c.id) ? { ...c, resolved: true } : c));
+        setAll(next); saveAll(next);
+      })
+      .catch(() => { /* offline — keep the local copy */ });
   }, []);
 
   // Who is commenting — for attribution on the pin.
