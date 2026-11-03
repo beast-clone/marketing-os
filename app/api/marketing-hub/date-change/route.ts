@@ -10,6 +10,9 @@ import { rosterById } from "@/lib/team-db";
 // Publish-date change approvals.
 //   GET  /api/marketing-hub/date-change              → pending requests (for the panel)
 //        ?history=1 adds every approved / rejected one (the Approvals tab's History)
+//        and `moves`: publish dates changed straight away, with no approval — a log
+//        only, nothing to decide (Praveen, 3 Nov 2026: approval switched off for now,
+//        "let it get logged"). Read from the task history's "rescheduled" entries.
 //   POST /api/marketing-hub/date-change { postId, action:"approve"|"reject", actor? }
 //        → approve writes the date; reject discards. Any admin may resolve, except
 //          the person who asked.
@@ -22,11 +25,33 @@ export async function GET(req: Request) {
   if (!sb) return NextResponse.json({ requests: [] });
   try {
     const withHistory = new URL(req.url).searchParams.get("history") === "1";
-    const [requests, history] = await Promise.all([listPendingDateChanges(sb), withHistory ? listDateChangeHistory(sb) : Promise.resolve(undefined)]);
-    return NextResponse.json({ requests, ...(history ? { history } : {}) });
+    const [requests, history, moves] = await Promise.all([
+      listPendingDateChanges(sb),
+      withHistory ? listDateChangeHistory(sb) : Promise.resolve(undefined),
+      withHistory ? listDateMoves(sb) : Promise.resolve(undefined),
+    ]);
+    return NextResponse.json({ requests, ...(history ? { history } : {}), ...(moves ? { moves } : {}) });
   } catch (err) {
     return NextResponse.json(safeError(err, "Could not load date-change requests"), { status: 502 });
   }
+}
+
+// The last 60 days of direct publish-date moves, newest first.
+async function listDateMoves(sb: NonNullable<ReturnType<typeof getSupabase>>) {
+  const since = new Date(Date.now() - 60 * 86_400_000).toISOString();
+  const { data } = await sb.from("mh_activity").select("post_id, actor_key, from_value, to_value, detail, created_at")
+    .eq("action", "rescheduled").gte("created_at", since).order("created_at", { ascending: false }).limit(300);
+  const rows = (data || []) as { post_id: string; actor_key: string | null; from_value: string | null; to_value: string | null; detail: unknown; created_at: string }[];
+  const ids = [...new Set(rows.map((r) => r.post_id))];
+  const titles = new Map<string, string>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data: posts } = await sb.from("mh_posts").select("id, particulars").in("id", ids.slice(i, i + 200));
+    for (const p of (posts || []) as { id: string; particulars: string | null }[]) titles.set(p.id, p.particulars || "(no title)");
+  }
+  return rows.filter((r) => titles.has(r.post_id)).map((r) => ({
+    postId: r.post_id, title: titles.get(r.post_id)!, from: r.from_value, to: r.to_value,
+    by: r.actor_key, at: r.created_at, why: typeof r.detail === "string" ? r.detail : null,
+  }));
 }
 
 export async function POST(req: Request) {

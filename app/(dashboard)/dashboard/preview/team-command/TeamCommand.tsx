@@ -20,6 +20,7 @@ type AttRow = { key: string; name: string; role: string; loginAt: string | null;
 type MyDayTask = { id: string; title: string; status: string; due: string; detail: { typeLine: string; owner: string; priority: string; brand: string; startAt: string; endAt: string; duration?: number; presenter?: string } };
 type DateReq = { postId: string; title: string; type?: string; owner?: string; createdAt?: string; creator?: string; from: string | null; to: string | null; reason?: string; requestedBy: string;
   status?: "pending" | "approved" | "rejected" | "superseded"; resolvedBy?: string; resolvedAt?: string; resolvedNote?: string };
+type DateMove = { postId: string; title: string; from: string | null; to: string | null; by: string | null; at: string; why: string | null };
 
 // Today's team with colours; Team-page newcomers are appended in TeamCommand.
 const ROSTER = [
@@ -136,7 +137,9 @@ export function TeamCommand({ mode = "team" }: { mode?: "team" | "approvals" } =
   const [apprNotes, setApprNotes] = useState<Record<string, string>>({}); // approver's note per request
   // Approvals → History: every approved / rejected date change (lib/date-approvals LOG_KEY).
   const [history, setHistory] = useState<DateReq[]>([]);
-  const [apprTab, setApprTab] = useState<"waiting" | "history">("waiting");
+  const [apprTab, setApprTab] = useState<"waiting" | "history" | "moves">("waiting");
+  // Approvals → Date changes: dates moved straight away (no approval), log only.
+  const [moves, setMoves] = useState<DateMove[]>([]);
   const [histBy, setHistBy] = useState("");   // "" = everyone
   useEffect(() => { setDateStr(new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })); }, []);
 
@@ -151,6 +154,7 @@ export function TeamCommand({ mode = "team" }: { mode?: "team" | "approvals" } =
       setTasks((m.tasks || []) as MyDayTask[]);
       setApprovals((ap.requests || []) as DateReq[]);
       if (ap.history) setHistory(ap.history as DateReq[]);
+      if (ap.moves) setMoves(ap.moves as DateMove[]);
       setFetchedAt(new Date());
     } catch { /* keep last */ } finally { setLoading(false); }
   }, [view]);
@@ -243,8 +247,9 @@ export function TeamCommand({ mode = "team" }: { mode?: "team" | "approvals" } =
         <div className="tc-seg">
           <button className={apprTab === "waiting" ? "on" : ""} onClick={() => setApprTab("waiting")}><IconCalendarDue size={15} stroke={1.8} />Waiting <span className="c">{approvals.length}</span></button>
           <button className={apprTab === "history" ? "on" : ""} onClick={() => setApprTab("history")}><IconHistory size={15} stroke={1.8} />History <span className="c">{history.length}</span></button>
+          <button className={apprTab === "moves" ? "on" : ""} onClick={() => setApprTab("moves")}><IconCalendarDue size={15} stroke={1.8} />Date changes <span className="c">{moves.length}</span></button>
         </div>
-        {apprTab === "history" ? <ApprovalHistory rows={history} by={histBy} setBy={setHistBy} /> : (
+        {apprTab === "moves" ? <DateMoves rows={moves} /> : apprTab === "history" ? <ApprovalHistory rows={history} by={histBy} setBy={setHistBy} /> : (
         /* APPROVALS — publish-date changes waiting for Maheen */
         approvals.length === 0 ? (
           <div className="tc-appr-empty"><div className="tc-appr-check"><IconChecks size={22} stroke={1.8} /></div>No approvals needed right now.</div>
@@ -395,6 +400,46 @@ export function TeamCommand({ mode = "team" }: { mode?: "team" | "approvals" } =
 
 // Approvals → History: every publish-date change an admin approved or rejected, newest
 // first, with how many each admin decided (Praveen, 30 Oct).
+// Dates moved without approval — a log to read, nothing to decide. The dates are
+// stored as text in the task history ("25 Oct 2026"), so they show as written.
+function DateMoves({ rows }: { rows: DateMove[] }) {
+  const [by, setBy] = useState("");
+  const people = [...new Set(rows.map((r) => r.by || "").filter(Boolean))];
+  const shown = by ? rows.filter((r) => r.by === by) : rows;
+  const when = (d?: string) => (d ? new Date(d).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "—");
+  if (!rows.length) return <div className="tc-appr-empty">No dates moved in the last 60 days.</div>;
+  return (
+    <div className="tc-hist">
+      <div className="tc-hist-by">
+        <button className={!by ? "on" : ""} onClick={() => setBy("")}>Everyone <span className="c">{rows.length}</span></button>
+        {people.map((k) => {
+          const a = avatarFor(k);
+          return (
+            <button key={k} className={by === k ? "on" : ""} onClick={() => setBy(by === k ? "" : k)}>
+              <span className="tc-ppl-av sm" style={{ background: a.color }}>{a.av}</span>{nameCap(k)}
+              <span className="c">{rows.filter((r) => r.by === k).length}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="tc-hist-table">
+        <div className="tc-hist-row moves head"><span>Task</span><span>Date change</span><span>Moved by</span><span>When</span></div>
+        {shown.map((r, i) => (
+          <div key={`${r.postId}:${r.at}:${i}`} className="tc-hist-row moves">
+            <span className="t">
+              <a href={`/dashboard/preview/marketing-hub?tab=master&open=${r.postId}`}>{r.title}</a>
+              {r.why ? <span className="note">{r.why}</span> : null}
+            </span>
+            <span className="d">{r.from || "unset"} <IconArrowRight size={13} stroke={2} /> <b>{r.to || "unset"}</b></span>
+            <span>{nameCap(r.by || undefined)}</span>
+            <span className="w">{when(r.at)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ApprovalHistory({ rows, by, setBy }: { rows: DateReq[]; by: string; setBy: (k: string) => void }) {
   const admins = [...new Set(rows.map((r) => r.resolvedBy || "").filter(Boolean))];
   const count = (k: string, st: "approved" | "rejected") => rows.filter((r) => r.resolvedBy === k && r.status === st).length;
@@ -456,7 +501,8 @@ const CSS = `
 .tcmd .tc-hist-badge{display:inline-flex;align-items:center;gap:3px;border-radius:99px;padding:2px 8px;font-size:12px;font-weight:500}
 .tcmd .tc-hist-badge.approved{background:#E3F5EA;color:#137A3E}
 .tcmd .tc-hist-badge.rejected{background:#FDECEC;color:#C0201F}
-@media (max-width:900px){.tcmd .tc-hist-row{grid-template-columns:1fr 1fr}.tcmd .tc-hist-row.head{display:none}}
+.tcmd .tc-hist-row.moves{grid-template-columns:minmax(0,2.4fr) minmax(0,1.5fr) minmax(0,.8fr) minmax(0,1.1fr)}
+@media (max-width:900px){.tcmd .tc-hist-row,.tcmd .tc-hist-row.moves{grid-template-columns:1fr 1fr}.tcmd .tc-hist-row.head{display:none}}
 
 .tcmd{--brand:#3A57E8;--brand-ink:#2138B0;--brand-soft:#E9ECFB;--brand-rgb:58 87 232;--brand-dark-rgb:33 56 176;--brand-light-rgb:233 236 251;--ink:#232D42;--soft:#8A92A6;--line:#EEF0F4;--panel:#fff;--canvas:#F6F7FB;
   flex:1;min-width:0;height:100vh;overflow-y:auto;background:var(--canvas);padding:22px 26px 60px;font-family:Inter,system-ui,sans-serif;color:var(--ink)}
