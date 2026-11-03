@@ -5,7 +5,7 @@ import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/Previ
 import { confirmDialog } from "@/app/(dashboard)/dashboard/preview/ConfirmDialog";
 import {
   IconCopy, IconChevronRight, IconCheck, IconPlus, IconTerminal2, IconDeviceDesktop,
-  IconWorld, IconAlertTriangle, IconLock, IconPlugConnected,
+  IconWorld, IconAlertTriangle, IconLock, IconPlugConnected, IconX, IconRefresh, IconPlugX, IconAdjustments,
 } from "@tabler/icons-react";
 
 // System → Connectors.
@@ -40,23 +40,17 @@ function Connectors() {
     <div className="space-y-3">
       {/* Adding one comes first: this page exists to get people connected, and the
           list below it is the record of what already is. */}
-      <div className="bg-white border border-dashed border-[#D9DEEA] rounded-2xl p-5 flex items-center gap-3">
-        <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#F6F7FB] text-[#A6ACBE] shrink-0">
-          <IconPlus size={18} stroke={1.8} />
-        </span>
-        <div className="min-w-0">
-          <div className="text-[13.5px] font-semibold text-[#232D42]">Add another connector</div>
-          <p className="text-[12.5px] text-[#8A92A6] mt-0.5">
-            Anything that should read or write this dashboard from outside — n8n,
-            another AI tool — gets set up here. Ask Praveen to add it.
-          </p>
-        </div>
-      </div>
-
-      <div className="pt-1">
-        <h2 className="text-[11.5px] font-semibold text-[#8A92A6] uppercase tracking-wider px-1 mb-2">Connected</h2>
-        <ClaudeConnector />
-      </div>
+      <OtherConnectors>
+        {(list) => (
+          <div className="pt-1">
+            <h2 className="text-[11.5px] font-semibold text-[#8A92A6] uppercase tracking-wider px-1 mb-2">Connected</h2>
+            <div className="space-y-3">
+              <ClaudeConnector />
+              {list}
+            </div>
+          </div>
+        )}
+      </OtherConnectors>
       <EveryonesConnections />
     </div>
   );
@@ -308,6 +302,195 @@ function ClaudeConnector() {
         </p>
       </Step>
     </Card>
+  );
+}
+
+/* ------------------------------------------------------- other connectors */
+
+// n8n, another AI tool, a script — anything that can send a key with its request
+// (lib/connectors, Praveen 3 Nov 2026). Admins add one, tick what it may do, and get
+// its key once. Its changes go under its own name. Non-admins see a note instead.
+type Conn = { id: string; name: string; scopes: string[]; keyEnd: string; createdBy: string; createdAt: string; lastUsedAt?: string };
+type ScopeDef = { key: string; label: string; desc: string };
+
+function OtherConnectors({ children }: { children: (list: React.ReactNode) => React.ReactNode }) {
+  const [data, setData] = useState<{ connectors: Conn[]; scopes: ScopeDef[] } | null | "no">(null);
+  const [adding, setAdding] = useState(false);
+  const [shownKey, setShownKey] = useState<{ name: string; key: string } | null>(null);
+  const [editing, setEditing] = useState<Conn | null>(null);
+  const load = () =>
+    fetch("/api/connectors", { cache: "no-store", credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : "no")).then(setData).catch(() => setData("no"));
+  useEffect(() => { load(); }, []);
+
+  const admin = data && data !== "no";
+  const scopes = admin ? data.scopes : [];
+  const label = (k: string) => scopes.find((x) => x.key === k)?.label || k;
+
+  const rotate = async (c: Conn) => {
+    if (!(await confirmDialog({ title: `New key for ${c.name}?`, body: "The current key stops working at once. Paste the new one into the tool straight after.", action: "Make a new key" }))) return;
+    const r = await fetch("/api/connectors", { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id: c.id, op: "rotate" }) });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) setShownKey({ name: c.name, key: j.key });
+    load();
+  };
+  const remove = async (c: Conn) => {
+    if (!(await confirmDialog({ title: `Disconnect ${c.name}?`, body: "Its key stops working at once. Anything it already changed stays.", action: "Disconnect", danger: true }))) return;
+    await fetch(`/api/connectors?id=${encodeURIComponent(c.id)}`, { method: "DELETE", credentials: "same-origin" });
+    load();
+  };
+
+  const list = admin ? data.connectors.map((c) => (
+    <Card key={c.id}>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="grid place-items-center w-10 h-10 rounded-xl bg-brand-light text-brand shrink-0"><IconPlugConnected size={20} stroke={1.8} /></span>
+          <div className="min-w-0">
+            <div className="text-[15px] font-semibold text-[#232D42]">{c.name}</div>
+            <div className="text-[12.5px] text-[#8A92A6]">Changes go under its own name · key ending …{c.keyEnd} · last used {when(c.lastUsedAt)}</div>
+          </div>
+        </div>
+        <span className="inline-flex items-center gap-1 text-[12px] font-medium text-[#0F6E3C] bg-[#E8F6EE] rounded-full px-2.5 py-1"><IconCheck size={13} stroke={2.2} />Connected</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5 mt-3">
+        {c.scopes.length ? c.scopes.map((s) => <span key={s} className="text-[12px] text-[#4A5468] bg-[#F6F7FB] border border-gray-100 rounded-lg px-2 py-0.5">{label(s)}</span>)
+          : <span className="text-[12px] text-[#B76E00]">Allowed to do nothing yet</span>}
+      </div>
+      <div className="flex flex-wrap gap-2 mt-3">
+        <button onClick={() => rotate(c)} className="inline-flex items-center gap-1.5 text-[12.5px] font-medium border border-gray-200 rounded-lg px-3 py-1.5 text-[#4A5468] hover:border-brand hover:text-brand"><IconRefresh size={14} />Make a new key</button>
+        <button onClick={() => setEditing(c)} className="inline-flex items-center gap-1.5 text-[12.5px] font-medium border border-gray-200 rounded-lg px-3 py-1.5 text-[#4A5468] hover:border-brand hover:text-brand"><IconAdjustments size={14} />Change what it can do</button>
+        <button onClick={() => remove(c)} className="inline-flex items-center gap-1.5 text-[12.5px] font-medium border border-gray-200 rounded-lg px-3 py-1.5 text-[#4A5468] hover:border-[#C03221] hover:text-[#C03221]"><IconPlugX size={14} />Disconnect</button>
+      </div>
+    </Card>
+  )) : null;
+
+  return (
+    <>
+      {admin ? (
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="grid place-items-center w-9 h-9 rounded-lg bg-brand-light text-brand shrink-0"><IconPlugConnected size={18} stroke={1.8} /></span>
+            <div className="min-w-0">
+              <div className="text-[13.5px] font-semibold text-[#232D42]">Add a connector</div>
+              <p className="text-[12.5px] text-[#8A92A6] mt-0.5">Any outside tool — n8n, another AI tool, a script. It gets its own key and only what you tick.</p>
+            </div>
+          </div>
+          <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 bg-brand hover:bg-[#2138B0] text-white text-[13px] font-medium rounded-lg px-4 py-2"><IconPlus size={15} />Add a connector</button>
+        </div>
+      ) : data === "no" ? (
+        <div className="bg-white border border-dashed border-[#D9DEEA] rounded-2xl p-5 flex items-center gap-3">
+          <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#F6F7FB] text-[#A6ACBE] shrink-0"><IconPlus size={18} stroke={1.8} /></span>
+          <div className="min-w-0">
+            <div className="text-[13.5px] font-semibold text-[#232D42]">Add another connector</div>
+            <p className="text-[12.5px] text-[#8A92A6] mt-0.5">Anything that should read or write this dashboard from outside — n8n, another AI tool — is added by an admin.</p>
+          </div>
+        </div>
+      ) : null}
+      {children(list)}
+      {adding && admin && <AddConnectorModal scopes={scopes} onClose={() => setAdding(false)} onAdded={(name, key) => { setAdding(false); setShownKey({ name, key }); load(); }} />}
+      {editing && admin && <ScopesModal conn={editing} scopes={scopes} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {shownKey && <KeyModal name={shownKey.name} secret={shownKey.key} onClose={() => setShownKey(null)} />}
+    </>
+  );
+}
+
+function Modal({ title, onClose, children, footer }: { title: string; onClose: () => void; children: React.ReactNode; footer: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-[#232D42]/40 flex items-start justify-center p-4 pt-16 overflow-auto" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl border border-gray-100 w-full max-w-[600px]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div className="text-[16px] font-semibold text-[#232D42]">{title}</div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-[#8A92A6] hover:bg-[#F6F7FB]" aria-label="Close"><IconX size={18} /></button>
+        </div>
+        <div className="px-5 py-4">{children}</div>
+        <div className="px-5 py-3.5 border-t border-gray-100 flex justify-end gap-2">{footer}</div>
+      </div>
+    </div>
+  );
+}
+
+function ScopeTicks({ scopes, value, onChange }: { scopes: ScopeDef[]; value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl">
+      {scopes.map((s) => (
+        <label key={s.key} className="flex items-start gap-3 px-3.5 py-2.5 cursor-pointer">
+          <input type="checkbox" className="mt-1 accent-[#3A57E8]" checked={value.includes(s.key)}
+            onChange={(e) => onChange(e.target.checked ? [...value, s.key] : value.filter((x) => x !== s.key))} />
+          <span><span className="block text-[13.5px] font-medium text-[#232D42]">{s.label}</span><span className="block text-[12px] text-[#8A92A6]">{s.desc}</span></span>
+        </label>
+      ))}
+      <div className="flex items-start gap-3 px-3.5 py-2.5">
+        <IconX size={15} className="mt-0.5 text-[#C03221] shrink-0" />
+        <span className="text-[12.5px] text-[#8A92A6]">Never: delete anything, or publish to Instagram, Facebook or LinkedIn.</span>
+      </div>
+    </div>
+  );
+}
+
+function AddConnectorModal({ scopes, onClose, onAdded }: { scopes: ScopeDef[]; onClose: () => void; onAdded: (name: string, key: string) => void }) {
+  const [name, setName] = useState("");
+  const [picked, setPicked] = useState<string[]>(["read"]);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  const save = async () => {
+    setBusy(true); setErr("");
+    const r = await fetch("/api/connectors", { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ name, scopes: picked }) });
+    const j = await r.json().catch(() => ({}));
+    setBusy(false);
+    if (r.ok) onAdded(j.connector.name, j.key); else setErr(j.error || "Couldn't add it — try again.");
+  };
+  return (
+    <Modal title="Add a connector" onClose={onClose}
+      footer={<>
+        <button onClick={onClose} className="text-[13px] font-medium border border-gray-200 rounded-lg px-4 py-2 text-[#4A5468]">Cancel</button>
+        <button onClick={save} disabled={busy || !name.trim()} className="text-[13px] font-medium bg-brand hover:bg-[#2138B0] text-white rounded-lg px-4 py-2 disabled:opacity-50">{busy ? "Connecting…" : "Connect"}</button>
+      </>}>
+      <label className="block text-[12.5px] font-medium text-[#232D42] mb-1.5">Name it</label>
+      <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. n8n — Publisher"
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-[14px] text-[#232D42] focus:outline-none focus:border-brand" />
+      <p className="text-[12px] text-[#8A92A6] mt-1.5 mb-4">This name shows in each task&apos;s history next to what it changed.</p>
+      <div className="text-[12.5px] font-medium text-[#232D42] mb-1.5">What may it do?</div>
+      <ScopeTicks scopes={scopes} value={picked} onChange={setPicked} />
+      {err && <p className="text-[12.5px] text-[#C03221] mt-3">{err}</p>}
+    </Modal>
+  );
+}
+
+function ScopesModal({ conn, scopes, onClose, onSaved }: { conn: Conn; scopes: ScopeDef[]; onClose: () => void; onSaved: () => void }) {
+  const [picked, setPicked] = useState<string[]>(conn.scopes);
+  const save = async () => {
+    await fetch("/api/connectors", { method: "PATCH", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ id: conn.id, op: "scopes", scopes: picked }) });
+    onSaved();
+  };
+  return (
+    <Modal title={`What ${conn.name} can do`} onClose={onClose}
+      footer={<>
+        <button onClick={onClose} className="text-[13px] font-medium border border-gray-200 rounded-lg px-4 py-2 text-[#4A5468]">Cancel</button>
+        <button onClick={save} className="text-[13px] font-medium bg-brand hover:bg-[#2138B0] text-white rounded-lg px-4 py-2">Save</button>
+      </>}>
+      <ScopeTicks scopes={scopes} value={picked} onChange={setPicked} />
+    </Modal>
+  );
+}
+
+function KeyModal({ name, secret, onClose }: { name: string; secret: string; onClose: () => void }) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return (
+    <Modal title={`${name} is connected`} onClose={onClose}
+      footer={<button onClick={onClose} className="text-[13px] font-medium bg-brand hover:bg-[#2138B0] text-white rounded-lg px-4 py-2">Done</button>}>
+      <div className="text-[12.5px] font-medium text-[#232D42] mb-1.5">Its key</div>
+      <CopyBox value={secret} mono ready />
+      <p className="text-[12px] text-[#B76E00] bg-[#FFF4E0] rounded-lg px-3 py-2 mt-2 flex items-start gap-1.5">
+        <IconAlertTriangle size={14} className="shrink-0 mt-0.5" />Shown once. Paste it into the tool now — if it&apos;s lost, make a new one here and the old one stops working.
+      </p>
+      <div className="mt-4 border border-gray-100 rounded-xl p-3.5">
+        <div className="text-[13.5px] font-medium text-[#232D42] mb-1.5">Set it up in the tool</div>
+        <Num n="1">Server address (MCP, streamable HTTP):</Num>
+        <div className="ml-6 mb-2"><CopyBox value={`${origin}/api/mcp`} mono ready /></div>
+        <Num n="2">Send the key in a header: <b className="font-medium text-[#4A5468]">x-api-key</b> (or <b className="font-medium text-[#4A5468]">Authorization: Bearer …</b>). Never in the address — addresses end up in logs.</Num>
+        <Num n="3">Run one request to test. It shows here as &ldquo;last used&rdquo;.</Num>
+      </div>
+    </Modal>
   );
 }
 

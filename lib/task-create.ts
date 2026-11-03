@@ -4,7 +4,7 @@ import { bustMarketingHubCache } from "@/lib/mh-cache";
 import { pageForSbu } from "@/lib/sbu-pages";
 import { VIDEO_TYPES } from "@/lib/mh-content-types";
 import { TEAM_NAMES } from "@/lib/team-names";
-import { fetchRoster } from "@/lib/team-db";
+import { fetchRoster, rosterById } from "@/lib/team-db";
 import { fetchContentTypes } from "@/lib/content-types-db";
 import { fetchSbus } from "@/lib/sbus-db";
 import { rulesEngineOn } from "@/lib/rules-engine";
@@ -128,7 +128,10 @@ export async function createTask(t: TaskInput, actorId: string | null, source: s
   // Best-effort: the task is committed; a logging hiccup must not fail the create
   // (the caller would retry → duplicate task).
   try {
-    await sb.from("mh_activity").insert({ post_id: data.id, actor_key: actorId || normalizeOwner(t.owner), action: "created", to_value: "Content - Pending", detail: { source, ...(via ? { via } : {}) } });
+    // A connector (lib/connectors) isn't a team member, so the trail names it in
+    // detail.via instead of actor_key (which must be someone on the team).
+    const actor = actorId ? ((await rosterById(actorId)) ? actorId : null) : normalizeOwner(t.owner);
+    await sb.from("mh_activity").insert({ post_id: data.id, actor_key: actor, action: "created", to_value: "Content - Pending", detail: { source, ...(via ? { via } : {}) } });
   } catch { /* courtesy trail */ }
   bustMarketingHubCache();
   return data as CreatedTask;

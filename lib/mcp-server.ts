@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { userForKey } from "@/lib/claude-connector";
+import { connectorForKey, type Scope } from "@/lib/connectors";
 import { connectionForAccessToken, issuer } from "@/lib/oauth";
 import { rosterById, fetchRoster, activeTeamIds } from "@/lib/team-db";
 import { SBU_OPTIONS } from "@/lib/sbus";
@@ -141,11 +142,19 @@ const TOOLS = [
  *  Team page roster, so a brand added in the
  *  dashboard is offered to Claude without a deploy. SBU_OPTIONS above is only the
  *  fallback baked into the static copy. */
-async function liveTools() {
+// What each tool needs when the caller is a connector (lib/connectors). People are
+// checked by their own permissions instead; scopes is undefined for them.
+const TOOL_SCOPE: Record<string, Scope> = {
+  list_tasks: "read", get_task: "read", search_tasks: "read", whats_due: "read",
+  create_task: "create", update_task: "update", list_radar: "radar",
+};
+const DATE_FIELDS = ["publishing_date", "due_date"];
+
+async function liveTools(scopes?: Scope[]) {
   const [sbus, team, types] = await Promise.all([
     fetchSbus(), activeTeamIds().then((t) => [...t]), fetchContentTypes().then((t) => t.map((x) => x.name)),
   ]);
-  return TOOLS.map((t) => {
+  return TOOLS.filter((t) => !scopes || scopes.includes(TOOL_SCOPE[t.name])).map((t) => {
     const props = { ...(t.inputSchema.properties as unknown as Record<string, Record<string, unknown>>) };
     for (const k of ["primary_interest", "brand"]) if (props[k]) props[k] = { ...props[k], enum: sbus };
     if (props.owner) props.owner = { ...props.owner, enum: team };
@@ -154,9 +163,9 @@ async function liveTools() {
   });
 }
 
-async function createOne(id: Rpc["id"], userId: string, args: Record<string, unknown>, origin: string, via?: string) {
+async function createOne(id: Rpc["id"], userId: string, args: Record<string, unknown>, origin: string, via?: string, scopes?: Scope[]) {
   const me = await rosterById(userId);
-  if (!hasCapability(me, "create_tasks")) {
+  if (!scopes && !hasCapability(me, "create_tasks")) {
     return say(id, "You don't have permission to create tasks in the dashboard. Ask an admin (Team page → Create tasks).", true);
   }
   const s = (k: string) => (typeof args[k] === "string" ? (args[k] as string).trim() : "");
@@ -193,11 +202,15 @@ async function createOne(id: Rpc["id"], userId: string, args: Record<string, unk
     `Open it: ${origin}/dashboard/preview/marketing-hub?tab=master&open=${task.id}`);
 }
 
-async function callTool(id: Rpc["id"], userId: string, name: string, args: Record<string, unknown>, origin: string, via?: string) {
+async function callTool(id: Rpc["id"], userId: string, name: string, args: Record<string, unknown>, origin: string, via?: string, scopes?: Scope[]) {
+  if (scopes) {
+    if (!TOOL_SCOPE[name] || !scopes.includes(TOOL_SCOPE[name])) return say(id, `This connector isn't allowed to use ${name}. An admin can change what it may do on System → Connectors.`, true);
+    if (name === "update_task" && DATE_FIELDS.some((f) => f in args) && !scopes.includes("dates")) return say(id, "This connector isn't allowed to change dates. An admin can allow it on System → Connectors.", true);
+  }
   await fetchRoster();   // owner names below resolve against the Team page roster
   await fetchContentTypes();   // registers dashboard-added types into VIDEO_TYPES (sql/028)
   switch (name) {
-    case "create_task":  return createOne(id, userId, args, origin, via);
+    case "create_task":  return createOne(id, userId, args, origin, via, scopes);
     case "list_tasks":   return json(id, await listTasks(args, origin));
     case "get_task":     return json(id, await getTask(args, origin));
     case "search_tasks": return json(id, await searchTasks(args, origin));
@@ -205,7 +218,7 @@ async function callTool(id: Rpc["id"], userId: string, name: string, args: Recor
     case "list_radar":   return json(id, await listRadar(args));
     case "update_task": {
       const me = await rosterById(userId);
-      if (!hasCapability(me, "create_tasks")) {
+      if (!scopes && !hasCapability(me, "create_tasks")) {
         return say(id, "You don't have permission to change tasks in the dashboard. Ask an admin (Team page → Create tasks).", true);
       }
       const res = await updateTask(args, userId, origin, via);
@@ -215,7 +228,7 @@ async function callTool(id: Rpc["id"], userId: string, name: string, args: Recor
   }
 }
 
-export async function handleRpc(msg: Rpc, userId: string, origin: string, via?: string) {
+export async function handleRpc(msg: Rpc, userId: string, origin: string, via?: string, scopes?: Scope[]) {
   switch (msg.method) {
     case "initialize":
       return ok(msg.id, {
@@ -229,10 +242,10 @@ export async function handleRpc(msg: Rpc, userId: string, origin: string, via?: 
           "You cannot delete anything, and you cannot move a task to a different Primary Interest.",
       });
     case "ping": return ok(msg.id, {});
-    case "tools/list": return ok(msg.id, { tools: await liveTools() });
+    case "tools/list": return ok(msg.id, { tools: await liveTools(scopes) });
     case "tools/call": {
       const p = msg.params || {};
-      try { return await callTool(msg.id, userId, String(p.name || ""), (p.arguments as Record<string, unknown>) || {}, origin, via); }
+      try { return await callTool(msg.id, userId, String(p.name || ""), (p.arguments as Record<string, unknown>) || {}, origin, via, scopes); }
       catch (e) { return say(msg.id, `That didn't work: ${(e as Error).message}`, true); }
     }
     default: return fail(msg.id, -32601, `Method not found: ${msg.method}`);
@@ -267,9 +280,14 @@ export async function serve(req: Request, key: string) {
   // /api/mcp/<key> URL carries; an OAuth access token is what the desktop app and
   // claude.ai get after someone approves. Both arrive in the same place, so try the
   // cheap prefix check first and fall through.
-  const conn = key.startsWith("gck_")
-    ? await userForKey(key).then((u) => (u ? { userId: u, app: "personal key" } : null))
-    : await connectionForAccessToken(key);
+  // A connector key (gcx_…) acts under the connector's own name, limited to what it
+  // was allowed; a person's key or sign-in acts as that person.
+  const connector = key.startsWith("gcx_") ? await connectorForKey(key) : null;
+  const conn = connector
+    ? { userId: connector.name, app: "" }
+    : key.startsWith("gck_")
+      ? await userForKey(key).then((u) => (u ? { userId: u, app: "personal key" } : null))
+      : await connectionForAccessToken(key);
   const userId = conn?.userId ?? null;
   if (!userId) {
     // A bare 401 is what broke the first desktop setup: the client read it as "this
@@ -297,9 +315,9 @@ export async function serve(req: Request, key: string) {
   // Notifications carry no id and expect no reply.
   // "Nandu's Claude Code" — recorded on every change it makes, so a task's history
   // says whose connection did it, not just whose name.
-  const who = await rosterById(userId);
-  const via = `${who?.first || who?.name || userId}'s ${conn!.app}`;
-  for (const m of msgs) if (m && m.id !== undefined && m.id !== null) replies.push(await handleRpc(m, userId, origin, via));
+  const who = connector ? null : await rosterById(userId);
+  const via = connector ? `${connector.name} (connector)` : `${who?.first || who?.name || userId}'s ${conn!.app}`;
+  for (const m of msgs) if (m && m.id !== undefined && m.id !== null) replies.push(await handleRpc(m, userId, origin, via, connector?.scopes));
   if (!replies.length) return new NextResponse(null, { status: 202, headers: CORS });
   return NextResponse.json(Array.isArray(body) ? replies : replies[0], { headers: CORS });
 }

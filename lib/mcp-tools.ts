@@ -224,7 +224,7 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
   try {
     const changed = Object.keys(patch).filter((k) => k !== "updated_at");
     await sb().from("mh_activity").insert({
-      post_id: id, actor_key: userId, action: "updated",
+      post_id: id, actor_key: (await rosterById(userId)) ? userId : null, action: "updated",   // connectors: named in detail.via
       to_value: changed.join(", "),
       detail: { source: "claude-connector", ...(via ? { via } : {}), fields: changed },
     });
