@@ -5,21 +5,26 @@ import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/Previ
 import { BrandLoader } from "@/components/BrandLoader";
 import { ReportView, PERIOD_META, type ReportPayload, type Period } from "./ReportView";
 import { MonthlyReportView } from "./MonthlyReportView";
+import { YearlyReportView } from "./YearlyReportView";
 import { HISTORY_FIRST } from "@/lib/report-history";
 
 export default function AIReportsPage() {
   // Lifted so the shell can hide the account picker on Monthly: the monthly report is
   // the company report for the main GooCampus accounts and ignores the picker.
-  const [period, setPeriod] = useState<Period>("monthly");
+  const [period, setPeriod] = useState<View>("monthly");
   return (
     <PreviewDashboardShell active="ai-reports" title="Monthly Reports" subtitle="The full monthly report in the team's format — live data + imported history. Weekly & quarterly rollups available too; generated reports are stored under Reports." hideRange
-      hideAccountPicker={period === "monthly"}>
+      hideAccountPicker={period === "monthly" || period === "yearly"}>
       {({ accountId }) => <AIReports accountId={accountId} period={period} setPeriod={setPeriod} />}
     </PreviewDashboardShell>
   );
 }
 
-function AIReports({ accountId, period, setPeriod }: { accountId: string; period: Period; setPeriod: (p: Period) => void }) {
+// Monthly and Yearly are the company reports (list on the left); weekly / quarterly
+// are the per-account generator.
+type View = Period | "yearly";
+
+function AIReports({ accountId, period, setPeriod }: { accountId: string; period: View; setPeriod: (p: View) => void }) {
   // "monthly" = the full-format template report (default). weekly/quarterly = the
   // live single-account generator (ReportView). savedMode = opened from the archive.
   const [report, setReport] = useState<ReportPayload | null>(null);
@@ -78,13 +83,13 @@ function AIReports({ accountId, period, setPeriod }: { accountId: string; period
   useEffect(() => {
     if (lastAccount.current === accountId) return;
     lastAccount.current = accountId;
-    if (!savedMode && period !== "monthly") generate(period);
+    if (!savedMode && (period === "weekly" || period === "quarterly")) generate(period);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountId]);
 
-  const pick = (p: Period) => {
+  const pick = (p: View) => {
     setError(null);
-    if (p === "monthly") { setPeriod("monthly"); setReport(null); }
+    if (p === "monthly" || p === "yearly") { setPeriod(p); setReport(null); }
     else { generate(p); }
   };
 
@@ -111,19 +116,19 @@ function AIReports({ accountId, period, setPeriod }: { accountId: string; period
       {/* Cadence switcher + print. Monthly = the full-format template report. */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div className="flex items-center gap-2">
-          {(["monthly", "weekly", "quarterly"] as Period[]).map((p) => (
+          {(["monthly", "weekly", "quarterly", "yearly"] as View[]).map((p) => (
             <button
               key={p}
               onClick={() => pick(p)}
               disabled={loading === p}
               className={`text-[12px] font-medium px-3 py-1.5 rounded-lg border transition ${period === p ? "border-brand bg-brand text-white" : "border-gray-200 bg-white text-gray-700 hover:border-brand"} disabled:opacity-50`}
             >
-              {loading === p ? "…" : PERIOD_META[p].title}
+              {loading === p ? "…" : p === "yearly" ? "Yearly report" : PERIOD_META[p].title}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2">
-          {period === "monthly" && (
+          {(period === "monthly" || period === "yearly") && (
             <span className="inline-flex items-center gap-1.5 text-[12px] font-medium px-3 py-1.5 rounded-lg bg-brand-light text-brand" title="The monthly report doesn't change with the account picker. Weekly and Quarterly follow it.">
               <IconBuilding size={14} stroke={1.8} />Company report · main GooCampus accounts
             </span>
@@ -134,6 +139,8 @@ function AIReports({ accountId, period, setPeriod }: { accountId: string; period
 
       {period === "monthly" ? (
         <MonthlyReports />
+      ) : period === "yearly" ? (
+        <YearlyReports />
       ) : loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <BrandLoader size={40} />
@@ -188,6 +195,39 @@ function MonthlyReports() {
       </aside>
       {/* min-w-0: a wide table scrolls inside its card instead of widening the page */}
       <div className="min-w-0"><MonthlyReportView key={month} month={month} /></div>
+    </div>
+  );
+}
+
+// Yearly: every year in a list on the left, the chosen one on the right (?year=YYYY).
+function YearlyReports() {
+  const thisYear = new Date().getFullYear();
+  const years = Array.from({ length: thisYear - Number(HISTORY_FIRST.slice(0, 4)) + 1 }, (_, i) => String(thisYear - i));
+  const [year, setYear] = useState(years[0]);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("year");
+    if (q && years.includes(q)) setYear(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const pick = (y: string) => {
+    setYear(y);
+    const u = new URL(window.location.href);
+    u.searchParams.delete("month");
+    if (y === years[0]) u.searchParams.delete("year"); else u.searchParams.set("year", y);
+    window.history.replaceState(null, "", u.toString());
+  };
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4 items-start">
+      <aside className="bg-white border border-gray-100 rounded-2xl p-3 lg:sticky lg:top-4 print:hidden">
+        <div className="text-[15px] font-semibold text-[#232D42] px-2 pt-1 pb-2.5">All reports</div>
+        {years.map((y) => (
+          <button key={y} onClick={() => pick(y)}
+            className={`block w-full text-left px-3 py-2.5 rounded-xl text-[13.5px] mb-0.5 transition ${y === year ? "bg-brand-light text-[#2138B0] font-medium" : "text-[#232D42] hover:bg-[#F6F7FB]"}`}>
+            {y}
+          </button>
+        ))}
+      </aside>
+      <div className="min-w-0"><YearlyReportView key={year} year={year} /></div>
     </div>
   );
 }

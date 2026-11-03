@@ -31,7 +31,7 @@ const VALID_STATUS = new Set([
 
 // Airtable stores the owner as a collaborator record; the dashboard keys people by
 // a short name. Same map the create route uses.
-const OWNER_ALIASES: Record<string, string> = {
+export const OWNER_ALIASES: Record<string, string> = {
   "manya b m": "manya", "manya": "manya",
   "praveen l": "praveen", "praveen": "praveen",
   "nikhil shyamraj": "nikhil", "nikhi shyamraj": "nikhil", "nikhil": "nikhil",

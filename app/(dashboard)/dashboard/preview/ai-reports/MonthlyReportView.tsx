@@ -268,7 +268,7 @@ function compact(n: number | null): string {
 }
 
 // A row of headline tiles. Values are numbers (formatted here) or ready strings.
-function Stats({ items }: { items: [string, number | string | null | undefined, string?][] }) {
+export function Stats({ items }: { items: [string, number | string | null | undefined, string?][] }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {items.map(([label, v, sub]) => (
@@ -282,7 +282,7 @@ function Stats({ items }: { items: [string, number | string | null | undefined, 
   );
 }
 
-function Loading() {
+export function Loading() {
   return <div className="border border-gray-200 rounded-xl"><LoadingBlock className="!py-8" size={24} /></div>;
 }
 
@@ -396,7 +396,7 @@ function LeadGrids({ from, to, saved }: { from: string; to: string; saved?: Lead
   );
 }
 
-function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+export function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
   return (
     <section>
       <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">{title}</div>
@@ -425,7 +425,7 @@ function asTable(body: string): string[][] | null {
   return lines.length >= 2 && lines.every((l) => l.includes("\t")) ? lines.map((l) => l.split("\t")) : null;
 }
 
-function AddedSections({ sections, loaded, onChange, onBlur }: {
+export function AddedSections({ sections, loaded, onChange, onBlur }: {
   sections: ManualSection[]; loaded: boolean; onBlur: () => void;
   onChange: (next: ManualSection[], saveNow?: boolean) => void;
 }) {

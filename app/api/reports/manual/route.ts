@@ -5,16 +5,17 @@ import { getManual, setManual, MANUAL_KEYS, type ManualFields } from "@/lib/repo
 
 // The monthly report's editable narrative sections, per month.
 //   GET  /api/reports/manual?month=YYYY-MM        → { month, fields }
+//   (month=YYYY for the yearly report's notes)
 //   POST /api/reports/manual  { month, patch:{field:value} }  → { month, fields }
 export const dynamic = "force-dynamic";
-const isMonth = (s: string) => /^\d{4}-\d{2}$/.test(s);
+const isMonth = (s: string) => /^\d{4}(-\d{2})?$/.test(s);
 
 export async function GET(req: Request) {
   const denied = await requireSection("analytics");
   if (denied) return denied;
   try {
     const month = new URL(req.url).searchParams.get("month") || "";
-    if (!isMonth(month)) return NextResponse.json({ error: "month=YYYY-MM required" }, { status: 400 });
+    if (!isMonth(month)) return NextResponse.json({ error: "month=YYYY-MM (or YYYY) required" }, { status: 400 });
     return NextResponse.json({ month, fields: await getManual(month) });
   } catch (err) {
     return NextResponse.json(safeError(err, "Could not load report notes"), { status: 502 });
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
   if (denied) return denied;
   try {
     const body = (await req.json()) as { month?: string; patch?: Partial<ManualFields> };
-    if (!body.month || !isMonth(body.month)) return NextResponse.json({ error: "month=YYYY-MM required" }, { status: 400 });
+    if (!body.month || !isMonth(body.month)) return NextResponse.json({ error: "month=YYYY-MM (or YYYY) required" }, { status: 400 });
     const patch: Partial<ManualFields> = {};
     for (const k of MANUAL_KEYS) {
       const v = body.patch?.[k];
