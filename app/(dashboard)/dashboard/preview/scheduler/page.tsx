@@ -711,11 +711,14 @@ function Scheduler() {
     [metaMediaUrls],
   );
   // A story is one image or one video, so the format question is no longer
-  // video-only. A carousel cannot be either a reel or a story.
+  // video-only. Several files can be a carousel post or a story of several frames —
+  // each file then goes out as its own story, in order (Meta has no carousel story;
+  // lib/scheduler-enqueue syncFrames, 3 Nov 2026). Never a reel.
   const singleMediaUrl = metaMediaUrls.length === 1 ? metaMediaUrls[0] : "";
   const formatChoices = useMemo<("post" | "reel" | "story")[]>(
-    () => (!singleMediaUrl ? [] : singleVideoUrl ? ["post", "reel", "story"] : ["post", "story"]),
-    [singleMediaUrl, singleVideoUrl],
+    () => (metaMediaUrls.length > 1 ? (metaMediaUrls.length <= 10 ? ["post", "story"] : ["post"])
+      : !singleMediaUrl ? [] : singleVideoUrl ? ["post", "reel", "story"] : ["post", "story"]),
+    [metaMediaUrls.length, singleMediaUrl, singleVideoUrl],
   );
   // The file decides, because the file mostly already knows: Instagram publishes a
   // single video as a reel whatever we choose to call it, and a jpg can only be a
@@ -4138,12 +4141,12 @@ const FORMAT_BLOCKED = "Attach one image or video to choose a format.";
 const FORMAT_WHY_NOT: Record<"post" | "reel" | "story", string> = {
   post: "Attach a creative first.",
   reel: "A reel is one video — attach a single video file.",
-  story: "A story is one image or video — attach a single file.",
+  story: "A story takes up to 10 files — remove some.",
 };
 const FORMAT_NOTE: Record<"post" | "reel" | "story", string> = {
   post: "Set from your file. A feed post — it stays on the profile.",
   reel: "Set from your file. Instagram publishes a single video as a reel either way; Facebook posts it to the Page as one.",
-  story: "A single image or video, full screen, gone in 24 hours.",
+  story: "Full screen, gone in 24 hours. With several files, each goes out as its own story, in order, a minute apart.",
 };
 const PREVIEW_SURFACES: { value: PreviewPlatform; label: string }[] = [
   { value: "instagram", label: "Instagram feed" },

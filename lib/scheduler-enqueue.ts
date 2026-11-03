@@ -39,7 +39,7 @@ export type Sb = NonNullable<ReturnType<typeof getSupabase>>;
 // Instagram and Facebook only — LinkedIn has no Stories. Re-queueing the post updates
 // its Story instead of adding another; unticking bins a Story that hasn't gone out.
 async function syncStory(sb: Sb, postId: string, want: boolean, row: Record<string, unknown>, title: string, when: string, draft: boolean, actor: string) {
-  const { data: found } = await sb.from("mh_posts").select("id, publish_status").eq("custom->>story_of", postId).limit(5);
+  const { data: found } = await sb.from("mh_posts").select("id, publish_status").eq("custom->>story_of", postId).is("custom->>frame", null).limit(5);
   const open = (found || []).find((r) => r.publish_status !== "published" && r.publish_status !== "publishing");
   if (!want) {
     if (open) await trashTasks(sb, [open.id], actor);
@@ -63,6 +63,42 @@ async function syncStory(sb: Sb, postId: string, want: boolean, row: Record<stri
   }).select("id").single();
   if (error) throw new Error(`story: ${error.message}`);
   await logQueueAction(sb, data.id, draft ? "publish_draft_saved" : when === "now" ? "publish_now" : "publish_scheduled", null, istTime(String(row.schedule_time)));
+}
+
+// A story with several frames (Praveen, 3 Nov 2026). Meta publishes one image or one
+// video per story — there is no carousel story — so each frame after the first is
+// its own queue row, linked to the post by custom.story_of (so Cancel, Delete draft
+// and Reschedule take it along) and numbered by custom.frame, a minute apart so they
+// go out in order. Re-queueing updates the frames; ones no longer wanted are binned;
+// a frame already out is never sent again.
+async function syncFrames(sb: Sb, postId: string, frames: string[], row: Record<string, unknown>, title: string, when: string, draft: boolean, actor: string) {
+  const { data: found } = await sb.from("mh_posts").select("id, publish_status, custom").eq("custom->>story_of", postId).not("custom->>frame", "is", null);
+  const byFrame = new Map<number, { id: string; publish_status: string | null }>();
+  for (const r of (found || []) as { id: string; publish_status: string | null; custom: Record<string, unknown> | null }[]) byFrame.set(Number(r.custom?.frame), r);
+  const base = Date.parse(String(row.schedule_time));
+  const total = frames.length + 1;
+  for (let i = 0; i < frames.length; i++) {
+    const n = i + 2;
+    const at = new Date(base + (i + 1) * 60_000).toISOString();
+    const fields = { ...row, media_urls: [frames[i]], schedule_time: at, custom: { ...(row.custom as object), frame: n } };
+    const have = byFrame.get(n);
+    if (have && (have.publish_status === "published" || have.publish_status === "publishing")) continue;
+    if (have) {
+      const { error } = await sb.from("mh_posts").update({ ...fields, particulars: `${title} · Story ${n}/${total}`.slice(0, 200) }).eq("id", have.id).or(NOT_PUBLISHING);
+      if (error) throw new Error(`story frame: ${error.message}`);
+      await logQueueAction(sb, have.id, draft ? "publish_draft_saved" : when === "now" ? "publish_now" : "publish_scheduled", null, istTime(at));
+      continue;
+    }
+    const { data, error } = await sb.from("mh_posts").insert({
+      particulars: `${title} · Story ${n}/${total}`.slice(0, 200),
+      status: "Ready to Publish", needs_review: false, synced_to_scheduler: false, type: "Story",
+      ...fields,
+    }).select("id").single();
+    if (error) throw new Error(`story frame: ${error.message}`);
+    await logQueueAction(sb, data.id, draft ? "publish_draft_saved" : when === "now" ? "publish_now" : "publish_scheduled", null, istTime(at));
+  }
+  const extra = [...byFrame.entries()].filter(([n, r]) => n > total && r.publish_status !== "published" && r.publish_status !== "publishing").map(([, r]) => r.id);
+  if (extra.length) await trashTasks(sb, extra, actor);
 }
 
 // Instagram allows up to 3 collaborators; normalise (strip leading @, blanks) and cap.
@@ -91,6 +127,13 @@ export async function enqueuePost(sb: Sb, b: EnqueueBody, actor: string): Promis
   // whole. NOT the `type` column: that is the Marketing Hub's editorial type and
   // already holds things like "Reel Thumbnail" and "YouTube Long-Form".
   const format = b.format === "reel" ? "reel" : b.format === "story" ? "story" : "post";
+  // A multi-frame story: the post's own row carries frame 1, the rest get their own
+  // rows (syncFrames below). Taken out before the carousel rules, which don't apply.
+  const storyFrames = format === "story" && media.length > 1 ? media.slice(1) : [];
+  if (storyFrames.length) {
+    if (media.length > 10) return { error: "A story can have at most 10 frames here — remove some and try again.", status: 400 };
+    media = [media[0]];
+  }
   const cover = (b.coverUrl || "").trim();
 
   // Empty or missing channels means both, which is what every post did before this
@@ -157,6 +200,11 @@ export async function enqueuePost(sb: Sb, b: EnqueueBody, actor: string): Promis
     collaborators: null,   // Stories can't carry collaborators
     custom: { publish_format: "story", cover_url: null, channels: customPatch.channels, caption_fb: null, story_of: postId },
   }, (b.particulars || "Post").trim(), when, !!b.draft, actor);
+  const framesFor = (postId: string) => syncFrames(sb, postId, storyFrames, {
+    ...common,
+    collaborators: null,
+    custom: { publish_format: "story", cover_url: null, channels: customPatch.channels, caption_fb: null, story_of: postId },
+  }, (b.particulars || "Story").trim(), when, !!b.draft, actor);
 
   if (b.taskId) {
     // Merge into whatever custom already holds. An Output-Ready row can carry other
@@ -175,6 +223,7 @@ export async function enqueuePost(sb: Sb, b: EnqueueBody, actor: string): Promis
     if (error) throw new Error(error.message);
     await logQueueAction(sb, data.id, b.draft ? "publish_draft_saved" : when === "now" ? "publish_now" : "publish_scheduled", null, istTime(scheduleTime));
     await storyFor(data.id);
+    await framesFor(data.id);
     return { ok: true, id: data.id, when: b.draft ? "draft" : when, scheduleTime, mode: "updated", story: wantStory };
   }
 
@@ -201,5 +250,6 @@ export async function enqueuePost(sb: Sb, b: EnqueueBody, actor: string): Promis
   if (error) throw new Error(error.message);
   await logQueueAction(sb, data.id, b.draft ? "publish_draft_saved" : when === "now" ? "publish_now" : "publish_scheduled", null, istTime(scheduleTime));
   if (wantStory) await storyFor(data.id);
+  if (storyFrames.length) await framesFor(data.id);
   return { ok: true, id: data.id, when, scheduleTime, mode: "inserted", story: wantStory };
 }

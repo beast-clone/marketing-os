@@ -41,9 +41,14 @@ export async function POST(req: Request) {
     if (error) throw new Error(error.message);
     if (!data?.length) return notUpdated(sb, body.recordId);
     await logQueueAction(sb, body.recordId, "publish_rescheduled", istTime(was?.schedule_time), istTime(body.scheduleTime));
-    // Its "also as a Story" moves with it (enqueue syncStory, 27 Oct).
-    await sb.from("mh_posts").update({ schedule_time: new Date(body.scheduleTime).toISOString() })
-      .eq("custom->>story_of", body.recordId).eq("publish_status", "scheduled");
+    // Its "also as a Story" moves with it (enqueue syncStory, 27 Oct), and a
+    // multi-frame story's other frames keep their minute apart (syncFrames, 3 Nov).
+    const { data: linked } = await sb.from("mh_posts").select("id, custom").eq("custom->>story_of", body.recordId).eq("publish_status", "scheduled");
+    const base = new Date(body.scheduleTime).getTime();
+    for (const r of (linked || []) as { id: string; custom: Record<string, unknown> | null }[]) {
+      const frame = Number(r.custom?.frame) || 0;
+      await sb.from("mh_posts").update({ schedule_time: new Date(base + (frame > 1 ? (frame - 1) * 60_000 : 0)).toISOString() }).eq("id", r.id);
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(safeError(err, "Reschedule failed"), { status: 502 });

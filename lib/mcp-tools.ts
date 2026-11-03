@@ -301,7 +301,8 @@ export async function schedulePost(args: Record<string, unknown>, userId: string
   const format = typeof args.format === "string" && ["post", "reel", "story"].includes(args.format) ? args.format
     : isStory ? "story" : media.length === 1 && isVideo(media[0]) ? "reel" : "post";
   if (format !== "story" && !(post.caption || "").trim()) throw new Error("It has no caption yet. Ask the user for one and set it with update_task first.");
-  if (format === "story" && media.length !== 1) throw new Error("A story is one image or one video — this task has several.");
+  // Several files as a story → one story per file, in order (lib/scheduler-enqueue syncFrames).
+  if (format === "story" && media.length > 10) throw new Error("A story can have at most 10 frames — this task has more.");
 
   const asked = Array.isArray(args.pages) ? (args.pages as unknown[]).filter((p): p is string => typeof p === "string" && !!p.trim()) : [];
   const pages = asked.length ? asked
