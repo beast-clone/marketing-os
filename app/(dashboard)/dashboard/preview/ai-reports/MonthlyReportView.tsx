@@ -1,8 +1,8 @@
 "use client";
-import { IconPencil } from "@tabler/icons-react";
+import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 import { REPORT_HISTORY as H, historyRow, historyEngagement, HISTORY_LAST } from "@/lib/report-history";
-import { type ManualFields } from "@/lib/report-manual";
+import { type ManualFields, type ManualSection } from "@/lib/report-manual";
 import { LoadingBlock } from "@/components/LoadingBlock";
 
 // One month's report in the team's Notion format (see docs/MONTHLY_REPORT_SPEC.md).
@@ -12,7 +12,7 @@ import { LoadingBlock } from "@/components/LoadingBlock";
 //                    from what was saved at the time (they can't be counted afterwards)
 //   · ≤ May 2026   → the figures imported from the Notion report
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-const EMPTY_NOTES: ManualFields = { achievements: "", focusedSbus: "", amcEbook: "", newsletter: "", futureProspects: "", actionNotes: "" };
+const EMPTY_NOTES: ManualFields = { sections: [], achievements: "", focusedSbus: "", amcEbook: "", newsletter: "", futureProspects: "", actionNotes: "" };
 
 type IG = { available: boolean; followers: number | null; followersAsOf: string | null; reach: number | null; reachFrom: string; contentInteractions: number | null; post: number; reel: number; story: number | null; leads: number };
 type YT = { available: boolean; subscribers: number; views: number; video: number; shorts: number; leads: number };
@@ -47,14 +47,22 @@ export function MonthlyReportView({ month }: { month: string }) {
   const updateField = (field: keyof ManualFields, value: string) => setManual((m) => ({ ...(m ?? EMPTY_NOTES), [field]: value }));
   // Save the WHOLE current notes object, and serialise saves in a promise chain so
   // two quick blurs can't race a read-modify-write and drop a field.
-  const saveNotes = () => {
+  const saveNotes = () => persist(manualRef.current);
+  // Added sections save straight away (add / remove), with the list they just made.
+  const setSections = (next: ManualSection[], saveNow = false) => {
+    const fields = { ...(manualRef.current ?? EMPTY_NOTES), sections: next };
+    manualRef.current = fields;
+    setManual(fields);
+    if (saveNow) persist(fields);
+  };
+  const persist = (fields: ManualFields | null) => {
     setNotesSave("saving");
     saveChain.current = saveChain.current
       .catch(() => {})
       .then(async () => {
         const r = await fetch("/api/reports/manual", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ month, patch: manualRef.current ?? {} }),
+          body: JSON.stringify({ month, patch: fields ?? {} }),
         });
         setNotesSave(r.ok ? "saved" : "error");
       })
@@ -153,6 +161,8 @@ export function MonthlyReportView({ month }: { month: string }) {
         <ManualEditable title="AMC E-Book" hint="Total sales so far + note." value={manual?.amcEbook ?? ""} onChange={(v) => updateField("amcEbook", v)} onBlur={saveNotes} loaded={manual != null} />
         <ManualEditable title="Newsletter" hint="Total subscribers + note." value={manual?.newsletter ?? ""} onChange={(v) => updateField("newsletter", v)} onBlur={saveNotes} loaded={manual != null} />
       </div>
+
+      <AddedSections sections={manual?.sections ?? []} loaded={manual != null} onChange={setSections} onBlur={saveNotes} />
 
       <Section title="Total Organic Leads" note={imported ? "Organic leads by source (paid ads excluded)." : "Organic leads by source (paid ads excluded) — a CRM estimate from Lead Source."}>
         {imported ? (
@@ -374,6 +384,72 @@ function PlatformHeader({ name }: { name: string }) {
       <div className="h-px flex-1 bg-gray-100" />
       <div className="text-[13px] font-semibold text-brand uppercase tracking-widest">{name}</div>
       <div className="h-px flex-1 bg-gray-100" />
+    </div>
+  );
+}
+
+// Sections added to this month's report: a title and text. Text pasted from a
+// table (tab-separated lines — the Airtable archive's "Copy table", or cells copied
+// from a spreadsheet) shows as a table; "Edit" brings the text back.
+function asTable(body: string): string[][] | null {
+  const lines = body.trim().split(/\r?\n/).filter((l) => l.trim());
+  return lines.length >= 2 && lines.every((l) => l.includes("\t")) ? lines.map((l) => l.split("\t")) : null;
+}
+
+function AddedSections({ sections, loaded, onChange, onBlur }: {
+  sections: ManualSection[]; loaded: boolean; onBlur: () => void;
+  onChange: (next: ManualSection[], saveNow?: boolean) => void;
+}) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const edit = (id: string, patch: Partial<ManualSection>) => onChange(sections.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const add = () => {
+    const id = Math.random().toString(36).slice(2, 10);
+    onChange([...sections, { id, title: "", body: "" }], true);
+    setEditing(id);
+  };
+  return (
+    <div className="space-y-4">
+      {sections.map((x) => {
+        const table = asTable(x.body);
+        const showText = !table || editing === x.id;
+        return (
+          <section key={x.id} className="rounded-xl border border-gray-200 bg-white px-4 py-3.5">
+            <div className="flex items-center gap-2 mb-1.5">
+              <IconPencil size={12} stroke={1.8} className="text-gray-500 flex-shrink-0" />
+              <input value={x.title} disabled={!loaded} onChange={(e) => edit(x.id, { title: e.target.value })} onBlur={onBlur} placeholder="Section title"
+                className="flex-1 min-w-0 text-[11px] font-semibold uppercase tracking-widest text-gray-500 placeholder:text-gray-300 bg-transparent outline-none" />
+              {table && <button onClick={() => setEditing(editing === x.id ? null : x.id)} className="text-[11px] font-medium text-brand hover:text-[#2138B0]">{editing === x.id ? "Done" : "Edit"}</button>}
+              <button onClick={() => onChange(sections.filter((s) => s.id !== x.id), true)} aria-label="Remove section" title="Remove section" className="text-gray-400 hover:text-rose-600"><IconTrash size={14} stroke={1.8} /></button>
+            </div>
+            {showText && (
+              <textarea value={x.body} disabled={!loaded} onChange={(e) => edit(x.id, { body: e.target.value })}
+                onBlur={() => { onBlur(); if (asTable(x.body)) setEditing(null); }}
+                rows={Math.min(12, Math.max(3, x.body.split("\n").length + 1))} placeholder="Write here, or paste a table — copied cells come out as a table."
+                className="w-full text-[13px] text-[#232D42] border border-gray-200 rounded-lg px-3 py-2 leading-relaxed resize-y focus:outline-none focus:border-brand" />
+            )}
+            {table && (
+              <div className={`border border-gray-200 rounded-xl overflow-x-auto ${showText ? "mt-3" : ""}`}>
+                <table className="w-full text-[12.5px] whitespace-nowrap">
+                  <thead className="bg-gray-50 text-gray-500">
+                    <tr>{table[0].map((h, i) => <th key={i} className={`px-3 py-2 font-semibold text-[11px] uppercase tracking-wide ${i ? "text-right" : "text-left"}`}>{h}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {table.slice(1).map((r, ri) => (
+                      <tr key={ri} className="border-t border-gray-100">
+                        {r.map((c, ci) => <td key={ci} className={`px-3 py-2 tabular-nums ${ci ? "text-right text-gray-600" : "text-left text-[#232D42]"}`}>{c}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        );
+      })}
+      <button onClick={add} disabled={!loaded}
+        className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl border border-dashed border-gray-300 py-2.5 text-[12.5px] font-medium text-gray-500 hover:border-brand hover:text-brand disabled:opacity-50">
+        <IconPlus size={14} stroke={2} />Add a section
+      </button>
     </div>
   );
 }

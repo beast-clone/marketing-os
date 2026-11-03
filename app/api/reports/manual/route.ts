@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       const v = body.patch?.[k];
       if (typeof v === "string") patch[k] = v.slice(0, 8000); // cap
     }
+    if (Array.isArray(body.patch?.sections)) patch.sections = body.patch.sections; // setManual cleans + caps
     const fields = await setManual(body.month, patch);
     return NextResponse.json({ month: body.month, fields });
   } catch (err) {

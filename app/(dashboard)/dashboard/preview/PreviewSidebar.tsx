@@ -14,7 +14,7 @@ import {
   IconChevronRight, IconPhoto, IconMovie, IconCircleDashed, IconTable, IconLayoutKanban,
   IconChecklist, IconWorldWww, IconClick, IconChartArcs, IconSearch, IconBrandGoogle, IconTrendingUp,
   IconDeviceMobile, IconArchive, IconTrash, IconMessageChatbot, IconRobot, IconInbox,
-  IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconSend, IconBrandWhatsapp, IconRouteAltLeft, IconEye,
+  IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconSend, IconBrandWhatsapp, IconRouteAltLeft, IconEye, IconDatabase,
   IconLock, IconCalendarDue, IconFolders, IconReceipt, IconFileDescription, IconRepeat, IconBook,
 } from "@tabler/icons-react";
 import type { PreviewTab } from "./PreviewShell";
@@ -85,6 +85,8 @@ const GROUPS: Group[] = [
     { label: "Content Studio",      href: `${HUB}/content-studio`, icon: IconSparkles },
     // Web pages we follow for news — KEA / MCC counselling notices first (1 Oct).
     { label: "Watchers",            href: `${HUB}/watchers`,     icon: IconEye },
+    // Read-only backup of Airtable's Content Calendar from April 2026 (3 Nov).
+    { label: "Airtable archive",    href: `${HUB}/archive`,      icon: IconDatabase },
   ] },
   { label: "Social Media", sec: "content", items: [
     { label: "Publishing Calendar", href: `${HUB}/calendar`,        icon: IconCalendarEvent },
