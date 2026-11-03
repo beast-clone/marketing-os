@@ -6,7 +6,7 @@
     "copy-pdf-worker": "node -e \"const fs=require('fs');fs.mkdirSync('public',{recursive:true});fs.copyFileSync(require.resolve('pdfjs-dist/build/pdf.worker.min.mjs'),'public/pdf.worker.min.mjs')\"",
     "predev": "npm run copy-pdf-worker",
     "dev": "NODE_OPTIONS=--max-old-space-size=1536 next dev",
-    "prebuild": "npm run copy-pdf-worker",
+    "prebuild": "npm run copy-pdf-worker && vitest run tests/unit/sidebar-tabs.test.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

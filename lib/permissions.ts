@@ -150,7 +150,7 @@ export type Section = "overview" | "content" | "analytics" | "ads" | "sales" | "
 // The 7 sections + the tabs inside each (system is admin-only, never grantable via UI).
 export const SECTIONS: { key: Section; label: string; tabs: string; adminOnly?: boolean }[] = [
   { key: "overview", label: "Overview", tabs: "Overview" },
-  { key: "content", label: "Content", tabs: "Marketing Hub, My Day, Content Radar, Calendar, Review, Scheduler, Community Broadcast, Post Planner, Watchers" },
+  { key: "content", label: "Content", tabs: "Marketing Hub, My Day, Plan board, Content Radar, Calendar, Review, Scheduler, Community Broadcast, Post Planner, Watchers" },
   { key: "analytics", label: "Analytics", tabs: "Instagram, LinkedIn, YouTube, Facebook, Website, All platforms" },
   { key: "ads", label: "Ads", tabs: "Ads, Competitor Ads, Benchmark" },
   { key: "sales", label: "Sales", tabs: "Marketing Campaigns, Marketing Leads, Sales Hub" },
@@ -222,6 +222,7 @@ export const TABS: TabDef[] = [
   { key: "mm-subscriptions", label: "Subscriptions", group: "Marketing Hub", sec: "content", adminDefault: true, paths: [`${P}/materials/subscriptions`] },
   // Buyer names, emails and phones — off for non-admins until switched on (26 Oct).
   { key: "mm-ebooks", label: "e-Book Orders", group: "Marketing Hub", sec: "content", adminDefault: true, paths: [`${P}/materials/ebooks`] },
+  { key: "plan-board", label: "Plan board", group: "Content", sec: "content", paths: [`${P}/plan-board`] },
   { key: "content-calendar", label: "Content calendar", group: "Content", sec: "content", paths: [`${P}/marketing-hub`], tab: ["calendar"] },
   { key: "mentorship-calendar", label: "Mentorship calendar", group: "Content", sec: "content", paths: [`${P}/marketing-hub`], tab: ["calendar"], channel: "goocampusworld" },
   { key: "radar", label: "Content Radar", group: "Content", sec: "content", paths: [`${P}/radar`] },
