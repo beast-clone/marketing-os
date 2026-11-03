@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { IconArchive, IconChartBar, IconCopy, IconCheck, IconSearch, IconX, IconPaperclip, IconExternalLink } from "@tabler/icons-react";
 import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/PreviewDashboardShell";
-import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
+import { MultiPick, isPickNone } from "@/components/MultiPick";
 import { Overlay } from "@/app/(dashboard)/dashboard/preview/Overlay";
 import { LoadingBlock } from "@/components/LoadingBlock";
 import { fmtDateShort } from "@/lib/date";
@@ -24,6 +24,27 @@ const monthOf = (r: Row) => (r.publishing_date || r.created_at || "").slice(0, 7
 const monthName = (m: string) => new Date(m + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
 const yearOf = (r: Row) => monthOf(r).slice(0, 4);
 
+// The tick-box filters, in Airtable's order. `get` reads a row's value(s); the label
+// reads "All <label> (n)" on the button. Years and months run newest first, the rest
+// busiest first.
+type FKey = "year" | "month" | "sbu" | "type" | "status" | "owner" | "collab" | "priority" | "platform" | "creator";
+const FILTERS: { key: FKey; label: string; get: (r: Row) => string | string[] | null; byDate?: boolean }[] = [
+  { key: "year", label: "years", get: (r) => yearOf(r) || null, byDate: true },
+  { key: "month", label: "months", get: (r) => (monthOf(r) ? monthName(monthOf(r)) : null), byDate: true },
+  { key: "sbu", label: "primary interests", get: (r) => r.sbu },
+  { key: "type", label: "types", get: (r) => r.type },
+  { key: "status", label: "statuses", get: (r) => r.status },
+  { key: "owner", label: "owners", get: (r) => r.owner },
+  { key: "collab", label: "collaborators", get: (r) => r.collaborators },
+  { key: "priority", label: "priorities", get: (r) => r.priority },
+  { key: "platform", label: "platforms", get: (r) => r.platforms },
+  { key: "creator", label: "creators", get: (r) => r.created_by },
+];
+const NO_FILTERS = Object.fromEntries(FILTERS.map((x) => [x.key, [] as string[]])) as Record<FKey, string[]>;
+const valuesOf = (r: Row, get: (r: Row) => string | string[] | null) => { const v = get(r); return Array.isArray(v) ? v : v ? [v] : []; };
+// Nothing ticked = no filter; "Unselect all" = nothing passes; else any of the ticked.
+const passes = (sel: string[], vals: string[]) => !sel.length || (!isPickNone(sel) && vals.some((v) => sel.includes(v)));
+
 export default function ArchivePage() {
   return (
     <PreviewDashboardShell active="archive" title="Airtable Backup" hideAccountPicker hideRange
@@ -37,7 +58,7 @@ function Archive() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [f, setF] = useState({ year: "", month: "", sbu: "", type: "", status: "", owner: "", collab: "", priority: "", platform: "", creator: "" });
+  const [f, setF] = useState<Record<FKey, string[]>>(NO_FILTERS);
   const [shown, setShown] = useState(100);
   const [open, setOpen] = useState<string | null>(null);
 
@@ -48,17 +69,17 @@ function Archive() {
       .catch((e) => setErr((e as Error).message));
   }, []);
 
-  const opts = (get: (r: Row) => string | string[] | null | undefined, sortDesc = false) => {
-    const s = [...new Set((rows || []).flatMap((r) => get(r) ?? []).filter((v): v is string => !!v))].sort();
-    return sortDesc ? s.reverse() : s;
-  };
+  // Each filter's options with how many tasks have them (over the whole backup).
+  const options = useMemo(() => Object.fromEntries(FILTERS.map((x) => {
+    const n = new Map<string, number>(); const at = new Map<string, string>();
+    for (const r of rows || []) for (const v of valuesOf(r, x.get)) { n.set(v, (n.get(v) || 0) + 1); if (x.byDate) at.set(v, monthOf(r)); }
+    const list = [...n.entries()].map(([value, count]) => ({ value, count }));
+    list.sort((p, q) => (x.byDate ? (x.key === "year" ? q.value.localeCompare(p.value) : (at.get(q.value) || "").localeCompare(at.get(p.value) || "")) : q.count - p.count));
+    return [x.key, list];
+  })) as Record<FKey, { value: string; count: number }[]>, [rows]);
   const list = useMemo(() => {
     const words = q.trim().toLowerCase();
-    return (rows || []).filter((r) =>
-      (!f.year || yearOf(r) === f.year) && (!f.month || monthOf(r) === f.month) && (!f.sbu || r.sbu === f.sbu) &&
-      (!f.type || r.type === f.type) && (!f.status || r.status === f.status) &&
-      (!f.owner || r.owner === f.owner) && (!f.collab || r.collaborators.includes(f.collab)) && (!f.priority || r.priority === f.priority) &&
-      (!f.platform || r.platforms.includes(f.platform)) && (!f.creator || r.created_by === f.creator) &&
+    return (rows || []).filter((r) => FILTERS.every((x) => passes(f[x.key], valuesOf(r, x.get))) &&
       (!words || (r.title || "").toLowerCase().includes(words)));
   }, [rows, q, f]);
   useEffect(() => { setShown(100); }, [q, f]);
@@ -83,7 +104,9 @@ function Archive() {
     return { header, body, total };
   }, [list]);
 
-  const scope = [f.month ? monthName(f.month) : f.year, f.sbu, f.type, f.status, f.owner, f.collab && `with ${f.collab}`, f.priority, f.platform, f.creator && `by ${f.creator}`].filter(Boolean).join(" · ") || "Everything in the backup";
+  const scope = FILTERS.filter((x) => f[x.key].length && !isPickNone(f[x.key]))
+    .map((x) => (f[x.key].length > 2 ? `${f[x.key].length} ${x.label}` : f[x.key].join(", "))).join(" · ") || "Everything in the backup";
+  const filtered = FILTERS.some((x) => f[x.key].length) || q;
   const tsv = (cells: (string | number)[][]) => cells.map((r) => r.map((c) => String(c ?? "").replace(/[\t\n]+/g, " ")).join("\t")).join("\n");
 
   if (err) return <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-[13px] text-rose-800">{err}</div>;
@@ -122,39 +145,29 @@ function Archive() {
 
       {/* Tasks */}
       <section className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-        <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-gray-100">
-          <span className="w-8 h-8 rounded-lg bg-brand-light text-brand grid place-items-center flex-shrink-0"><IconArchive size={16} stroke={1.8} /></span>
-          <div className="mr-2">
-            <div className="text-[14px] font-medium text-[#232D42]">Tasks</div>
-            <div className="text-[12px] text-[#8A92A6]">{list.length === rows.length ? `${rows.length} tasks · read-only` : `${list.length} of ${rows.length}`}</div>
+        {/* Line 1: what this is, search, copy. Line 2: the ten tick-box filters. */}
+        <div className="px-4 py-3 border-b border-gray-100 space-y-3">
+          <div className="flex items-center gap-3">
+            <span className="w-8 h-8 rounded-lg bg-brand-light text-brand grid place-items-center flex-shrink-0"><IconArchive size={16} stroke={1.8} /></span>
+            <div className="min-w-[120px]">
+              <div className="text-[14px] font-medium text-[#232D42]">Tasks</div>
+              <div className="text-[12px] text-[#8A92A6]">{list.length === rows.length ? `${rows.length} tasks · read-only` : `${list.length} of ${rows.length}`}</div>
+            </div>
+            <label className="flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-200 bg-white flex-1">
+              <IconSearch size={15} stroke={1.8} className="text-[#8A92A6]" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tasks…" className="flex-1 min-w-0 bg-transparent outline-none text-[13px] text-[#232D42] placeholder:text-[#8A92A6]" />
+              {q && <button onClick={() => setQ("")} aria-label="Clear search" className="text-[#8A92A6] hover:text-[#232D42]"><IconX size={14} /></button>}
+            </label>
+            {filtered && <button onClick={() => { setF(NO_FILTERS); setQ(""); }} className="h-9 px-3 rounded-lg text-[13px] font-medium text-[#4A5468] hover:text-brand whitespace-nowrap">Clear all</button>}
+            <CopyButton label="Copy list" text={() => tsv([["Task", "Type", "Status", "Primary interest", "Owner", "Publishing date"],
+              ...list.map((r) => [r.title || "(no title)", r.type || "", r.status || "", r.sbu || "", r.owner || "", r.publishing_date || ""])])} />
           </div>
-          <label className="flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-200 bg-white flex-1 min-w-[180px] max-w-[280px]">
-            <IconSearch size={15} stroke={1.8} className="text-[#8A92A6]" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tasks…" className="flex-1 min-w-0 bg-transparent outline-none text-[13px] text-[#232D42] placeholder:text-[#8A92A6]" />
-            {q && <button onClick={() => setQ("")} aria-label="Clear search" className="text-[#8A92A6] hover:text-[#232D42]"><IconX size={14} /></button>}
-          </label>
-          <PreviewSelect value={f.year} onChange={(v) => setF((s) => ({ ...s, year: v, month: "" }))} ariaLabel="Year"
-            options={[{ value: "", label: "All years" }, ...opts(yearOf, true).map((y) => ({ value: y, label: y }))]} />
-          <PreviewSelect value={f.month} onChange={(v) => setF((s) => ({ ...s, month: v }))} ariaLabel="Month"
-            options={[{ value: "", label: "All months" }, ...opts(monthOf, true).filter((m) => !f.year || m.startsWith(f.year)).map((m) => ({ value: m, label: monthName(m) }))]} />
-          <PreviewSelect value={f.sbu} onChange={(v) => setF((s) => ({ ...s, sbu: v }))} ariaLabel="Primary interest"
-            options={[{ value: "", label: "All primary interests" }, ...opts((r) => r.sbu).map((o) => ({ value: o, label: o }))]} />
-          <PreviewSelect value={f.type} onChange={(v) => setF((s) => ({ ...s, type: v }))} ariaLabel="Type"
-            options={[{ value: "", label: "All types" }, ...opts((r) => r.type).map((o) => ({ value: o, label: o }))]} />
-          <PreviewSelect value={f.status} onChange={(v) => setF((s) => ({ ...s, status: v }))} ariaLabel="Status"
-            options={[{ value: "", label: "All statuses" }, ...opts((r) => r.status).map((o) => ({ value: o, label: o }))]} />
-          <PreviewSelect value={f.owner} onChange={(v) => setF((s) => ({ ...s, owner: v }))} ariaLabel="Owner"
-            options={[{ value: "", label: "All owners" }, ...opts((r) => r.owner).map((o) => ({ value: o, label: o }))]} />
-          <PreviewSelect value={f.collab} onChange={(v) => setF((s) => ({ ...s, collab: v }))} ariaLabel="Collaborator"
-            options={[{ value: "", label: "All collaborators" }, ...opts((r) => r.collaborators).map((o) => ({ value: o, label: o }))]} />
-          <PreviewSelect value={f.priority} onChange={(v) => setF((s) => ({ ...s, priority: v }))} ariaLabel="Priority"
-            options={[{ value: "", label: "All priorities" }, ...opts((r) => r.priority).map((o) => ({ value: o, label: o }))]} />
-          <PreviewSelect value={f.platform} onChange={(v) => setF((s) => ({ ...s, platform: v }))} ariaLabel="Platform"
-            options={[{ value: "", label: "All platforms" }, ...opts((r) => r.platforms).map((o) => ({ value: o, label: o }))]} />
-          <PreviewSelect value={f.creator} onChange={(v) => setF((s) => ({ ...s, creator: v }))} ariaLabel="Created by"
-            options={[{ value: "", label: "Created by anyone" }, ...opts((r) => r.created_by).map((o) => ({ value: o, label: o }))]} />
-          <span className="ml-auto"><CopyButton label="Copy list" text={() => tsv([["Task", "Type", "Status", "Primary interest", "Owner", "Publishing date"],
-            ...list.map((r) => [r.title || "(no title)", r.type || "", r.status || "", r.sbu || "", r.owner || "", r.publishing_date || ""])])} /></span>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+            {FILTERS.map((x) => (
+              <MultiPick key={x.key} label={x.label} options={options[x.key]} selected={f[x.key]} total={rows.length}
+                onChange={(next) => setF((s) => ({ ...s, [x.key]: next }))} />
+            ))}
+          </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
