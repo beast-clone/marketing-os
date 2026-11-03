@@ -239,7 +239,6 @@ function Row({ n, also = [], busy, onOpen, onOpenGroup, onRead, onDelete }: { n:
           {also.length > 0 && (
             <span className="text-[11px] rounded-full px-2 py-0.5 bg-brand-light text-brand-dark font-medium">×{also.length + 1}</span>
           )}
-          {n.action_needed && n.done_at && <span className="text-[11px] rounded-full px-2 py-0.5 bg-[#E8F6F0] text-[#2F9E6F]">Done</span>}
           {n.dismissed_at && !n.read_at && <span className="text-[11px] rounded-full px-2 py-0.5 bg-[#F6F7FB] text-[#8A92A6]">Dismissed</span>}
         </div>
         {n.sub && <div className="text-[13px] text-[#4A5468] mt-0.5 break-words">{n.sub}</div>}
@@ -279,6 +278,10 @@ function Row({ n, also = [], busy, onOpen, onOpenGroup, onRead, onDelete }: { n:
         <div className="text-[12px] text-[#6B7385] mt-1">{when(n.created_at)}</div>
       </div>
       <div className="flex items-center gap-1.5 flex-shrink-0">
+        {/* Beside the buttons, not in the title line, where it crowded the heading (3 Nov). */}
+        {n.action_needed && n.done_at && (
+          <span className="h-8 px-2.5 rounded inline-flex items-center gap-1 text-[12.5px] font-medium bg-[#E8F6F0] text-[#2F9E6F]"><IconCheck size={14} stroke={2} />Done</span>
+        )}
         {also.length > 0 && onOpenGroup && (n.payload?.owner || n.payload?.statusTo) ? (
           <button disabled={busy} onClick={() => onOpenGroup(n, also)}
             title={`See all ${also.length + 1} on the Master sheet${n.payload?.owner ? ` — ${n.payload.owner}'s` : ""}`}
