@@ -3949,7 +3949,7 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
               <button className="btn sm endbtn" onClick={() => setShowEod(true)}>{IPOWER} End day</button>
             </span>
             <span className="topdivider" aria-hidden="true" />
-            <button className="iconbtn" title={notifUnread ? `${notifUnread} unread notification${notifUnread === 1 ? "" : "s"}` : "Notifications"}
+            <button className="iconbtn" data-notif-bell title={notifUnread ? `${notifUnread} unread notification${notifUnread === 1 ? "" : "s"}` : "Notifications"}
               onClick={() => { window.location.href = NOTIF_CENTER; }}>
               <span className={bellRinging ? "gc-bell-ring" : undefined} style={{ display: "inline-flex" }}>{BELL}</span>
               {notifUnread > 0 && <span className={`badge rose ${bellRinging ? "gc-badge-pop" : ""}`}>{notifUnread}</span>}

@@ -84,6 +84,7 @@ export async function GET(req: Request) {
         ...(n.owner ? { owner: n.owner } : {}),
         ...(n.ownerKey ? { ownerKey: n.ownerKey } : {}),
         ...(n.statusTo ? { statusTo: n.statusTo } : {}),
+        ...(n.from ? { from: n.from } : {}),
       },
       created_at: n.at,
     }));

@@ -48,6 +48,9 @@ export type Notif = {
   owner?: string;        // display name, for the label
   ownerKey?: string;     // the team key, which is what the Master sheet filter matches
   statusTo?: string;     // the mh_posts status, e.g. "Content - Approved"
+  // Who did it (team key) — the pop-up shows their face and name when a person is
+  // asking you for something (3 Nov). Absent for events nobody in particular caused.
+  from?: string;
 };
 export const isActionNeeded = (n: Pick<Notif, "cat">) => n.cat === "action";
 
@@ -218,7 +221,7 @@ export async function buildNotifs(sb: SupabaseClient, person: string, since: str
     const key = `${e.action}:${e.post_id}:${e.to_value || ""}`;
     if (seen.has(key)) continue; // collapse repeats of the same event on the same post
     seen.add(key);
-    notifs.push({ id: `a${e.id}`, ...n, at: e.created_at, taskId: e.post_id });
+    notifs.push({ id: `a${e.id}`, ...n, at: e.created_at, taskId: e.post_id, ...(e.actor_key ? { from: e.actor_key.toLowerCase() } : {}) });
   }
 
   // "Created by me" — the task someone made is moving through other hands. Read from

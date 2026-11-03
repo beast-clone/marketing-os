@@ -67,6 +67,7 @@ export default function HubNotificationBell() {
     <div className="relative" ref={boxRef}>
       <button
         onClick={() => setOpen((v) => !v)}
+        data-notif-bell
         aria-label="Notifications"
         className="relative w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 hover:text-brand transition"
       >

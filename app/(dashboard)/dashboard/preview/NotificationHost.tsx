@@ -1,9 +1,10 @@
 "use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { IconBell } from "@tabler/icons-react";
 import { playChatChime } from "@/app/(dashboard)/dashboard/preview/notifChime";
 import { shouldPoll } from "@/lib/quiet-hours";
+import { useTeam } from "@/lib/use-team";
 
 // On-screen notification pop-ups, on EVERY preview page (docs/NOTIFICATIONS_SPEC.md).
 // Mounted once in the preview layout, so it survives navigation and never doubles up.
@@ -29,7 +30,7 @@ export type NotifItem = {
   /** href: where "Open" goes when there is no task (a saved Radar reminder).
    *  owner/statusTo: who holds the task and what it moved to, so a group of them can
    *  link to that person's tasks at that status rather than to one of them. */
-  payload?: { href?: string; owner?: string; ownerKey?: string; statusTo?: string } | null;
+  payload?: { href?: string; owner?: string; ownerKey?: string; statusTo?: string; from?: string } | null;
 };
 
 const POLL_MS = 30_000;          // how often to look for new ones
@@ -184,37 +185,75 @@ export function NotificationHost() {
 
   // Already looking at them — the pop-up would only cover the list it points to.
   if (!shown.length || pathname?.startsWith(NOTIF_CENTER)) return null;
-  // The Bell button (Praveen, 3 Nov — prototype docs/notify-buddy-prototype/v9.html):
-  // a bell above the Comment button rings, its red count pops and pulse rings spread,
-  // then the first item slides out beside it. One item opens straight on its task;
-  // several open the notification center.
-  const count = shown.length;
-  const first = shown[0];
-  const decision = shown.some((n) => n.action_needed);
-  const open = () => {
-    close();
-    if (count === 1 && first.post_id) router.push(taskHref(first.post_id));
-    else if (count === 1 && first.payload?.href) router.push(first.payload.href);
-    else router.push(NOTIF_CENTER);
-  };
+  return <NotifPop items={shown} armed={armed} hovering={hovering} close={close} open={(target) => { close(); router.push(target); }} />;
+}
+
+// The pop-up (Praveen, 3 Nov — prototype docs/notify-buddy-prototype/v9.html). ONE place
+// for everything: it drops down from the bell in the top bar, and that bell rings while
+// the pulse rings spread from it. What it looks like depends on what is waiting:
+//   · several things      → a card stack, the newest in front, "Review all N"
+//   · a person asking you → their face and name ("Manya · Publish-date change to approve")
+//   · anything else       → a toast with the Marketing OS mark
+// Pages without a bell in their top bar get it in the top-right corner.
+function NotifPop({ items, armed, hovering, close, open }: {
+  items: NotifItem[]; armed: number; hovering: React.MutableRefObject<boolean>;
+  close: () => void; open: (href: string) => void;
+}) {
+  const team = useTeam();
+  const [pos, setPos] = useState<{ top: number; right: number }>({ top: 16, right: 20 });
+  useLayoutEffect(() => {
+    const place = () => {
+      const bell = [...document.querySelectorAll<HTMLElement>("[data-notif-bell]")].find((b) => b.offsetParent !== null);
+      if (!bell) { setPos({ top: 16, right: 20 }); return null; }
+      const r = bell.getBoundingClientRect();
+      setPos({ top: Math.round(r.bottom + 10), right: Math.max(12, Math.round(window.innerWidth - r.right - 6)) });
+      return bell;
+    };
+    const bell = place();
+    // The bell itself rings for each new arrival.
+    bell?.classList.add("gc-nb-ringing");
+    const t = setTimeout(() => bell?.classList.remove("gc-nb-ringing"), 2600);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => { clearTimeout(t); bell?.classList.remove("gc-nb-ringing"); window.removeEventListener("resize", place); window.removeEventListener("scroll", place, true); };
+  }, [armed]);
+
+  const count = items.length;
+  const first = items[0];
+  const target = (n: NotifItem) => (n.post_id ? taskHref(n.post_id) : n.payload?.href || NOTIF_CENTER);
+  const go = () => open(count === 1 ? target(first) : NOTIF_CENTER);
+  const who = first.payload?.from ? team.find((p) => p.id.toLowerCase() === first.payload!.from) : undefined;
+  const style = count > 1 ? "stack" : who ? "person" : "toast";
+  const decision = items.some((n) => n.action_needed);
+  const acts = (
+    <div className="gc-nb-acts">
+      <button type="button" className="gc-nb-go" onClick={go}>{count === 1 ? "Review" : `Review all ${count}`}</button>
+      <button type="button" className="gc-nb-later" onClick={close}>Later</button>
+    </div>
+  );
+  const appHead = (
+    <div className="gc-nb-head">
+      <span className="gc-nb-app">M</span>
+      <span className="gc-nb-meta"><b>Marketing OS</b> · {decision ? "needs your decision" : "new for you"}</span>
+      {count > 1 && <span className="gc-nb-count">{count}</span>}
+    </div>
+  );
   return (
-    <div className="gc-nb" key={armed} onMouseEnter={() => { hovering.current = true; }} onMouseLeave={() => { hovering.current = false; }}
-      role="status" aria-live="polite">
-      <div className="gc-nb-panel">
-        <div className="gc-nb-meta">{decision ? "Needs your decision" : "New for you"} · now</div>
+    <div className={`gc-nb gc-nb-${style}`} key={armed} style={{ top: pos.top, right: pos.right }}
+      onMouseEnter={() => { hovering.current = true; }} onMouseLeave={() => { hovering.current = false; }} role="status" aria-live="polite">
+      {style === "stack" && <><span className="gc-nb-layer l2" /><span className="gc-nb-layer l1" /></>}
+      <div className="gc-nb-card">
+        {style === "person" && who ? (
+          <div className="gc-nb-head">
+            <span className="gc-nb-av">{who.photoUrl ? <img src={who.photoUrl} alt="" /> : who.initials || who.first.charAt(0)}</span>
+            <span className="gc-nb-meta"><b>{who.first}</b> · {decision ? "needs your OK" : "for you"}</span>
+          </div>
+        ) : appHead}
         <div className="gc-nb-title">{first.title}</div>
         {first.sub && <div className="gc-nb-sub">{first.sub}</div>}
         {count > 1 && <div className="gc-nb-more">+ {count - 1} more waiting for you</div>}
-        <div className="gc-nb-acts">
-          <button type="button" className="gc-nb-go" onClick={open}>{count === 1 ? "Review" : `Review all ${count}`}</button>
-          <button type="button" className="gc-nb-later" onClick={close}>Later</button>
-        </div>
+        {acts}
       </div>
-      <button type="button" className="gc-nb-fab" onClick={open} aria-label={`${count} notification${count === 1 ? "" : "s"} — review`} title="Review">
-        <span className="gc-nb-pulse" /><span className="gc-nb-pulse b" />
-        <IconBell size={25} stroke={1.9} className="gc-nb-bell" />
-        <span className="gc-nb-count">{count > 99 ? "99+" : count}</span>
-      </button>
     </div>
   );
 }
