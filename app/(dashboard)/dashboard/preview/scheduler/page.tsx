@@ -411,6 +411,9 @@ function Scheduler() {
     setAlsoLinkedIn(false);
     setCaption(t.caption || "");
     setMediaUrls(t.mediaUrls && t.mediaUrls.length ? t.mediaUrls : [""]);
+    // A Story task opens as a Story — with several files it would otherwise start as
+    // a carousel post (3 Nov 2026).
+    draftFormat.current = /story/i.test(t.type || "") ? "story" : null;
     setShowCreateForm(true);
   }
   // Inline (no-modal) counterpart of scheduleFromTask: prefill the SAME composer
@@ -424,6 +427,7 @@ function Scheduler() {
     setAlsoLinkedIn(false);
     setCaption(t.caption || "");
     setMediaUrls(t.mediaUrls && t.mediaUrls.length ? t.mediaUrls : [""]);
+    draftFormat.current = /story/i.test(t.type || "") ? "story" : null;   // see scheduleFromTask
     setScheduleEnabled(false);
     // Ticked again if this task already has a Story waiting, so re-scheduling it
     // doesn't drop that Story unasked.
@@ -736,7 +740,7 @@ function Scheduler() {
     if (draftFormat.current) { setFormat(draftFormat.current); formatTouched.current = true; draftFormat.current = null; return; }
     if (formatTouched.current) return;
     setFormat(!singleMediaUrl ? "post" : singleVideoUrl ? "reel" : "post");
-  }, [singleMediaUrl, singleVideoUrl]);
+  }, [singleMediaUrl, singleVideoUrl, metaMediaUrls.length, schedulingTaskId]);
   const chooseFormat = (f: "post" | "reel" | "story") => { formatTouched.current = true; setFormat(f); };
   // "Also share as a Story" — only for one photo (post) or one reel going to Instagram
   // and/or Facebook. It queues a Story beside the post at the same time (now or the
