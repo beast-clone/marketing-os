@@ -411,6 +411,26 @@ export type IGMedia = {
   children?: { data: { media_type?: string; media_url?: string; thumbnail_url?: string }[] };
 };
 
+// Everything published since `fromIsoDate`, newest first. Follows Meta's paging
+// cursor, because one page (100) can stop short of the start of a busy month.
+export async function fetchMediaSince(acc: IGAccountConfig, fromIsoDate: string, maxPages = 10): Promise<IGMedia[]> {
+  const out: IGMedia[] = [];
+  let after = "";
+  for (let i = 0; i < maxPages; i++) {
+    const page = await gget<{ data: IGMedia[]; paging?: { next?: string; cursors?: { after?: string } } }>(`${acc.igUserId}/media`, {
+      fields: "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",
+      limit: "100",
+      ...(after ? { after } : {}),
+      access_token: acc.pageAccessToken,
+    });
+    out.push(...page.data);
+    const oldest = page.data[page.data.length - 1]?.timestamp?.slice(0, 10) || "";
+    after = page.paging?.cursors?.after || "";
+    if (!page.paging?.next || !after || !oldest || oldest < fromIsoDate) break;
+  }
+  return out;
+}
+
 export async function fetchRecentMedia(acc: IGAccountConfig, limit = 25) {
   const data = await gget<{ data: IGMedia[] }>(`${acc.igUserId}/media`, {
     fields: "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count",

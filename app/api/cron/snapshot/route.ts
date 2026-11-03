@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { snapshotAllAccountsForDay } from "@/lib/snapshot";
 import { snapshotClarityForDay, snapshotBingForDay } from "@/lib/web-history";
+import { buildReportSnapshot, saveReportSnapshot } from "@/lib/report-month";
 
 // Daily cron endpoint. Call this once a day (n8n) to record each account's
 // metrics into Supabase so we keep history beyond Meta's 30-day cutoff.
@@ -53,7 +54,16 @@ export async function GET(req: Request) {
   const webDate = dates[dates.length - 1];
   const [clarity, bing] = await Promise.all([snapshotClarityForDay(webDate), snapshotBingForDay(webDate)]);
 
+  // Monthly report: save the month `webDate` falls in, 1st → webDate. Runs every day,
+  // so on the 1st the month just ended is kept in full even if nobody opened it.
+  // Account rows above are written first — the report reads its followers from them.
+  const reportMonth = webDate.slice(0, 7);
+  // Not for ?date= — re-running an old day must not cut a saved month short.
+  const reportSaved = explicit ? null : await buildReportSnapshot(reportMonth, webDate)
+    .then((p) => saveReportSnapshot(reportMonth, p)).then(() => reportMonth).catch(() => null);
+
   const summary = {
+    reportSaved,
     daysSnapshotted: dates.length,
     rowsWritten: (all as { ok: boolean }[]).filter((r) => r.ok).length,
     rowsFailed: (all as { ok: boolean }[]).filter((r) => !r.ok).length,

@@ -1,35 +1,50 @@
 "use client";
 import { IconPencil } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
-import { REPORT_HISTORY, type HistoryTable } from "@/lib/report-history";
+import { REPORT_HISTORY as H, historyRow, historyEngagement, HISTORY_LAST } from "@/lib/report-history";
 import { type ManualFields } from "@/lib/report-manual";
 import { LoadingBlock } from "@/components/LoadingBlock";
 
-// Full monthly report in the team's Notion format (see docs/MONTHLY_REPORT_SPEC.md).
-// Phase 1: render the imported month-over-month history tables in the template's
-// section order. Live current-month data, the CRM lead grids, and the editable
-// manual sections come in later phases (marked as placeholders below).
-export function MonthlyReportView({ monthLabel }: { monthLabel?: string }) {
-  const H = REPORT_HISTORY;
-  // The report is for the CURRENT month, live (month-to-date). Window = 1st → today.
+// One month's report in the team's Notion format (see docs/MONTHLY_REPORT_SPEC.md).
+// It shows that month only — the list beside it is how you move between months.
+//   · this month   → live, 1st to today; saved as you view it and by the daily cron
+//   · past months  → the whole month, re-counted live; followers and subscribers come
+//                    from what was saved at the time (they can't be counted afterwards)
+//   · ≤ May 2026   → the figures imported from the Notion report
+const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const EMPTY_NOTES: ManualFields = { achievements: "", focusedSbus: "", amcEbook: "", newsletter: "", futureProspects: "", actionNotes: "" };
+
+type IG = { available: boolean; followers: number | null; followersAsOf: string | null; reach: number | null; reachFrom: string; contentInteractions: number | null; post: number; reel: number; story: number | null; leads: number };
+type YT = { available: boolean; subscribers: number; views: number; video: number; shorts: number; leads: number };
+type LI = { available: boolean; followers: number; impressions: number; reactions: number; posts: number; comments: number; postsComplete?: boolean };
+type Organic = { month: string; igfb: number; dmBookings: number; ytEnquiries: number; website: number; inboundCall: number; total: number };
+type Snapshot = { savedAt: string | null; payload: { window?: { to: string }; youtube?: YT | null; linkedin?: LI | null } | null };
+
+export function MonthlyReportView({ month }: { month: string }) {
   const now = new Date();
-  const label = monthLabel ?? now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-  const from = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
-  const to = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const thisMonth = ymd(now).slice(0, 7);
+  const isCurrent = month === thisMonth;
+  const imported = month <= HISTORY_LAST;
+  const from = `${month}-01`;
+  const monthEnd = ymd(new Date(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0));
+  const to = isCurrent ? ymd(now) : monthEnd;
+  const label = new Date(from + "T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const short = new Date(from + "T00:00:00").toLocaleDateString("en-US", { month: "short" });
+  const range = `${Number(from.slice(8))}–${Number(to.slice(8))} ${short}`;
+
   const [manual, setManual] = useState<ManualFields | null>(null);
   const manualRef = useRef<ManualFields | null>(null);
   const [notesSave, setNotesSave] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const saveChain = useRef<Promise<void>>(Promise.resolve());
   useEffect(() => { manualRef.current = manual; }, [manual]);
   useEffect(() => {
-    fetch(`/api/reports/manual?month=${monthKey}`, { cache: "no-store" })
+    setManual(null);
+    fetch(`/api/reports/manual?month=${month}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
       .then((j) => setManual(j.fields as ManualFields))
-      .catch(() => setManual({ achievements: "", focusedSbus: "", amcEbook: "", newsletter: "", futureProspects: "", actionNotes: "" }));
-  }, [monthKey]);
-  const updateField = (field: keyof ManualFields, value: string) =>
-    setManual((m) => ({ ...(m ?? { achievements: "", focusedSbus: "", amcEbook: "", newsletter: "", futureProspects: "", actionNotes: "" }), [field]: value }));
+      .catch(() => setManual({ ...EMPTY_NOTES }));
+  }, [month]);
+  const updateField = (field: keyof ManualFields, value: string) => setManual((m) => ({ ...(m ?? EMPTY_NOTES), [field]: value }));
   // Save the WHOLE current notes object, and serialise saves in a promise chain so
   // two quick blurs can't race a read-modify-write and drop a field.
   const saveNotes = () => {
@@ -39,49 +54,77 @@ export function MonthlyReportView({ monthLabel }: { monthLabel?: string }) {
       .then(async () => {
         const r = await fetch("/api/reports/manual", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ month: monthKey, patch: manualRef.current ?? {} }),
+          body: JSON.stringify({ month, patch: manualRef.current ?? {} }),
         });
         setNotesSave(r.ok ? "saved" : "error");
       })
       .catch(() => setNotesSave("error"));
   };
 
-  // Snapshot: freeze this month's assembled live numbers so the month is preserved
-  // once the platform APIs can't re-fetch it. Save on demand + auto-save on view.
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [savedAt, setSavedAt] = useState<string | null>(null);
+  // Live numbers for the month (not for imported months — those are fixed).
+  const [ig, setIg] = useState<IG | null>(null);
+  const [yt, setYt] = useState<YT | null>(null);
+  const [li, setLi] = useState<LI | null>(null);
+  const [organic, setOrganic] = useState<Organic | null | undefined>(undefined);
+  const [snap, setSnap] = useState<Snapshot | null>(null);
   useEffect(() => {
-    fetch(`/api/reports/snapshot?month=${monthKey}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => { if (j?.savedAt) setSavedAt(j.savedAt); })
-      .catch(() => {});
-  }, [monthKey]);
+    setIg(null); setYt(null); setLi(null); setOrganic(undefined); setSnap(null);
+    if (imported) return;
+    const q = `from=${from}&to=${to}`;
+    const j = (u: string) => fetch(u, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    j(`/api/reports/instagram-month?${q}`).then(setIg);
+    j(`/api/reports/platform-month?platform=youtube&${q}`).then(setYt);
+    j(`/api/reports/platform-month?platform=linkedin&${q}`).then(setLi);
+    j(`/api/reports/organic-leads?${q}`).then((r) => setOrganic((r?.rows as Organic[] | undefined)?.find((x) => x.month === month) ?? null));
+    j(`/api/reports/snapshot?month=${month}`).then((r) => setSnap(r ? { savedAt: r.savedAt, payload: r.payload } : { savedAt: null, payload: null }));
+  }, [month, from, to, imported]);
+
+  // This month: save a copy a few seconds after it settles (the daily cron does too).
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const saveMonth = async () => {
     setSaveState("saving");
     try {
       const q = `from=${from}&to=${to}`;
       const j = (u: string) => fetch(u, { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
-      const [leadStatus, organic, instagram, youtube, linkedin, topPosts, man] = await Promise.all([
-        j(`/api/reports/lead-status?${q}`),
-        j(`/api/reports/organic-leads?from=2026-06-01&to=${to}`),
-        j(`/api/reports/instagram-month?${q}`),
-        j(`/api/reports/platform-month?platform=youtube&${q}`),
-        j(`/api/reports/platform-month?platform=linkedin&${q}`),
-        j(`/api/reports/instagram-top?${q}`),
-        j(`/api/reports/manual?month=${monthKey}`),
+      const [leadStatus, organicR, instagram, youtube, linkedin, topPosts, man] = await Promise.all([
+        j(`/api/reports/lead-status?${q}`), j(`/api/reports/organic-leads?${q}`), j(`/api/reports/instagram-month?${q}`),
+        j(`/api/reports/platform-month?platform=youtube&${q}`), j(`/api/reports/platform-month?platform=linkedin&${q}`),
+        j(`/api/reports/instagram-top?${q}`), j(`/api/reports/manual?month=${month}`),
       ]);
-      const payload = { label, window: { from, to }, leadStatus, organic, instagram, youtube, linkedin, topPosts, manual: (man as { fields?: unknown } | null)?.fields ?? null };
-      const r = await fetch("/api/reports/snapshot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: monthKey, payload }) });
-      if (r.ok) { const res = await r.json(); setSavedAt(res.savedAt); setSaveState("saved"); } else setSaveState("error");
+      const payload = { label, window: { from, to }, leadStatus, organic: organicR, instagram, youtube, linkedin, topPosts, manual: (man as { fields?: unknown } | null)?.fields ?? null };
+      const r = await fetch("/api/reports/snapshot", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month, payload }) });
+      if (r.ok) { const res = await r.json(); setSnap((s) => ({ savedAt: res.savedAt, payload: s?.payload ?? null })); setSaveState("saved"); } else setSaveState("error");
     } catch { setSaveState("error"); }
   };
-  // Auto-save once a few seconds after the data has settled, so a viewed month is
-  // always captured before it rolls over (belt-and-braces alongside a monthly cron).
   useEffect(() => {
+    if (!isCurrent) return;
     const t = setTimeout(() => { saveMonth(); }, 6000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [monthKey]);
+  }, [month]);
+
+  // Subscribers / LinkedIn followers for a past month: the saved copy's figure.
+  const saved = snap?.payload;
+  const savedTo = saved?.window?.to;
+  const asOf = (d: string | null | undefined) => d ? new Date(d + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }) : null;
+  const pinNote = (d: string | null | undefined) => (isCurrent ? undefined : !d ? "not saved for this month" : d < monthEnd ? `as of ${asOf(d)}` : undefined);
+  const ytSubs = isCurrent ? yt?.subscribers ?? null : saved?.youtube?.subscribers ?? null;
+  const liFollowers = isCurrent ? li?.followers ?? null : saved?.linkedin?.followers ?? null;
+
+  const status = imported
+    ? { cls: "bg-[#F3F4F7] border-gray-200 text-[#4A5468]", text: "From the Notion report — imported before the dashboard kept reports." }
+    : isCurrent
+      ? { cls: "bg-brand-light border-[#D5DBF8] text-[#2138B0]", text: `Live — ${range}. Numbers update each time you open it, and the whole month is saved on its own when it ends.` }
+      : { cls: "bg-[#E8F6EE] border-[#CBEBD8] text-[#126B39]", text: `Full month — ${range}.` };
+
+  // Imported rows, by column.
+  const hIg = imported ? historyRow(H.instagram, month) : null;
+  const hYt = imported ? historyRow(H.youtube, month) : null;
+  const hLi = imported ? historyRow(H.linkedin, month) : null;
+  const hFb = imported ? historyRow(H.facebook, month) : null;
+  const hOrg = imported ? historyRow(H.organicLeads, month) : null;
+  const hEng = imported ? historyEngagement(month) : null;
+  const loading = !imported && ig === null;
 
   return (
     <article className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 md:p-8 space-y-9">
@@ -89,16 +132,20 @@ export function MonthlyReportView({ monthLabel }: { monthLabel?: string }) {
         <div>
           <div className="text-[11px] uppercase tracking-widest text-brand font-semibold mb-1">Monthly performance</div>
           <h1 className="text-xl font-semibold text-[#232D42] tracking-tight">{label} Monthly Report</h1>
-          <div className="text-[12.5px] text-gray-500 mt-1">GooCampus · all channels · this month to date</div>
+          <div className="text-[12.5px] text-gray-500 mt-1">GooCampus · all channels · {imported ? "imported" : isCurrent ? "this month to date" : "full month"}</div>
         </div>
         <div className="flex items-center gap-2.5">
-          {savedAt && <span className="text-[11px] text-gray-400">saved {new Date(savedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>}
-          <button onClick={saveMonth} disabled={saveState === "saving"} title="Freeze this month's numbers so it's preserved after the month ends"
-            className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-brand/40 text-brand bg-brand-light hover:bg-brand hover:text-white transition disabled:opacity-50">
-            {saveState === "saving" ? "Saving…" : saveState === "saved" ? "✓ Saved" : saveState === "error" ? "Retry save" : "Save this month"}
-          </button>
+          {snap?.savedAt && <span className="text-[11px] text-gray-400">saved {new Date(snap.savedAt).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>}
+          {isCurrent && (
+            <button onClick={saveMonth} disabled={saveState === "saving"} title="Save a copy of this month's numbers now"
+              className="text-[12px] font-medium px-3 py-1.5 rounded-lg border border-brand/40 text-brand bg-brand-light hover:bg-brand hover:text-white transition disabled:opacity-50">
+              {saveState === "saving" ? "Saving…" : saveState === "saved" ? "✓ Saved" : saveState === "error" ? "Retry save" : "Save this month"}
+            </button>
+          )}
         </div>
       </header>
+
+      <div className={`rounded-xl border px-4 py-2.5 text-[12.5px] ${status.cls}`}>{status.text}</div>
 
       <ManualEditable title="Achievements" hint="Leads converted this month + all-time highs + strategy notes." value={manual?.achievements ?? ""} onChange={(v) => updateField("achievements", v)} onBlur={saveNotes} loaded={manual != null} state={notesSave} />
       <ManualEditable title="Focused SBUs" hint="Focused SBUs + webinar / live-session write-ups (registrations, attendees)." value={manual?.focusedSbus ?? ""} onChange={(v) => updateField("focusedSbus", v)} onBlur={saveNotes} loaded={manual != null} />
@@ -107,91 +154,119 @@ export function MonthlyReportView({ monthLabel }: { monthLabel?: string }) {
         <ManualEditable title="Newsletter" hint="Total subscribers + note." value={manual?.newsletter ?? ""} onChange={(v) => updateField("newsletter", v)} onBlur={saveNotes} loaded={manual != null} />
       </div>
 
-      <Section title="Total Organic Leads" note="Organic leads by source, month over month (paid ads excluded).">
-        <OrganicLeadsTable base={H.organicLeads} from="2026-06-01" to={to} />
+      <Section title="Total Organic Leads" note={imported ? "Organic leads by source (paid ads excluded)." : "Organic leads by source (paid ads excluded) — a CRM estimate from Lead Source."}>
+        {imported ? (
+          hOrg ? <Stats items={[["IG / Fb", hOrg[0]], ["DM bookings", hOrg[1]], ["YT enquiries", hOrg[2]], ["Website", hOrg[3]], ["Inbound call", hOrg[4]], ["Total", hOrg[5]]]} />
+            : <Missing what="organic leads" />
+        ) : organic === undefined ? <Loading /> : (
+          <Stats items={[["IG / Fb", organic?.igfb], ["DM bookings", organic?.dmBookings], ["YT enquiries", organic?.ytEnquiries], ["Website", organic?.website], ["Inbound call", organic?.inboundCall], ["Total", organic?.total ?? 0]]} />
+        )}
       </Section>
 
-      <LeadGrids from={from} to={to} />
+      {!imported && <LeadGrids from={from} to={to} />}
 
       <PlatformHeader name="Instagram" />
-      <Section title="Instagram — monthly" note="Followers · reach · content interactions · DMs · leads · posts · reels · stories. Latest month bold.">
-        <InstagramTable base={H.instagram} from={from} to={to} />
+      <Section title="Instagram" note={imported ? undefined : `Followers · reach · content interactions · posts · reels · stories · leads (CRM IG/Fb estimate).${ig && ig.reachFrom !== from ? ` Reach covers ${asOf(ig.reachFrom)}–${asOf(to)} — Meta allows 30 days at a time.` : ""}`}>
+        {imported ? (
+          hIg ? <Stats items={[["Followers", hIg[0]], ["Reach", hIg[1]], ["Content interactions", hIg[2]], ["DMs", hIg[3]], ["Leads", hIg[4]], ["Posts", hIg[5]], ["Reels", hIg[6]], ["Stories", hIg[7]]]} />
+            : <Missing what="Instagram" />
+        ) : loading ? <Loading /> : !ig?.available ? <Missing what="Instagram" live /> : (
+          <Stats items={[
+            ["Followers", ig.followers, pinNote(ig.followersAsOf)], ["Reach", compact(ig.reach)], ["Content interactions", compact(ig.contentInteractions)],
+            ["Leads", ig.leads], ["Posts", ig.post], ["Reels", ig.reel], ["Stories", ig.story, ig.story == null ? "not kept before Jul 2026" : undefined],
+          ]} />
+        )}
       </Section>
-      <Section title="Likes · Comments · Saves · Shares" note="Month-over-month totals.">
-        <MonthlyTable t={H.engagement} />
-      </Section>
-      <InstagramTopContent from={from} to={to} />
-      <InstagramSummary from={from} to={to} />
+      {imported && hEng && (
+        <Section title="Likes · Comments · Saves · Shares">
+          <Stats items={[["Likes", hEng.Likes], ["Comments", hEng.Comments], ["Saves", hEng.Saves], ["Shares", hEng.Shares]]} />
+        </Section>
+      )}
+      {!imported && <InstagramTopContent from={from} to={to} />}
 
       <PlatformHeader name="YouTube" />
-      <Section title="YouTube — monthly" note="Subscribers · views · videos · shorts · leads.">
-        <PlatformLiveTable base={H.youtube} platform="youtube" from={from} to={to}
-          buildRow={(j, short) => [`${short} · live`, fmtNum(j.subscribers), fmtCompact(j.views), String(j.video), String(j.shorts), String(j.leads)]} />
+      <Section title="YouTube" note={imported ? undefined : "Subscribers · views · videos · shorts · leads (CRM estimate). Views reach YouTube 2–3 days late."}>
+        {imported ? (
+          hYt ? <Stats items={[["Subscribers", hYt[0]], ["Views", hYt[1]], ["Videos", hYt[2]], ["Shorts", hYt[3]], ["Leads", hYt[4]]]} /> : <Missing what="YouTube" />
+        ) : yt === null ? <Loading /> : !yt.available ? <Missing what="YouTube" live /> : (
+          <Stats items={[["Subscribers", ytSubs, pinNote(isCurrent ? to : saved?.youtube ? savedTo : null)], ["Views", compact(yt.views)], ["Videos", yt.video], ["Shorts", yt.shorts], ["Leads", yt.leads]]} />
+        )}
       </Section>
 
       <PlatformHeader name="Facebook" />
-      <Section title="Facebook — monthly" note="Views · posts · reels · content interactions · followers.">
-        <MonthlyTable t={H.facebook} />
-        <div className="text-[11px] text-gray-400 mt-1.5">No live current-month row yet — the stored Facebook token lacks <b>read_insights</b>, so live Page metrics aren&rsquo;t available. Re-scope the token to enable it. History imported from the Notion report.</div>
+      <Section title="Facebook">
+        {imported && hFb ? <Stats items={[["Views", hFb[0]], ["Posts", hFb[1]], ["Reels", hFb[2]], ["Content interactions", hFb[3]], ["Followers", hFb[4]]]} />
+          : <div className="text-[12px] text-gray-400">No Facebook numbers for this month — the stored Facebook token lacks <b>read_insights</b>, so Page metrics can&rsquo;t be read. Re-scope the token to enable it.</div>}
       </Section>
 
       <PlatformHeader name="LinkedIn" />
-      <Section title="LinkedIn — monthly" note="Followers · impressions · reactions · posts · comments.">
-        <PlatformLiveTable base={H.linkedin} platform="linkedin" from={from} to={to}
-          buildRow={(j, short) => [`${short} · live`, fmtNum(j.followers), fmtNum(j.impressions), String(j.reactions), String(j.posts), String(j.comments)]} />
+      <Section title="LinkedIn" note={imported ? undefined : "Followers · impressions · reactions · posts · comments."}>
+        {imported ? (
+          hLi ? <Stats items={[["Followers", hLi[0]], ["Impressions", hLi[1]], ["Reactions", hLi[2]], ["Posts", hLi[3]], ["Comments", hLi[4]]]} /> : <Missing what="LinkedIn" />
+        ) : li === null ? <Loading /> : !li.available ? <Missing what="LinkedIn" live /> : (
+          <Stats items={[
+            ["Followers", liFollowers, pinNote(isCurrent ? to : saved?.linkedin ? savedTo : null)], ["Impressions", li.impressions],
+            // Too far back for LinkedIn's latest-25 posts: unknown, not 0.
+            ...(li.postsComplete === false
+              ? [["Posts", null, "too far back for LinkedIn"], ["Reactions", null], ["Comments", null]] as [string, null, string?][]
+              : [["Posts", li.posts], ["Reactions", li.reactions], ["Comments", li.comments]] as [string, number][]),
+          ]} />
+        )}
       </Section>
 
       <ManualEditable title="Future Prospects" hint="Strategy bullets for the coming month." value={manual?.futureProspects ?? ""} onChange={(v) => updateField("futureProspects", v)} onBlur={saveNotes} loaded={manual != null} />
       <ManualEditable title="Post-Meeting Action Notes" hint="Actions agreed in the review meeting." value={manual?.actionNotes ?? ""} onChange={(v) => updateField("actionNotes", v)} onBlur={saveNotes} loaded={manual != null} />
-
-      <footer className="pt-5 border-t border-gray-100 text-[11px] text-gray-400 italic">
-        Historical months imported once from the team&rsquo;s Notion report; the latest month and the live/chart sections fill from the dashboard&rsquo;s own data (being wired up).
-      </footer>
     </article>
   );
 }
 
-// Total Organic Leads: imported history (through May 2026) + CRM-estimate months
-// appended from June 2026 onward (paid ads excluded). Latest month bold.
-function OrganicLeadsTable({ base, from, to }: { base: HistoryTable; from: string; to: string }) {
-  const [extra, setExtra] = useState<string[][]>([]);
-  const [est, setEst] = useState(false);
-  useEffect(() => {
-    fetch(`/api/reports/organic-leads?from=${from}&to=${to}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
-      .then((j: { rows: { month: string; igfb: number; dmBookings: number; ytEnquiries: number; website: number; inboundCall: number; total: number }[] }) => {
-        const rows = (j.rows || []).map((r) => [
-          `${new Date(r.month + "-01").toLocaleDateString("en-US", { month: "short", year: "numeric" })} · est`,
-          String(r.igfb), String(r.dmBookings), String(r.ytEnquiries), String(r.website), String(r.inboundCall), String(r.total),
-        ]);
-        setExtra(rows);
-        setEst(rows.length > 0);
-      })
-      .catch(() => {});
-  }, [from, to]);
+const fmtNum = (n: number | null | undefined) => (n == null ? "—" : n.toLocaleString("en-IN"));
+
+// L/K compact notation to match the imported Notion values (e.g. "9.91L", "40.1K").
+function compact(n: number | null): string {
+  if (n == null) return "—";
+  if (n >= 100_000) return `${(n / 100_000).toFixed(2).replace(/\.?0+$/, "")}L`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
+  return String(n);
+}
+
+// A row of headline tiles. Values are numbers (formatted here) or ready strings.
+function Stats({ items }: { items: [string, number | string | null | undefined, string?][] }) {
   return (
-    <>
-      <MonthlyTable t={{ heading: base.heading, header: base.header, rows: [...base.rows, ...extra] }} />
-      {est && <div className="text-[11px] text-gray-400 mt-1.5">Months marked <b>· est</b> (Jun 2026 →) are a <b>CRM estimate</b> from Lead Source — can differ from the curated figure. Earlier months imported from the Notion report.</div>}
-    </>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {items.map(([label, v, sub]) => (
+        <div key={label} className="border border-gray-200 rounded-xl p-3">
+          <div className="text-[22px] font-semibold tabular-nums text-[#232D42] leading-none">{typeof v === "string" ? v || "—" : fmtNum(v)}</div>
+          <div className="text-[11px] uppercase tracking-wide text-gray-500 mt-1">{label}</div>
+          {sub && <div className="text-[11px] text-gray-400 mt-0.5">{sub}</div>}
+        </div>
+      ))}
+    </div>
   );
 }
 
-const fmtNum = (n: number | null) => (n == null ? "—" : n.toLocaleString("en-IN"));
+function Loading() {
+  return <div className="border border-gray-200 rounded-xl"><LoadingBlock className="!py-8" size={24} /></div>;
+}
 
-// Best-performing Instagram content this month — thumbnails ranked by engagement.
+function Missing({ what, live }: { what: string; live?: boolean }) {
+  return <div className="text-[12px] text-gray-400">{live ? `Couldn't reach ${what} just now — try again in a minute.` : `The Notion report has no ${what} figures for this month.`}</div>;
+}
+
+// Best-performing Instagram content in the month — thumbnails ranked by engagement.
 function InstagramTopContent({ from, to }: { from: string; to: string }) {
   const [d, setD] = useState<{ posts: { permalink: string; thumb: string; type: string; likes: number; comments: number }[] } | null>(null);
   useEffect(() => {
+    setD(null);
     fetch(`/api/reports/instagram-top?from=${from}&to=${to}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
       .then((j) => setD(j))
       .catch(() => setD({ posts: [] }));
   }, [from, to]);
   return (
-    <Section title="Best-performing content · Instagram" note="This month's top posts, ranked by likes + comments.">
-      {!d ? <div className="border border-gray-200 rounded-xl"><LoadingBlock className="!py-8" size={24} label="Loading top posts…" /></div>
-        : d.posts.length === 0 ? <div className="text-sm text-gray-400">No Instagram posts in this window yet.</div>
+    <Section title="Best-performing content · Instagram" note="The month's top posts, ranked by likes + comments.">
+      {!d ? <Loading />
+        : d.posts.length === 0 ? <div className="text-sm text-gray-400">No Instagram posts in this month.</div>
         : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
             {d.posts.map((p, i) => (
@@ -208,95 +283,6 @@ function InstagramTopContent({ from, to }: { from: string; to: string }) {
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
-  return <div className="border border-gray-200 rounded-xl p-3"><div className="text-[22px] font-semibold tabular-nums text-[#232D42] leading-none">{value}</div><div className="text-[11px] uppercase tracking-wide text-gray-500 mt-1">{label}</div></div>;
-}
-
-// Instagram Performance Summary — this month's headline numbers (live). MoM growth %
-// fills once the previous month is snapshotted (the report saves each month, phase 3).
-function InstagramSummary({ from, to }: { from: string; to: string }) {
-  const [d, setD] = useState<{ available: boolean; followers: number | null; reach: number | null; contentInteractions: number | null; leads: number } | null>(null);
-  useEffect(() => {
-    fetch(`/api/reports/instagram-month?from=${from}&to=${to}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
-      .then((j) => setD(j))
-      .catch(() => {});
-  }, [from, to]);
-  return (
-    <Section title="Instagram Performance Summary" note="This month to date (live).">
-      {!d ? <div className="border border-gray-200 rounded-xl"><LoadingBlock className="!py-8" size={24} /></div> : (
-        <div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <MiniStat label="Followers" value={fmtNum(d.followers)} />
-            <MiniStat label="Reach" value={fmtCompact(d.reach)} />
-            <MiniStat label="Content interactions" value={fmtCompact(d.contentInteractions)} />
-            <MiniStat label="Leads · IG/Fb est" value={String(d.leads ?? 0)} />
-          </div>
-          <div className="text-[11px] text-gray-400 mt-2">Month-over-month growth % fills in once the previous month is snapshotted — the report saves each month going forward.</div>
-        </div>
-      )}
-    </Section>
-  );
-}
-
-// Generic platform table: imported history + a LIVE current-month row built from
-// /api/reports/platform-month (only appended when the platform returns real data).
-function PlatformLiveTable({ base, platform, from, to, buildRow }: {
-  base: HistoryTable; platform: string; from: string; to: string;
-  buildRow: (j: Record<string, number>, short: string) => string[];
-}) {
-  const [row, setRow] = useState<string[] | null>(null);
-  useEffect(() => {
-    fetch(`/api/reports/platform-month?platform=${platform}&from=${from}&to=${to}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
-      .then((j) => {
-        if (!j.available) return;
-        const short = new Date(to + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" });
-        setRow(buildRow(j, short));
-      })
-      .catch(() => {});
-    // buildRow only formats the response; capturing the first ref is fine and avoids a refetch loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platform, from, to]);
-  return (
-    <>
-      <MonthlyTable t={{ heading: base.heading, header: base.header, rows: row ? [...base.rows, row] : base.rows }} />
-      {row && <div className="text-[11px] text-gray-400 mt-1.5">The <b>· live</b> row is this month to date — real data. Leads (where shown) are a CRM estimate.</div>}
-    </>
-  );
-}
-
-// L/K compact notation to match the imported Notion values (e.g. "9.91L", "40.1K").
-function fmtCompact(n: number | null): string {
-  if (n == null) return "—";
-  if (n >= 100_000) return `${(n / 100_000).toFixed(2).replace(/\.?0+$/, "")}L`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(/\.0$/, "")}K`;
-  return String(n);
-}
-
-// Instagram monthly table: imported history + the current month's LIVE row from
-// Meta (followers/reach/content interactions/posts/reels/stories; leads = CRM
-// IG/Fb estimate; DM not available from the API).
-function InstagramTable({ base, from, to }: { base: HistoryTable; from: string; to: string }) {
-  const [row, setRow] = useState<string[] | null>(null);
-  useEffect(() => {
-    fetch(`/api/reports/instagram-month?from=${from}&to=${to}`, { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("failed"))))
-      .then((j: { available: boolean; followers: number | null; reach: number | null; contentInteractions: number | null; post: number; reel: number; story: number; leads: number }) => {
-        if (!j.available) return;
-        const short = new Date(to + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" });
-        setRow([`${short} · live`, j.followers != null ? j.followers.toLocaleString("en-IN") : "—", fmtCompact(j.reach), fmtCompact(j.contentInteractions), "—", String(j.leads), String(j.post), String(j.reel), String(j.story)]);
-      })
-      .catch(() => {});
-  }, [from, to]);
-  return (
-    <>
-      <MonthlyTable t={{ heading: base.heading, header: base.header, rows: row ? [...base.rows, row] : base.rows }} />
-      {row && <div className="text-[11px] text-gray-400 mt-1.5">The <b>· live</b> row is this month to date from Meta — followers, reach, content interactions, posts &amp; reels are real. <b>Leads</b> = CRM IG/Fb estimate; <b>DM</b> and <b>Story</b> counts aren&rsquo;t exposed by the API (shown as — / 0).</div>}
-    </>
-  );
-}
-
 type LeadStatusResp = {
   window: { from: string; to: string };
   total: number;
@@ -310,6 +296,7 @@ function LeadGrids({ from, to }: { from: string; to: string }) {
   const [d, setD] = useState<LeadStatusResp | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
+    setD(null); setErr(null);
     fetch(`/api/reports/lead-status?from=${from}&to=${to}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((j) => setD(j as LeadStatusResp))
@@ -387,36 +374,6 @@ function PlatformHeader({ name }: { name: string }) {
       <div className="h-px flex-1 bg-gray-100" />
       <div className="text-[13px] font-semibold text-brand uppercase tracking-widest">{name}</div>
       <div className="h-px flex-1 bg-gray-100" />
-    </div>
-  );
-}
-
-// A month-over-month table: header row + one row per month, latest row emphasised,
-// horizontally scrollable so wide tables never break the page.
-function MonthlyTable({ t }: { t: HistoryTable }) {
-  return (
-    <div className="border border-gray-200 rounded-xl overflow-x-auto">
-      <table className="w-full text-[12.5px] whitespace-nowrap">
-        <thead className="bg-gray-50 text-gray-500">
-          <tr>
-            {t.header.map((h, i) => (
-              <th key={i} className={`px-3 py-2 font-semibold text-[11px] uppercase tracking-wide ${i === 0 ? "text-left sticky left-0 bg-gray-50" : "text-right"}`}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {t.rows.map((row, ri) => {
-            const last = ri === t.rows.length - 1;
-            return (
-              <tr key={ri} className={`border-t border-gray-100 ${last ? "bg-brand-light/50 font-semibold text-[#232D42]" : ""}`}>
-                {row.map((c, ci) => (
-                  <td key={ci} className={`px-3 py-2 tabular-nums ${ci === 0 ? `text-left sticky left-0 ${last ? "bg-[#eef1fb]" : "bg-white"}` : "text-right"}`}>{c || "—"}</td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
     </div>
   );
 }

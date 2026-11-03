@@ -10,7 +10,7 @@ export default function Page() {
     <PreviewDashboardShell active="ai-reports" title="Monthly Report — full format" subtitle="Live data + imported history, in the team's monthly-report layout. Fill the sections marked with a pencil — they save per month." hideAccountPicker hideRange compact>
       {() => (
         <div className="max-w-[1200px] mx-auto">
-          <MonthlyReportView />
+          <MonthlyReportView month={new Date().toISOString().slice(0, 7)} />
         </div>
       )}
     </PreviewDashboardShell>

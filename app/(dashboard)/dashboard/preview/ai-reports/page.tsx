@@ -5,6 +5,7 @@ import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/Previ
 import { BrandLoader } from "@/components/BrandLoader";
 import { ReportView, PERIOD_META, type ReportPayload, type Period } from "./ReportView";
 import { MonthlyReportView } from "./MonthlyReportView";
+import { HISTORY_FIRST } from "@/lib/report-history";
 
 export default function AIReportsPage() {
   // Lifted so the shell can hide the account picker on Monthly: the monthly report is
@@ -132,7 +133,7 @@ function AIReports({ accountId, period, setPeriod }: { accountId: string; period
       </div>
 
       {period === "monthly" ? (
-        <MonthlyReportView />
+        <MonthlyReports />
       ) : loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-3">
           <BrandLoader size={40} />
@@ -143,6 +144,50 @@ function AIReports({ accountId, period, setPeriod }: { accountId: string; period
       ) : report ? (
         <ReportView report={report} regenerating={loading !== null} />
       ) : null}
+    </div>
+  );
+}
+
+// Every month from the first imported one to this month, newest first.
+function allMonths(): string[] {
+  const d = new Date();
+  const out: string[] = [];
+  for (let y = d.getFullYear(), m = d.getMonth() + 1; `${y}-${String(m).padStart(2, "0")}` >= HISTORY_FIRST; m === 1 ? (y--, m = 12) : m--) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  return out;
+}
+
+// Monthly: every month's report in a list on the left (as My Day lists tasks), the
+// chosen one on the right. ?month=YYYY-MM keeps the choice in the link.
+function MonthlyReports() {
+  const months = allMonths();
+  const [month, setMonth] = useState(months[0]);
+  // Read ?month= after mount — the server render has no URL, and must match.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get("month");
+    if (q && allMonths().includes(q)) setMonth(q);
+  }, []);
+  const pick = (m: string) => {
+    setMonth(m);
+    const u = new URL(window.location.href);
+    if (m === months[0]) u.searchParams.delete("month"); else u.searchParams.set("month", m);
+    window.history.replaceState(null, "", u.toString());
+  };
+  const name = (m: string) => new Date(m + "-01T00:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4 items-start">
+      <aside className="bg-white border border-gray-100 rounded-2xl p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto print:hidden">
+        <div className="text-[15px] font-semibold text-[#232D42] px-2 pt-1 pb-2.5">All reports</div>
+        {months.map((m) => (
+          <button key={m} onClick={() => pick(m)}
+            className={`block w-full text-left px-3 py-2.5 rounded-xl text-[13.5px] mb-0.5 transition ${m === month ? "bg-brand-light text-[#2138B0] font-medium" : "text-[#232D42] hover:bg-[#F6F7FB]"}`}>
+            {name(m)}
+          </button>
+        ))}
+      </aside>
+      {/* min-w-0: a wide table scrolls inside its card instead of widening the page */}
+      <div className="min-w-0"><MonthlyReportView key={month} month={month} /></div>
     </div>
   );
 }
