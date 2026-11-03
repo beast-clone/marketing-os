@@ -53,7 +53,7 @@ const day = (s) => (s ? String(s).slice(0, 10) : null);
 const name = (p) => (p && (p.name || p.email)) || null;
 // Kept as their own columns; everything else on the record goes into `fields` as it was.
 const OWN = ["Particulars", "Type", "Status", "SBU", "Priority", "Owner", "Collaborators", "Created by", "Publishing Date",
-  "Due Date", "Completion Time", "Platform(s)", "Content", "Caption", "Additional Info", "Attachments", "Created Date", "Last Modified", "Slack Cache"];
+  "Due Date", "Completion Time", "Platform(s)", "Content", "Caption", "Additional Info", "Attachments", "Created Date", "Last Modified"];
 
 const records = (await airtable()).filter((r) => (r.fields["Publishing Date"] || "") >= START || (r.createdTime || "") >= START);
 const fileCount = records.reduce((n, r) => n + (r.fields["Attachments"] || []).length, 0);
@@ -65,6 +65,8 @@ for (const r of records) {
   const f = r.fields;
   try {
     const rest = Object.fromEntries(Object.entries(f).filter(([k]) => !OWN.includes(k)));
+    // Slack Cache is files too — copied like Attachments, kept under its own name.
+    if (f["Slack Cache"]) rest["Slack Cache"] = await copyFiles(f["Slack Cache"], r.id);
     const row = {
       airtable_id: r.id,
       title: f["Particulars"]?.trim() || null,

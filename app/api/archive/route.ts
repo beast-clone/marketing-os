@@ -10,7 +10,7 @@ import { canSeeTab } from "@/lib/permissions";
 //   GET          → { rows }  every task, list columns only
 //   GET ?id=rec… → { row }   one task in full (content, caption, files, other fields)
 export const dynamic = "force-dynamic";
-const LIST = "airtable_id, title, type, status, sbu, owner, publishing_date, created_at, files";
+const LIST = "airtable_id, title, type, status, sbu, owner, collaborators, priority, platforms, created_by, publishing_date, created_at, files";
 
 export async function GET(req: Request) {
   const me = await rosterById(getSessionUserId());

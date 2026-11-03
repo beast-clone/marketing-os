@@ -13,10 +13,9 @@ import { fmtDateShort } from "@/lib/date";
 // interest for whatever is filtered, and "Copy table" puts it on the clipboard as
 // rows and columns, ready to paste into a report section or a spreadsheet.
 
-type Row = { airtable_id: string; title: string | null; type: string | null; status: string | null; sbu: string | null; owner: string | null; publishing_date: string | null; created_at: string | null; files: number };
+type Row = { airtable_id: string; title: string | null; type: string | null; status: string | null; sbu: string | null; owner: string | null; collaborators: string[]; priority: string | null; platforms: string[]; created_by: string | null; publishing_date: string | null; created_at: string | null; files: number };
 type Full = Omit<Row, "files"> & {
-  priority: string | null; collaborators: string[]; created_by: string | null; due_date: string | null; completion_time: string | null;
-  platforms: string[]; content: string | null; caption: string | null; additional_info: string | null;
+  due_date: string | null; completion_time: string | null; content: string | null; caption: string | null; additional_info: string | null;
   files: { url: string; name: string; mime: string; size: number }[]; fields: Record<string, unknown>; modified_at: string | null;
 };
 
@@ -38,7 +37,7 @@ function Archive() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [f, setF] = useState({ year: "", month: "", sbu: "", type: "", status: "" });
+  const [f, setF] = useState({ year: "", month: "", sbu: "", type: "", status: "", owner: "", collab: "", priority: "", platform: "", creator: "" });
   const [shown, setShown] = useState(100);
   const [open, setOpen] = useState<string | null>(null);
 
@@ -49,8 +48,8 @@ function Archive() {
       .catch((e) => setErr((e as Error).message));
   }, []);
 
-  const opts = (get: (r: Row) => string | null | undefined, sortDesc = false) => {
-    const s = [...new Set((rows || []).map(get).filter((v): v is string => !!v))].sort();
+  const opts = (get: (r: Row) => string | string[] | null | undefined, sortDesc = false) => {
+    const s = [...new Set((rows || []).flatMap((r) => get(r) ?? []).filter((v): v is string => !!v))].sort();
     return sortDesc ? s.reverse() : s;
   };
   const list = useMemo(() => {
@@ -58,6 +57,8 @@ function Archive() {
     return (rows || []).filter((r) =>
       (!f.year || yearOf(r) === f.year) && (!f.month || monthOf(r) === f.month) && (!f.sbu || r.sbu === f.sbu) &&
       (!f.type || r.type === f.type) && (!f.status || r.status === f.status) &&
+      (!f.owner || r.owner === f.owner) && (!f.collab || r.collaborators.includes(f.collab)) && (!f.priority || r.priority === f.priority) &&
+      (!f.platform || r.platforms.includes(f.platform)) && (!f.creator || r.created_by === f.creator) &&
       (!words || (r.title || "").toLowerCase().includes(words)));
   }, [rows, q, f]);
   useEffect(() => { setShown(100); }, [q, f]);
@@ -82,7 +83,7 @@ function Archive() {
     return { header, body, total };
   }, [list]);
 
-  const scope = [f.month ? monthName(f.month) : f.year, f.sbu, f.type, f.status].filter(Boolean).join(" · ") || "Everything in the backup";
+  const scope = [f.month ? monthName(f.month) : f.year, f.sbu, f.type, f.status, f.owner, f.collab && `with ${f.collab}`, f.priority, f.platform, f.creator && `by ${f.creator}`].filter(Boolean).join(" · ") || "Everything in the backup";
   const tsv = (cells: (string | number)[][]) => cells.map((r) => r.map((c) => String(c ?? "").replace(/[\t\n]+/g, " ")).join("\t")).join("\n");
 
   if (err) return <div className="bg-rose-50 border border-rose-200 rounded-xl px-4 py-3 text-[13px] text-rose-800">{err}</div>;
@@ -142,6 +143,16 @@ function Archive() {
             options={[{ value: "", label: "All types" }, ...opts((r) => r.type).map((o) => ({ value: o, label: o }))]} />
           <PreviewSelect value={f.status} onChange={(v) => setF((s) => ({ ...s, status: v }))} ariaLabel="Status"
             options={[{ value: "", label: "All statuses" }, ...opts((r) => r.status).map((o) => ({ value: o, label: o }))]} />
+          <PreviewSelect value={f.owner} onChange={(v) => setF((s) => ({ ...s, owner: v }))} ariaLabel="Owner"
+            options={[{ value: "", label: "All owners" }, ...opts((r) => r.owner).map((o) => ({ value: o, label: o }))]} />
+          <PreviewSelect value={f.collab} onChange={(v) => setF((s) => ({ ...s, collab: v }))} ariaLabel="Collaborator"
+            options={[{ value: "", label: "All collaborators" }, ...opts((r) => r.collaborators).map((o) => ({ value: o, label: o }))]} />
+          <PreviewSelect value={f.priority} onChange={(v) => setF((s) => ({ ...s, priority: v }))} ariaLabel="Priority"
+            options={[{ value: "", label: "All priorities" }, ...opts((r) => r.priority).map((o) => ({ value: o, label: o }))]} />
+          <PreviewSelect value={f.platform} onChange={(v) => setF((s) => ({ ...s, platform: v }))} ariaLabel="Platform"
+            options={[{ value: "", label: "All platforms" }, ...opts((r) => r.platforms).map((o) => ({ value: o, label: o }))]} />
+          <PreviewSelect value={f.creator} onChange={(v) => setF((s) => ({ ...s, creator: v }))} ariaLabel="Created by"
+            options={[{ value: "", label: "Created by anyone" }, ...opts((r) => r.created_by).map((o) => ({ value: o, label: o }))]} />
           <span className="ml-auto"><CopyButton label="Copy list" text={() => tsv([["Task", "Type", "Status", "Primary interest", "Owner", "Publishing date"],
             ...list.map((r) => [r.title || "(no title)", r.type || "", r.status || "", r.sbu || "", r.owner || "", r.publishing_date || ""])])} /></span>
         </div>
@@ -204,7 +215,7 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
     ["Publishing date", row.publishing_date && fmtDateShort(row.publishing_date)], ["Due date", row.due_date && fmtDateShort(row.due_date)],
     ["Platforms", row.platforms?.join(", ")], ["Created in Airtable", row.created_at && fmtDateShort(row.created_at)],
   ] : [];
-  // Links and anything else Airtable held, as it was.
+  // Links and anything else Airtable held, as it was (Slack Cache shows with the files).
   const extra = row ? Object.entries(row.fields || {}).filter(([, v]) => v !== null && v !== "" && typeof v !== "object") : [];
   return (
     <Overlay onClose={onClose}>
@@ -225,20 +236,9 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
                   <div className="text-[13px] text-[#232D42] whitespace-pre-wrap leading-relaxed">{v}</div>
                 </div>
               ))}
-              {row.files.length > 0 && (
-                <div className="border border-gray-100 rounded-xl p-3.5">
-                  <div className="text-[11px] uppercase tracking-wide text-[#8A92A6] mb-2">Files · {row.files.length}</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                    {row.files.map((fl) => (
-                      <a key={fl.url} href={fl.url} target="_blank" rel="noreferrer" className="group block border border-gray-100 rounded-lg overflow-hidden hover:border-brand">
-                        {fl.mime.startsWith("image/") ? <img src={fl.url} alt="" className="w-full aspect-square object-cover bg-gray-50" />
-                          : <div className="w-full aspect-square grid place-items-center bg-[#F6F7FB] text-[#8A92A6]"><IconPaperclip size={20} /></div>}
-                        <div className="px-2 py-1.5 text-[11px] text-[#4A5468] truncate">{fl.name}</div>
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {[["Files", row.files], ["Slack cache", (row.fields?.["Slack Cache"] as Full["files"] | undefined) || []]].filter(([, l]) => (l as Full["files"]).length).map(([label, l]) => (
+                <FileGrid key={label as string} label={label as string} files={l as Full["files"]} />
+              ))}
             </div>
             <aside className="space-y-2.5 text-[12.5px]">
               {facts.filter(([, v]) => v).map(([k, v]) => (
@@ -256,5 +256,22 @@ function Detail({ id, onClose }: { id: string; onClose: () => void }) {
         )}
       </div>
     </Overlay>
+  );
+}
+
+function FileGrid({ label, files }: { label: string; files: Full["files"] }) {
+  return (
+    <div className="border border-gray-100 rounded-xl p-3.5">
+      <div className="text-[11px] uppercase tracking-wide text-[#8A92A6] mb-2">{label} · {files.length}</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+        {files.map((fl) => (
+          <a key={fl.url} href={fl.url} target="_blank" rel="noreferrer" className="group block border border-gray-100 rounded-lg overflow-hidden hover:border-brand">
+            {fl.mime.startsWith("image/") ? <img src={fl.url} alt="" className="w-full aspect-square object-cover bg-gray-50" />
+              : <div className="w-full aspect-square grid place-items-center bg-[#F6F7FB] text-[#8A92A6]"><IconPaperclip size={20} /></div>}
+            <div className="px-2 py-1.5 text-[11px] text-[#4A5468] truncate">{fl.name}</div>
+          </a>
+        ))}
+      </div>
+    </div>
   );
 }
