@@ -5,7 +5,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { rosterById } from "@/lib/team-db";
 import { canSeeTab } from "@/lib/permissions";
 
-// Airtable archive (sql/airtable_archive.sql) — read-only. There is no write here:
+// Airtable backup (sql/airtable_archive.sql) — read-only. There is no write here:
 // the rows are a backup, filled by scripts/archive-airtable-calendar.mjs.
 //   GET          → { rows }  every task, list columns only
 //   GET ?id=rec… → { row }   one task in full (content, caption, files, other fields)
@@ -14,14 +14,14 @@ const LIST = "airtable_id, title, type, status, sbu, owner, publishing_date, cre
 
 export async function GET(req: Request) {
   const me = await rosterById(getSessionUserId());
-  if (!canSeeTab(me, "archive")) return NextResponse.json({ error: "Your access doesn't include the Airtable archive — ask an admin to switch it on in Team & access." }, { status: 403 });
+  if (!canSeeTab(me, "archive")) return NextResponse.json({ error: "Your access doesn't include the Airtable backup — ask an admin to switch it on in Team & access." }, { status: 403 });
   const sb = getSupabase(); if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
   try {
     const id = new URL(req.url).searchParams.get("id");
     if (id) {
       const { data, error } = await sb.from("mh_archive").select("*").eq("airtable_id", id).maybeSingle();
       if (error) throw error;
-      return data ? NextResponse.json({ row: data }) : NextResponse.json({ error: "Not in the archive" }, { status: 404 });
+      return data ? NextResponse.json({ row: data }) : NextResponse.json({ error: "Not in the backup" }, { status: 404 });
     }
     // PostgREST caps a select at 1000 rows, so page through.
     const rows: Record<string, unknown>[] = [];
@@ -33,5 +33,5 @@ export async function GET(req: Request) {
       if (!data || data.length < 1000) break;
     }
     return NextResponse.json({ rows });
-  } catch (err) { return NextResponse.json(safeError(err, "Couldn't load the archive"), { status: 502 }); }
+  } catch (err) { return NextResponse.json(safeError(err, "Couldn't load the backup"), { status: 502 }); }
 }
