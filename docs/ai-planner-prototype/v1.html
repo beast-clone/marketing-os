@@ -62,6 +62,11 @@
   .tag.hot{background:#FFF0EB;color:#C2410C;border-color:#FED7C3}
   .tag.ap{background:var(--warn-bg);color:var(--warn);border-color:#F6DEB0}
   .keep{border-style:dashed;background:#FBFBFD}
+  .brief{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:#FBFBFD;padding:8px 10px}
+  .brief summary{cursor:pointer;font-size:12px;font-weight:600;color:var(--brand-dark);list-style:none;display:flex;gap:5px;align-items:center}
+  .brief .b{font-size:12px;line-height:1.5;color:#3B4457;margin-top:6px}
+  .brief .b span{display:block;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .brief .src{font-size:11.5px;color:var(--muted);margin-top:6px}
   .blocked{background:var(--red-bg);border-color:#F5C9C3}
   .blocked .why{color:var(--red)}
   .rules{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:14px;font-size:12px;color:#4A5468;line-height:1.6}
@@ -138,16 +143,20 @@ let tasks = [
 ];
 const SUG = [
   {g:"12thPlus.com", items:[
-    {id:14, to:"Fri 6", why:"MCC Round 3 seat matrix lands this week — the 'every seat type' explainer is most useful before results, not after.", tags:["trending now","timely"]},
-    {id:8,  to:"Thu 5", why:"Searches for 'Round 3 cutoff' peak the day before results; keeps it apart from the seat-types carousel.", tags:["timely","format variety"]},
+    {id:14, to:"Fri 6", why:"MCC Round 3 seat matrix lands this week — the 'every seat type' explainer is most useful before results, not after.", tags:["trending now","timely"],
+      brief:{about:"A carousel explaining every seat type MCC counsels (AIQ, deemed, central, ESIC, AFMC) in one place.", now:"MCC has said the Round 3 seat matrix will be out this week, with results soon after. Students are deciding which seats to fill choices for right now.", date:"Moving it from Sunday to Friday puts it in front of students while they're still filling choices — on Sunday most will already have locked them.", effect:"Sunday frees up; Friday now has 2 posts for 12thPlus (limit 3).", source:"mcc.nic.in · counselling schedule"}},
+    {id:8,  to:"Thu 5", why:"Searches for 'Round 3 cutoff' peak the day before results; keeps it apart from the seat-types carousel.", tags:["timely","format variety"],
+      brief:{about:"A carousel comparing Round 3 AIQ MBBS closing ranks for 2026 vs 2025.", now:"Interest in 'Round 3 cutoff' rises in the days before Round 3 results.", date:"Thursday catches that interest a day earlier and keeps it off Friday, where the seat-types carousel is now moving — two counselling carousels on one day would compete.", effect:"Thursday: 2 posts for 12thPlus. Friday: 2.", source:"Google search interest · MCC notices"}},
     {id:11, keep:true, why:"NRI quota fee topic is steady this week — Saturday is fine."},
   ]},
   {g:"Middle East", items:[
-    {id:10, to:"Sun 8", why:"Four UAE webinar carousels on four days in a row compete with each other; spacing one to Sunday after the podcast cut.", tags:["different topic","spacing"], approval:true},
+    {id:10, to:"Sun 8", why:"Four UAE webinar carousels on four days in a row compete with each other; spacing one to Sunday after the podcast cut.", tags:["different topic","spacing"], approval:true,
+      brief:{about:"One of four carousels promoting the UAE Medical PG Pathway webinar on 12 Nov.", now:"The same webinar is promoted Wed, Thu, Fri and Sat — the same audience sees four near-identical posts back to back, and each gets less reach.", date:"Sunday sits after the Dr Anjali podcast cut, so the reminder lands with people who just watched her, and the run of four is broken up.", effect:"Its owner needs admin approval for date changes, so this goes to Approvals → Waiting instead of moving straight away.", source:"Your Instagram: repeated topics lost ~30% reach last month"}},
     {id:3,  keep:true, why:"First reminder — keep on Wednesday."},
   ]},
   {g:"Australia-PGCP", items:[
-    {id:15, to:"Sat 7", why:"Two 'Aus SC' carousels Fri and Sun; Saturday gives the Sunday slot to the podcast cut in this audience's best hour.", tags:["format variety"]},
+    {id:15, to:"Sat 7", why:"Two 'Aus SC' carousels Fri and Sun; Saturday gives the Sunday slot to the podcast cut in this audience's best hour.", tags:["format variety"],
+      brief:{about:"A carousel about the Australia Standard Consulting programme.", now:"Another Aus SC carousel goes out on Friday; two on Fri and Sun is a short gap for the same topic.", date:"Saturday spaces them by a day each way, and Saturday mornings are this page's strongest slot.", effect:"Sunday has one fewer post for Australia-PGCP.", source:"Your Instagram: best hours for this page"}},
   ]},
   {g:"India NEET PG Consulting", items:[
     {id:6, keep:true, why:"NEET PG counselling dates are announced; the dashboard carousel is timely on Thursday."},
@@ -192,7 +201,13 @@ function results(){
       h += `<label class="sug"><input type="checkbox" checked data-id="${s.id}" data-to="${s.to}" onchange="recount()"><div><div class="tt">${t.t}</div>
         <div class="move"><span class="from">${t.d} Nov</span><i class="ti ti-arrow-right"></i><span class="to">${s.to} Nov</span></div>
         <div class="why">${s.why}</div>
-        <div class="tags">${(s.tags||[]).map(x=>`<span class="tag ${/trend/.test(x)?'hot':''}">${x}</span>`).join("")}${s.approval?'<span class="tag ap"><i class="ti ti-clock"></i> goes to Approvals</span>':''}</div></div></label>`;
+        <div class="tags">${(s.tags||[]).map(x=>`<span class="tag ${/trend/.test(x)?'hot':''}">${x}</span>`).join("")}${s.approval?'<span class="tag ap"><i class="ti ti-clock"></i> goes to Approvals</span>':''}</div>
+        ${s.brief?`<details class="brief" open><summary><i class="ti ti-file-text"></i> Why it moves</summary>
+          <div class="b"><span>The post</span>${s.brief.about}</div>
+          <div class="b"><span>What's happening</span>${s.brief.now}</div>
+          <div class="b"><span>Why ${s.to}</span>${s.brief.date}</div>
+          <div class="b"><span>Knock-on</span>${s.brief.effect}</div>
+          <div class="src"><i class="ti ti-link"></i> ${s.brief.source}</div></details>`:''}</div></label>`;
     }
   }
   h += `<div class="rules"><b>Rules the dashboard enforces</b> (not left to the AI):<br>
