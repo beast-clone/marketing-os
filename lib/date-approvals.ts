@@ -10,6 +10,7 @@ import { getSupabase } from "@/lib/supabase";
 import { keysWithRole } from "@/lib/team-roles";
 import { postTeamMessage, MH_NAME } from "@/lib/mh-chat";
 import { sendMail, hasEmail } from "@/lib/email";
+import { emailLayout, esc, datePill } from "@/lib/email-layout";
 import { postSlack } from "@/lib/slack";
 import { fetchRoster } from "@/lib/team-db";
 
@@ -45,7 +46,7 @@ const LOG_KEY = (postId: string, at: string) => `datechg-log:${postId}:${at}`;
 const LOG_SOURCE = "mh_date_change_log";
 // Deep link straight to the task's detail modal (?open=<id>) on the live site.
 // Netlify injects `URL` = the site's primary URL in prod; APP_URL overrides it.
-const APP_URL = (process.env.APP_URL || process.env.URL || "https://analytics.goocampus.in").replace(/\/+$/, "");
+const APP_URL = (process.env.APP_URL || process.env.URL || "https://goocampus-ig-dashboard.netlify.app").replace(/\/+$/, "");
 const taskLink = (postId: string) => `${APP_URL}/dashboard/preview/marketing-hub?open=${postId}`;
 const approvalsLink = `${APP_URL}/dashboard/preview/approvals`;
 
@@ -113,15 +114,20 @@ export async function requestDateChange(sb: SB, r: { postId: string; title: stri
         to: await approverEmails(),
         subject: `Approve publish-date change — “${r.title}”`,
         text: `${who} requested to move the publish date of “${r.title}”.\n\nTask: ${r.title} (${r.type || "—"})\nAssigned to: ${nameOf(r.owner || "")}\nCreated: ${fmtDT(r.createdAt)}${creator ? ` by ${nameOf(creator)}` : ""}\nMove date: ${fmt(r.from)} -> ${fmt(r.to)}\nRequested by: ${who}\nReason: ${reason}\n\nOpen the task: ${link}\nApprove or reject: ${approvalsLink}`,
-        html: `<p><b>${who}</b> requested to move a publish date — needs your approval.</p>`
-          + `<table cellpadding="4" style="font-size:14px;border-collapse:collapse">`
-          + `<tr><td><b>Task</b></td><td><a href="${link}">${r.title}</a> <i>(${r.type || "—"})</i></td></tr>`
-          + `<tr><td><b>Assigned to</b></td><td>${nameOf(r.owner || "")}</td></tr>`
-          + `<tr><td><b>Created</b></td><td>${fmtDT(r.createdAt)}${creator ? ` by ${nameOf(creator)}` : ""}</td></tr>`
-          + `<tr><td><b>Move date</b></td><td>${fmt(r.from)} → <b>${fmt(r.to)}</b></td></tr>`
-          + `<tr><td><b>Requested by</b></td><td>${who}</td></tr>`
-          + `<tr><td><b>Reason</b></td><td>${reason}</td></tr>`
-          + `</table><p><a href="${link}"><b>Open the task ↗</b></a> &nbsp;·&nbsp; <a href="${approvalsLink}"><b>Approve or reject in Approvals ↗</b></a></p>`,
+        html: emailLayout({
+          preheader: `${who} wants to move “${r.title}” to ${fmt(r.to)}.`,
+          tag: "Needs your approval", title: "Publish-date change request",
+          intro: `<b style="color:#232D42">${esc(who)}</b> asked to move a publish date. Approve or reject it in Approvals.`,
+          rows: [
+            ["Task", `<a href="${link}" style="color:#3A57E8;text-decoration:none;font-weight:600">${esc(r.title)}</a>${r.type ? ` <span style="color:#8A92A6">· ${esc(r.type)}</span>` : ""}`],
+            ["Move date", `${datePill(fmt(r.from))} <span style="color:#8A92A6">&nbsp;→&nbsp;</span> ${datePill(fmt(r.to), true)}`],
+            ["Assigned to", esc(nameOf(r.owner || ""))],
+            ["Requested by", esc(who)],
+            ["Created", `${esc(fmtDT(r.createdAt))}${creator ? ` by ${esc(nameOf(creator))}` : ""}`],
+          ],
+          quote: { label: "Reason", text: reason },
+          buttons: [{ label: "Review in Approvals", href: approvalsLink, primary: true }, { label: "Open the task", href: link }],
+        }),
       });
     } catch { /* email is best-effort */ }
   }
@@ -202,13 +208,19 @@ export async function resolveDateChange(sb: SB, opts: { postId: string; action: 
         to: requester.email,
         subject: `${ok ? "Approved" : "Not approved"}: publish-date change — “${req.title}”`,
         text: `${who} ${ok ? "approved" : "did not approve"} your request to move “${req.title}” from ${fmt(req.from)} to ${fmt(req.to)}.\n${ok ? `It now publishes on ${fmt(req.to)}.` : `It stays on ${fmt(req.from)}.`}${note ? `\nNote from ${who}: ${note}` : ""}\n\nOpen the task: ${link}`,
-        html: `<p><b>${who}</b> ${ok ? "approved" : "did not approve"} your request to move a publish date.</p>`
-          + `<table cellpadding="4" style="font-size:14px;border-collapse:collapse">`
-          + `<tr><td><b>Task</b></td><td><a href="${link}">${req.title}</a></td></tr>`
-          + `<tr><td><b>Requested</b></td><td>${fmt(req.from)} → ${fmt(req.to)}</td></tr>`
-          + `<tr><td><b>Result</b></td><td>${ok ? `✅ Publishes on <b>${fmt(req.to)}</b>` : `⛔ Stays on <b>${fmt(req.from)}</b>`}</td></tr>`
-          + (note ? `<tr><td><b>Note from ${who}</b></td><td>${note}</td></tr>` : "")
-          + `</table><p><a href="${link}"><b>Open the task ↗</b></a></p>`,
+        html: emailLayout({
+          preheader: ok ? `Approved — “${req.title}” now publishes on ${fmt(req.to)}.` : `Not approved — “${req.title}” stays on ${fmt(req.from)}.`,
+          tag: ok ? "Approved" : "Not approved", tone: ok ? "green" : "red",
+          title: ok ? `Your date change was approved` : `Your date change was not approved`,
+          intro: `<b style="color:#232D42">${esc(who)}</b> ${ok ? "approved" : "did not approve"} your request to move a publish date.`,
+          rows: [
+            ["Task", `<a href="${link}" style="color:#3A57E8;text-decoration:none;font-weight:600">${esc(req.title)}</a>`],
+            ["You asked", `${datePill(fmt(req.from))} <span style="color:#8A92A6">&nbsp;→&nbsp;</span> ${datePill(fmt(req.to), true)}`],
+            ["Result", ok ? `<b style="color:#0F6E3C">Publishes on ${esc(fmt(req.to))}</b>` : `<b style="color:#C03221">Stays on ${esc(fmt(req.from))}</b>`],
+          ],
+          ...(note ? { quote: { label: `Note from ${who}`, text: note } } : {}),
+          buttons: [{ label: "Open the task", href: link, primary: true }],
+        }),
       });
     }
   } catch { /* email is best-effort */ }
