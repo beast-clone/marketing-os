@@ -143,7 +143,7 @@ export async function whatsDue(args: Record<string, unknown>, origin: string) {
 // The fields Claude may change. Content and caption are here because rewriting copy is
 // the point of the thing; the brand is NOT, because moving a task between brands changes
 // who is accountable for it and which page it publishes to.
-const UPDATABLE = ["status", "publishing_date", "due_date", "priority", "owner", "caption", "content", "type"] as const;
+const UPDATABLE = ["title", "status", "publishing_date", "due_date", "priority", "owner", "caption", "content", "type"] as const;
 
 export async function updateTask(args: Record<string, unknown>, userId: string, origin: string, via?: string) {
   const id = typeof args.id === "string" ? args.id.trim() : "";
@@ -155,6 +155,11 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
   if (s("status") !== undefined) {
     if (!isTaskStatus(s("status"))) throw new Error(`"${s("status")}" isn't a status. Use one of: ${TASK_STATUSES.join(", ")}.`);
     patch.status = s("status");
+  }
+  // Rename (4 Nov 2026 — "Samvaya 3 Nov · Post…" becomes "Samvaya 4 Nov · Post…" when dates move).
+  if (s("title") !== undefined) {
+    if (!s("title")) throw new Error("title can't be empty.");
+    patch.particulars = s("title")!.slice(0, 200);
   }
   if (s("priority") !== undefined) patch.priority = s("priority");
   if (s("caption") !== undefined) patch.caption = s("caption");
@@ -222,8 +227,11 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
     if (DONE.has(patch.status) && (!extra.data?.end_at || !DONE.has(String(before.data.status)))) patch.end_at = new Date().toISOString();
     if (patch.status === "Output - In Progress") { patch.start_at = new Date().toISOString(); patch.end_at = null; }
   }
+  const waiting = pending
+    ? `The publishing date was NOT changed yet: moving it ${fmtDay(before.data.publishing_date)} → ${fmtDay(pending)} needs an admin's approval, so it was sent to the Approvals page. The date changes when they approve it.`
+    : undefined;
   if (Object.keys(patch).length === 0 && pending) {
-    return { updated: [], pendingApproval: pending, task: brief(before.data as Row, origin, true) };
+    return { updated: [], changes: [] as string[], pendingApproval: waiting, task: brief(before.data as Row, origin, true) };
   }
 
   patch.updated_at = new Date().toISOString();
@@ -243,12 +251,18 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
   } catch { /* courtesy trail */ }
   bustMarketingHubCache();
 
-  return {
-    updated: Object.keys(patch).filter((k) => k !== "updated_at"),
-    ...(pending ? { pendingApproval: `The publishing date move to ${pending} is waiting for an admin's approval.` } : {}),
-    task: brief(data as Row, origin, true),
-  };
+  // Say what changed, from → to, so an empty or partial save can't look like success.
+  const LABEL: Record<string, string> = { particulars: "title", publishing_date: "publishing date", due_date: "due date", owner_key: "owner" };
+  const updated = Object.keys(patch).filter((k) => !["updated_at", "custom", "start_at", "end_at"].includes(k));
+  const before0 = before.data as Record<string, unknown>;
+  const changes = updated.map((k) => {
+    if (k === "caption" || k === "content") return k;
+    const show = (v: unknown) => (k.endsWith("_date") ? fmtDay(v) : v == null || v === "" ? "—" : String(v));
+    return `${LABEL[k] || k} ${show(before0[k])} → ${show((data as Record<string, unknown>)[k])}`;
+  });
+  return { updated, changes, ...(waiting ? { pendingApproval: waiting } : {}), task: brief(data as Row, origin, true) };
 }
+const fmtDay = (d: unknown) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : "no date");
 
 /** What Content Radar is showing right now. Read-only — acting on an item is
  *  create_task's job, so that the usual rules and the activity trail still apply. */

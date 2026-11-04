@@ -105,13 +105,15 @@ const TOOLS = [
     name: "update_task",
     title: "Change a task",
     description:
-      "Change an existing task. You may set status, publishing_date, due_date, priority, owner, caption, content or type. " +
+      "Change an existing task. You may set title, status, publishing_date, due_date, priority, owner, caption, content or type. " +
+      "Moving a publishing date: for some people it needs a reason, and for some it needs an admin's approval — then the date is NOT changed straight away; the reply says so and the request waits on the Approvals page until an admin approves it. Don't retry it; tell the user it's waiting. " +
       "You may NOT change which Primary Interest it belongs to (deliberate). To delete, use delete_tasks; to change its files, attach_file / remove_file / reorder_files. " +
       "Read the task first if you are not certain which one the user means, and say what you changed afterwards.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
+        title: { type: "string", description: "Rename the task." },
         status: { type: "string", enum: [...TASK_STATUSES], description: "Exact values only, e.g. \"Output - Ready\" for a finished design." },
         publishing_date: { type: "string", description: "YYYY-MM-DD, or empty string to clear." },
         due_date: { type: "string", description: "YYYY-MM-DD, or empty string to clear." },
@@ -132,7 +134,8 @@ const TOOLS = [
       "Put a finished post into the Scheduler for a date and time, or publish it now, to Instagram/Facebook. " +
       "Only works for people with 'Publish from Claude' switched on, only to their own Scheduler pages, and only for a task that has cleared review (status Ready to Publish) or is already queued. " +
       "Publishing is public and can't be undone: before calling, tell the user exactly which post, which page(s) and when, and get a clear yes. Never call it on your own initiative. " +
-      "when: \"now\" or a date and time in India time like \"2026-11-05 18:30\". The page comes from the post's Primary Interest unless the user names pages. Format is worked out from the task (story, reel or post) unless given.",
+      "when: \"now\" or a date and time in India time like \"2026-11-05 18:30\". The page comes from the post's Primary Interest unless the user names pages. Format is worked out from the task (story, reel or post) unless given. " +
+      "A story with several files (up to 10) goes out as one story per file, in the task's file order, all at the same time (a few milliseconds apart, so they land together in order) — not minutes apart. One frame can't have its own time: if a frame (e.g. a reshare) must go out at a different time, put it on its own story task and schedule that.",
     inputSchema: {
       type: "object",
       properties: {
@@ -371,7 +374,11 @@ async function callTool(id: Rpc["id"], userId: string, name: string, args: Recor
         return say(id, "Editing tasks from Claude isn't switched on for you. Ask an admin (Team & access → Connectors → Edit tasks).", true);
       }
       const res = await updateTask(args, userId, origin, via);
-      return say(id, `Changed ${res.updated.join(", ")} on “${res.task.title}”.\n${res.task.link}\n\n${JSON.stringify(res.task, null, 1)}`);
+      const lines = [
+        res.changes.length ? `Changed on “${res.task.title}”: ${res.changes.join("; ")}.` : `Nothing was changed on “${res.task.title}”.`,
+        ...(res.pendingApproval ? [res.pendingApproval] : []),
+      ];
+      return say(id, `${lines.join("\n")}\n${res.task.link}\n\n${JSON.stringify(res.task, null, 1)}`);
     }
     case "delete_tasks":     return json(id, await deleteTasks(args, userId, via));
     case "list_recycle_bin": return json(id, await listRecycleBin(args));
@@ -408,7 +415,8 @@ export async function handleRpc(msg: Rpc, userId: string, origin: string, via?: 
           "Read and write the GooCampus Marketing OS content board. " +
           "Before creating a task you MUST know the primary interest (brand) and the content type — if the user has not said them, ask; never guess. " +
           "Prefer looking before acting: use search_tasks or list_tasks to find the task the user means rather than assuming an id. " +
-          "You cannot delete anything, and you cannot move a task to a different Primary Interest.",
+          "Deleting moves tasks or files to the recycle bin, always with a reason; you cannot move a task to a different Primary Interest. " +
+          "A publishing-date move may need an admin's approval — then it waits on the Approvals page and the date isn't changed until approved; never retry it.",
       });
     case "ping": return ok(msg.id, {});
     case "tools/list": return ok(msg.id, { tools: await liveTools(scopes) });
