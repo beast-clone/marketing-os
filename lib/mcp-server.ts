@@ -8,7 +8,7 @@ import { fetchSbus } from "@/lib/sbus-db";
 import { CONTENT_TYPES, ALL_TYPES } from "@/lib/mh-content-types";
 import { canClaude } from "@/lib/permissions";
 import { createTask, normalizeOwner } from "@/lib/task-create";
-import { listTasks, getTask, searchTasks, updateTask, whatsDue, listRadar, schedulePost, deleteTasks, listRecycleBin, restoreTasks, listQueue, unscheduleTool, rescheduleTool, retryTool, setCollaborators, addComment } from "@/lib/mcp-tools";
+import { listTasks, getTask, searchTasks, updateTask, whatsDue, listRadar, schedulePost, deleteTasks, listRecycleBin, restoreTasks, listQueue, unscheduleTool, rescheduleTool, retryTool, setCollaborators, addComment, attachFromLink } from "@/lib/mcp-tools";
 import { fetchContentTypes } from "@/lib/content-types-db";
 
 // The Claude connector, protocol and all.
@@ -218,6 +218,21 @@ const TOOLS = [
     },
   },
   {
+    name: "attach_file",
+    title: "Add a creative or file to a task from a link",
+    description: "Downloads a file from a link and adds it to the task, like uploading it in the dashboard. Google Drive and Dropbox share links work if shared as 'Anyone with the link'; any other direct public link works too. kind: creative (default — the image/video that gets posted; jpg, png, gif, webp, mp4, mov, pdf), reference, or attachment. Up to 100 MB. Adding a creative sends an approved task back for review, as in the dashboard. Needs Connectors → Edit tasks.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Task id" },
+        url: { type: "string", description: "Link to the file" },
+        kind: { type: "string", enum: ["creative", "reference", "attachment"] },
+        filename: { type: "string", description: "Optional name to save it under" },
+      },
+      required: ["id", "url"], additionalProperties: false,
+    },
+  },
+  {
     name: "add_comment",
     title: "Comment on a task",
     description: "Add a comment to a task's thread, under the user's own name.",
@@ -332,6 +347,11 @@ async function callTool(id: Rpc["id"], userId: string, name: string, args: Recor
     case "retry_post":       return say(id, await retryTool(args, userId));
     case "set_collaborators": return say(id, await setCollaborators(args, userId));
     case "add_comment":      return say(id, await addComment(args, userId));
+    case "attach_file": {
+      const me = await rosterById(userId);
+      if (!scopes && !canClaude(me, "edit")) return say(id, "Editing tasks from Claude isn't switched on for you. Ask an admin (Team & access → Connectors → Edit tasks).", true);
+      return say(id, await attachFromLink(args, userId));
+    }
     case "schedule_post": {
       const res = await schedulePost(args, userId, via);
       return say(id, `${res.message}\n“${res.title}” · ${res.format}`);

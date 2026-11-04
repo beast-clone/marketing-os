@@ -13,6 +13,9 @@ import { enqueuePost } from "@/lib/scheduler-enqueue";
 import { pageForSbu } from "@/lib/sbu-pages";
 import { requestDateChange, supersedeDateChange } from "@/lib/date-approvals";
 import { freshPublishState } from "@/lib/scheduler-lock";
+import { safeFetch } from "@/lib/ssrf";
+import { BUCKET, UUID, asKind, mimeAllowed, mimeRefusal, safeName } from "@/lib/attach-rules";
+import { sendBackForReview } from "@/lib/re-review";
 
 // The read and update half of the Claude connector.
 //
@@ -496,4 +499,54 @@ export async function addComment(args: Record<string, unknown>, userId: string) 
   const { error } = await sb().from("mh_comments").insert({ post_id: id, author_key: userId, body: text.slice(0, 4000) });
   if (error) throw new Error(error.message);
   return `Comment added to “${post.particulars}” as ${userId}.`;
+}
+
+// Put a creative on a task from a link (Praveen, 4 Nov 2026 — Claude had no way to add
+// files). Claude can't hand over the bytes of a picture in the chat, but it can pass a
+// link: Google Drive and Dropbox share links are turned into direct downloads; any
+// other public link to the file works as it is. Same checks as a dashboard upload —
+// allowed types only, judged from what actually arrived — and the same side effects
+// (activity line, sent back for review when it's a creative).
+const LINK_MAX_MB = 100;   // the file passes through a server function, so lower than the 2 GB dashboard limit
+function directLink(raw: string): string {
+  const u = new URL(raw);
+  const drive = raw.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:.*&)?id=)([\w-]{20,})/);
+  if (drive) return `https://drive.usercontent.google.com/download?id=${drive[1]}&export=download&confirm=t`;
+  if (/(^|\.)dropbox\.com$/.test(u.hostname)) { u.searchParams.set("dl", "1"); return u.href; }
+  return u.href;
+}
+const EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/gif": "gif", "image/webp": "webp", "video/mp4": "mp4", "video/quicktime": "mov", "application/pdf": "pdf" };
+
+export async function attachFromLink(args: Record<string, unknown>, userId: string) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const url = typeof args.url === "string" ? args.url.trim() : "";
+  const kind = asKind(args.kind);
+  if (!UUID.test(id) || !/^https?:\/\//i.test(url)) throw new Error("id (a task id) and url (a link to the file) are required.");
+  const { data: post } = await sb().from("mh_posts").select("particulars").eq("id", id).maybeSingle();
+  if (!post) throw new Error("No task with that id.");
+
+  const r = await safeFetch(directLink(url), { timeoutMs: 20_000, headers: { "User-Agent": "Mozilla/5.0 GooCampus-Dashboard" } })
+    .catch((e: Error) => { throw new Error(/blocked/.test(e.message) ? "That link isn't a public web address." : `Couldn't reach that link: ${e.message}`); });
+  if (!r.ok) throw new Error(`Couldn't download it (${r.status}). Make sure the link is shared as "Anyone with the link".`);
+  const mime = (r.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  if (mime === "text/html") throw new Error("That link opens a web page, not the file. Share it as \"Anyone with the link\" (Google Drive files over ~100 MB can't be fetched this way — upload those in the dashboard).");
+  if (!mimeAllowed(mime, kind)) throw new Error(mimeRefusal(kind));
+  if (Number(r.headers.get("content-length") || 0) > LINK_MAX_MB * 1024 * 1024) throw new Error(`It's over ${LINK_MAX_MB} MB — upload it in the dashboard instead.`);
+  const buf = Buffer.from(await r.arrayBuffer());
+  if (buf.length > LINK_MAX_MB * 1024 * 1024) throw new Error(`It's over ${LINK_MAX_MB} MB — upload it in the dashboard instead.`);
+
+  const given = typeof args.filename === "string" && args.filename.trim() ? args.filename.trim() : "";
+  const fromHeader = (r.headers.get("content-disposition") || "").match(/filename\*?=(?:UTF-8'')?"?([^";]+)/i)?.[1];
+  let filename = given || (fromHeader ? decodeURIComponent(fromHeader) : "") || `creative.${EXT[mime] || "bin"}`;
+  if (!/\.\w{2,4}$/.test(filename)) filename += `.${EXT[mime] || "bin"}`;
+  const path = `mh-creatives/${id}/${Date.now()}-${safeName(filename)}`;
+  const { error: upErr } = await sb().storage.from(BUCKET).upload(path, buf, { contentType: mime, upsert: false });
+  if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
+  const publicUrl = sb().storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  const { error } = await sb().from("mh_attachments").insert({ post_id: id, filename, storage_path: publicUrl, mime_type: mime, size_bytes: buf.length, uploaded_by: userId, kind });
+  if (error) { await sb().storage.from(BUCKET).remove([path]); throw new Error(error.message); }
+  await sb().from("mh_activity").insert({ post_id: id, actor_key: userId, action: `${kind}_added`, to_value: filename, detail: "via Claude" });
+  const sentBack = kind === "creative" ? await sendBackForReview(sb(), id, userId, filename) : false;
+  bustMarketingHubCache();
+  return `Added ${kind} “${filename}” (${(buf.length / 1048576).toFixed(1)} MB, ${mime}) to “${post.particulars}”.${sentBack ? " The task went back to review because its creative changed." : ""}`;
 }
