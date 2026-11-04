@@ -37,13 +37,13 @@ export type DateChangeRequest = {
   resolvedBy?: string;
   resolvedAt?: string;
   resolvedNote?: string;   // the approver's note/reason on approve or reject
-  emailedAt?: string;      // when the approvers were emailed about it (straight away if urgent, else the round-up)
+  emailedAt?: string;      // when the approvers were emailed about it (straight away if urgent, else the 9 PM email)
   earlier?: EarlierAsk[];  // the same task's earlier requests this one replaced, oldest first
 };
 type EarlierAsk = { from: string | null; to: string | null; reason?: string; requestedBy: string; requestedAt: string };
 
-// Emails to approvers (Praveen, 4 Nov 2026): one round-up at 12:30 PM and 4 PM IST
-// (sendDateChangeRoundup, run by n8n), not one email per request. A request is
+// Emails to approvers (4 Nov 2026): requests that still need approval go into the 9 PM
+// daily email (sendDateChangeDaily), not one email each. A request is
 // URGENT — emailed the moment it's asked, at any hour — when the post's current or
 // new date is today or tomorrow, so it can't miss its date waiting for a round-up.
 function isUrgent(from: string | null, to: string | null): boolean {
@@ -128,7 +128,7 @@ export async function requestDateChange(sb: SB, r: { postId: string; title: stri
   try {
     await sb.from("mh_activity").insert({ post_id: r.postId, actor_key: r.requestedBy, action: "date_change_requested", from_value: fmt(r.from), to_value: fmt(r.to), detail: reason });
   } catch { /* activity is best-effort */ }
-  // 3) email — urgent ones now; the rest wait for the 12:30 PM / 4 PM round-up
+  // 3) email — urgent ones now; the rest wait for the 9 PM daily email
   if (urgent && (await hasEmail())) {
     try {
       await sendMail({
@@ -155,54 +155,68 @@ export async function requestDateChange(sb: SB, r: { postId: string; title: stri
   return payload;
 }
 
-// The 12:30 PM / 4 PM round-up: every request still waiting that hasn't been emailed
-// yet, one row per task (a task asked about several times shows its latest ask, with
-// the earlier ones under it). Nothing waiting → no email. `to` overrides the
-// recipients (for a test); `dryRun` builds it without sending or marking anything.
-export async function sendDateChangeRoundup(sb: SB, opts: { to?: string; dryRun?: boolean; items?: DateChangeRequest[] } = {}): Promise<{ sent: boolean; count: number; html?: string }> {
-  const waiting = opts.items || (await listPendingDateChanges(sb)).filter((r) => !r.emailedAt);
-  if (!waiting.length) return { sent: false, count: 0 };
+// The daily date-change email, 9 PM IST (the admin, 4 Nov 2026: "I don't want to
+// approve, just be notified once a day at 9 PM"). Run by n8n via
+// /api/cron/date-change-daily. Lists every publish date moved today — one block per
+// task, its moves in order with who and why — and, should anyone's approval switch be
+// on again, the requests still waiting that weren't emailed yet. Nothing → no email.
+// `to` overrides the recipients and `dryRun` only builds it (both for testing).
+export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: boolean; sinceISO?: string } = {}): Promise<{ sent: boolean; moved: number; waiting: number; html?: string }> {
   await fetchRoster();
-  const rows = waiting
-    .map((r) => ({ r, urgent: isUrgent(r.from, r.to) }))
-    .sort((a, b) => Number(b.urgent) - Number(a.urgent) || String(a.r.to || a.r.from).localeCompare(String(b.r.to || b.r.from)));
-  const at = (iso: string) => new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-  const block = rows.map(({ r, urgent }) => {
-    const link = taskLink(r.postId);
-    const earlier = (r.earlier || []).map((e) => `<div style="font-size:12px;color:#8A92A6;margin-top:3px">Earlier: ${esc(fmt(e.from))} → ${esc(fmt(e.to))} · ${esc(nameOf(e.requestedBy))}, ${esc(at(e.requestedAt))}${e.reason ? ` · “${esc(e.reason)}”` : ""}</div>`).join("");
-    return `<div style="border:1px solid #E9ECF2;border-radius:10px;padding:12px 14px;margin:0 0 10px">`
-      + `<div style="font-size:14px;font-weight:600"><a href="${link}" style="color:#3A57E8;text-decoration:none">${esc(r.title)}</a>`
-      + (urgent ? ` <span style="display:inline-block;background:#FDECEA;color:#C03221;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;vertical-align:middle">Urgent</span>` : "")
-      + (r.earlier?.length ? ` <span style="font-size:12px;color:#8A92A6;font-weight:400">· asked ${r.earlier.length + 1} times</span>` : "") + `</div>`
-      + `<div style="margin:8px 0 6px">${datePill(fmt(r.from))} <span style="color:#8A92A6">&nbsp;→&nbsp;</span> ${datePill(fmt(r.to), true)}</div>`
-      + `<div style="font-size:13px;color:#4A5468">${esc(nameOf(r.requestedBy))} · ${esc(at(r.requestedAt))}${r.type ? ` · ${esc(r.type)}` : ""}</div>`
-      + `<div style="font-size:13px;color:#232D42;margin-top:4px">Reason: ${esc(r.reason?.trim() || "—")}</div>`
-      + earlier + `</div>`;
+  const since = opts.sinceISO || new Date(Date.parse(`${todayIST()}T00:00:00+05:30`)).toISOString();
+  const { data: acts } = await sb.from("mh_activity").select("post_id, actor_key, action, from_value, to_value, detail, created_at")
+    .in("action", ["rescheduled", "date_change_approved"]).gte("created_at", since).order("created_at", { ascending: true }).limit(500);
+  const moves = ((acts || []) as { post_id: string; actor_key: string | null; action: string; from_value: string | null; to_value: string | null; detail: unknown; created_at: string }[]);
+  const ids = [...new Set(moves.map((m) => m.post_id))];
+  const { data: posts } = ids.length ? await sb.from("mh_posts").select("id, particulars, sbu").in("id", ids) : { data: [] };
+  const title = new Map(((posts || []) as { id: string; particulars: string | null; sbu: string | null }[]).map((p) => [p.id, p]));
+  const byTask = new Map<string, typeof moves>();
+  for (const m of moves) if (title.has(m.post_id)) byTask.set(m.post_id, [...(byTask.get(m.post_id) || []), m]);
+  const waiting = (await listPendingDateChanges(sb)).filter((r) => !r.emailedAt);
+  // An approved move: say who asked and why (from the approval log), and who approved.
+  const { data: logs } = await sb.from("discover_cache").select("payload").eq("source", LOG_SOURCE).gte("last_fetched", since);
+  const asked = new Map(((logs || []) as { payload: DateChangeRequest }[]).filter((l) => l.payload.status === "approved").map((l) => [l.payload.postId, l.payload]));
+  if (!byTask.size && !waiting.length) return { sent: false, moved: 0, waiting: 0 };
+
+  const at = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit" });
+  const why = (d: unknown) => (typeof d === "string" && d.trim() ? d.trim() : "");
+  const card = (inner: string) => `<div style="border:1px solid #E9ECF2;border-radius:10px;padding:12px 14px;margin:0 0 10px">${inner}</div>`;
+  const moved = [...byTask.entries()].map(([id, list]) => {
+    const p = title.get(id)!, first = list[0], last = list[list.length - 1];
+    const lines = list.map((m) => {
+      const req = m.action === "date_change_approved" ? asked.get(m.post_id) : undefined;
+      const by = req ? `${esc(nameOf(req.requestedBy))}, approved by ${esc(nameOf(m.actor_key || ""))}` : esc(nameOf(m.actor_key || ""));
+      const reason = req ? why(req.reason) : why(m.detail);
+      return `<div style="font-size:13px;color:#4A5468;margin-top:4px">${esc(m.from_value || "no date")} → <b style="color:#232D42">${esc(m.to_value || "no date")}</b> · ${by}, ${esc(at(m.created_at))}${reason ? ` · “${esc(reason)}”` : ""}</div>`;
+    }).join("");
+    return card(`<div style="font-size:14px;font-weight:600"><a href="${taskLink(id)}" style="color:#3A57E8;text-decoration:none">${esc(p.particulars || "(no title)")}</a>${p.sbu ? ` <span style="font-size:12px;color:#8A92A6;font-weight:400">· ${esc(p.sbu)}</span>` : ""}${list.length > 1 ? ` <span style="font-size:12px;color:#8A92A6;font-weight:400">· moved ${list.length} times</span>` : ""}</div>`
+      + `<div style="margin:8px 0 2px">${datePill(first.from_value || "no date")} <span style="color:#8A92A6">&nbsp;→&nbsp;</span> ${datePill(last.to_value || "no date", true)}</div>` + lines);
   }).join("");
-  const n = rows.length, nu = rows.filter((x) => x.urgent).length;
+  const wait = waiting.map((r) => card(`<div style="font-size:14px;font-weight:600"><a href="${taskLink(r.postId)}" style="color:#3A57E8;text-decoration:none">${esc(r.title)}</a></div>`
+    + `<div style="margin:8px 0 4px">${datePill(fmt(r.from))} <span style="color:#8A92A6">&nbsp;→&nbsp;</span> ${datePill(fmt(r.to), true)}</div>`
+    + `<div style="font-size:13px;color:#4A5468">${esc(nameOf(r.requestedBy))} · ${esc(at(r.requestedAt))} · “${esc(r.reason?.trim() || "—")}”</div>`)).join("");
+  const n = byTask.size;
   const html = emailLayout({
-    preheader: `${n} publish-date change${n === 1 ? "" : "s"} waiting for your approval${nu ? ` — ${nu} urgent` : ""}.`,
-    tag: "Needs your approval", title: `${n} date change${n === 1 ? "" : "s"} to approve`,
-    intro: `These are waiting on the Approvals page${nu ? ` — <b style="color:#C03221">${nu} urgent</b> first` : ""}.<div style="margin-top:14px">${block}</div>`,
+    preheader: `${n} task${n === 1 ? "" : "s"} had their publish date moved today${waiting.length ? `; ${waiting.length} waiting for approval` : ""}.`,
+    tag: "Today's date changes", title: n ? `${n} publish date${n === 1 ? "" : "s"} moved today` : `${waiting.length} date change${waiting.length === 1 ? "" : "s"} waiting`,
+    intro: (n ? `Every publish date changed today, with who moved it and why.<div style="margin-top:14px">${moved}</div>` : "")
+      + (waiting.length ? `<div style="margin-top:${n ? 18 : 0}px;font-size:14px;color:#232D42;font-weight:600">Waiting for approval</div><div style="margin-top:10px">${wait}</div>` : ""),
     rows: [],
-    buttons: [{ label: "Open Approvals", href: approvalsLink, primary: true }],
+    buttons: [{ label: "Open date changes", href: approvalsLink, primary: true }],
   });
-  if (opts.dryRun) return { sent: false, count: n, html };
-  if (!(await hasEmail())) return { sent: false, count: n };
+  if (opts.dryRun) return { sent: false, moved: n, waiting: waiting.length, html };
+  if (!(await hasEmail())) return { sent: false, moved: n, waiting: waiting.length };
   await sendMail({
     to: opts.to || (await approverEmails()),
-    subject: `${nu ? "Urgent · " : ""}${n} publish-date change${n === 1 ? "" : "s"} to approve`,
-    text: rows.map(({ r, urgent }) => `${urgent ? "[URGENT] " : ""}${r.title}: ${fmt(r.from)} -> ${fmt(r.to)} (${nameOf(r.requestedBy)}) — ${r.reason || "—"}\n${taskLink(r.postId)}`).join("\n\n") + `\n\nApprove or reject: ${approvalsLink}`,
+    subject: `Today's date changes — ${n} task${n === 1 ? "" : "s"} moved${waiting.length ? `, ${waiting.length} waiting` : ""}`,
+    text: [...byTask.entries()].map(([id, list]) => `${title.get(id)!.particulars}: ${list.map((m) => `${m.from_value || "no date"} -> ${m.to_value || "no date"} (${nameOf(m.actor_key || "")}${why(m.detail) ? `, "${why(m.detail)}"` : ""})`).join("; ")}\n${taskLink(id)}`).join("\n\n") + `\n\n${approvalsLink}`,
     html,
   });
-  if (!opts.to && !opts.items) {
+  if (!opts.to) {
     const now = new Date().toISOString();
-    for (const { r } of rows) {
-      await sb.from("discover_cache").update({ payload: { ...r, emailedAt: now } })
-        .eq("cache_key", KEY(r.postId)).eq("payload->>requestedAt", r.requestedAt);
-    }
+    for (const r of waiting) await sb.from("discover_cache").update({ payload: { ...r, emailedAt: now } }).eq("cache_key", KEY(r.postId)).eq("payload->>requestedAt", r.requestedAt);
   }
-  return { sent: true, count: n };
+  return { sent: true, moved: n, waiting: waiting.length };
 }
 
 // The date was changed directly after a request was parked (the person's approval
@@ -245,7 +259,8 @@ export async function getDateChange(sb: SB, postId: string): Promise<DateChangeR
 // Approve → write the date; reject → discard. Either way notify the requester —
 // and carry the approver's own note/reason (instructions on approve, why on reject)
 // through team chat, Slack, the bell (mh_activity) and the stored record.
-export async function resolveDateChange(sb: SB, opts: { postId: string; action: "approve" | "reject"; approverKey: string; note?: string }): Promise<{ ok: boolean; error?: string; request?: DateChangeRequest }> {
+/** `quiet`: no team chat, Slack or email — for approving a batch at once (4 Nov 2026). */
+export async function resolveDateChange(sb: SB, opts: { postId: string; action: "approve" | "reject"; approverKey: string; note?: string; quiet?: boolean }): Promise<{ ok: boolean; error?: string; request?: DateChangeRequest }> {
   await fetchRoster();   // fills the shared id → name map (lib/team-names.ts) for anyone new
   const req = await getDateChange(sb, opts.postId);
   if (!req || req.status !== "pending") return { ok: false, error: "No pending date-change request for this task." };
@@ -259,8 +274,8 @@ export async function resolveDateChange(sb: SB, opts: { postId: string; action: 
     const { error } = await sb.from("mh_posts").update({ publishing_date: req.to, due_date: req.to }).eq("id", opts.postId);
     if (error) return { ok: false, error: error.message };
     await sb.from("mh_activity").insert({ post_id: opts.postId, actor_key: opts.approverKey, action: "date_change_approved", from_value: fmt(req.from), to_value: fmt(req.to), detail: note || undefined });
-    await postTeamMessage(sb, opts.approverKey, `✅ ${who} approved the publish-date change on “${req.title}” → ${fmt(req.to)}${noteLine}.`);
-    await postSlack(`✅ *${who}* approved the publish-date change on *“${req.title}”* → *${fmt(req.to)}*.${noteSlack}`);
+    if (!opts.quiet) await postTeamMessage(sb, opts.approverKey, `✅ ${who} approved the publish-date change on “${req.title}” → ${fmt(req.to)}${noteLine}.`);
+    if (!opts.quiet) await postSlack(`✅ *${who}* approved the publish-date change on *“${req.title}”* → *${fmt(req.to)}*.${noteSlack}`);
   } else {
     // A rejection now leaves an audit event too, so the requester is told why.
     await sb.from("mh_activity").insert({ post_id: opts.postId, actor_key: opts.approverKey, action: "date_change_rejected", from_value: fmt(req.from), to_value: fmt(req.to), detail: note || undefined });
@@ -272,7 +287,7 @@ export async function resolveDateChange(sb: SB, opts: { postId: string; action: 
   // already told them; email reaches them when they're not on the dashboard.
   try {
     const requester = (await fetchRoster()).find((u) => u.id === (req.requestedBy || "").toLowerCase());
-    if (requester?.email && requester.id !== opts.approverKey && (await hasEmail())) {
+    if (!opts.quiet && requester?.email && requester.id !== opts.approverKey && (await hasEmail())) {
       const ok = opts.action === "approve";
       const link = taskLink(opts.postId);
       await sendMail({

@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { sameSecret } from "@/lib/cron-auth";
 import { getSupabase } from "@/lib/supabase";
-import { sendDateChangeRoundup } from "@/lib/date-approvals";
+import { sendDateChangeDaily } from "@/lib/date-approvals";
 
-// Publish-date change round-up — n8n calls this at 12:30 PM and 4 PM IST (Praveen,
-// 4 Nov 2026). Emails the approvers every request still waiting that hasn't been
-// emailed yet (urgent ones already went out when they were asked). Quiet → no email.
-//   GET /api/cron/date-change-roundup   (header: x-cron-secret: <CRON_SECRET>)
+// Today's publish-date changes, one email at 9 PM IST — n8n calls this daily (the
+// admin, 4 Nov 2026: no approving, just one email a day). Quiet day → no email.
+//   GET /api/cron/date-change-daily   (header: x-cron-secret: <CRON_SECRET>)
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
@@ -16,7 +15,7 @@ export async function GET(req: Request) {
   const sb = getSupabase();
   if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
   try {
-    return NextResponse.json({ ok: true, ...(await sendDateChangeRoundup(sb)) });
+    return NextResponse.json({ ok: true, ...(await sendDateChangeDaily(sb)) });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 502 });
   }

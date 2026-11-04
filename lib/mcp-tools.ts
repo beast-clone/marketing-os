@@ -198,6 +198,7 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
   const ps = (extra.data?.publish_status as string | null) ?? null;
   const day = (d: unknown) => (d ? String(d).slice(0, 10) : null);
   let pending: string | null = null;
+  let movedNote: { from: string | null; to: string | null; reason: string } | null = null;
   // Moving an existing publishing date: a reason when the person's switch is on, an
   // admin's approval when theirs needs it, and due_date kept in step.
   if ("publishing_date" in patch && before.data.publishing_date && day(patch.publishing_date) !== day(before.data.publishing_date)) {
@@ -215,6 +216,7 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
     } else {
       if (!("due_date" in patch)) patch.due_date = patch.publishing_date;
       await supersedeDateChange(sb(), id, userId);
+      movedNote = { from: before.data.publishing_date, to: (patch.publishing_date as string | null) ?? null, reason };
     }
   }
   // A post being published can't have its caption changed mid-way; a queued one drops
@@ -248,6 +250,12 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
       to_value: changed.join(", "),
       detail: { source: "claude-connector", ...(via ? { via } : {}), fields: changed },
     });
+    // A date move is also a "rescheduled" entry, like a move in the dashboard — so it
+    // shows in Approvals → Date changes and the 9 PM email, with its reason.
+    if (movedNote) {
+      const f = (d: string | null) => (d ? new Date(String(d)).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : null);
+      await sb().from("mh_activity").insert({ post_id: id, actor_key: userId, action: "rescheduled", from_value: f(movedNote.from), to_value: f(movedNote.to), ...(movedNote.reason ? { detail: movedNote.reason } : {}) });
+    }
   } catch { /* courtesy trail */ }
   bustMarketingHubCache();
 
