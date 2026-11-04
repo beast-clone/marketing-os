@@ -53,6 +53,13 @@ export function cleanSetting(key: string, value: unknown): unknown {
   if (key === "remindHours") return int(value, 1, 8);
   // GEO SEO monthly spend cap in US dollars (lib/geo.ts reads it server-side).
   if (key === "geoMonthlyUsd") return int(value, 1, 500);
+  // Who gets the date-change approval emails (Approvals page, 4 Nov 2026). Any
+  // address — teammates or outsiders; lib/date-approvals reads it server-side.
+  if (key === "approvalEmails") {
+    if (!Array.isArray(value)) return null;
+    const out = [...new Set(value.map((e) => String(e || "").trim().toLowerCase()).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)))].slice(0, 20);
+    return out.length === value.length ? out : null;
+  }
   return null;
 }
 

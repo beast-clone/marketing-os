@@ -47,6 +47,24 @@ const LOG_SOURCE = "mh_date_change_log";
 // Netlify injects `URL` = the site's primary URL in prod; APP_URL overrides it.
 const APP_URL = (process.env.APP_URL || process.env.URL || "https://analytics.goocampus.in").replace(/\/+$/, "");
 const taskLink = (postId: string) => `${APP_URL}/dashboard/preview/marketing-hub?open=${postId}`;
+const approvalsLink = `${APP_URL}/dashboard/preview/approvals`;
+
+// Who gets the request email: the list set on the Approvals page (mh_settings
+// approvalEmails — teammates or outside addresses); until one is saved, the same
+// people the dashboard notifies (Team page role "Manager") plus APPROVER_EMAIL.
+// It used to go to that one address only (Praveen, 4 Nov 2026).
+export async function defaultApproverEmails(): Promise<string[]> {
+  const roster = await fetchRoster();
+  const keys = new Set(approverKeys());
+  const list = roster.filter((u) => u.active && keys.has(u.id) && u.email).map((u) => u.email.toLowerCase());
+  return [...new Set([...list, APPROVER_EMAIL.toLowerCase()])];
+}
+async function approverEmails(): Promise<string> {
+  const sb = getSupabase();
+  const { data } = sb ? await sb.from("mh_settings").select("value").eq("key", "approvalEmails").maybeSingle() : { data: null };
+  const saved = Array.isArray(data?.value) ? (data!.value as string[]).filter(Boolean) : [];
+  return (saved.length ? saved : await defaultApproverEmails()).join(", ");
+}
 const nameOf = (k: string) => (k ? (MH_NAME[k] || k.charAt(0).toUpperCase() + k.slice(1)) : "Someone");
 const fmt = (d: string | null | undefined) => (d ? new Date(String(d)).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "unset");
 const fmtDT = (d: string | null | undefined) => (d ? new Date(String(d)).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—");
@@ -92,9 +110,9 @@ export async function requestDateChange(sb: SB, r: { postId: string; title: stri
   if (await hasEmail()) {
     try {
       await sendMail({
-        to: APPROVER_EMAIL,
+        to: await approverEmails(),
         subject: `Approve publish-date change — “${r.title}”`,
-        text: `${who} requested to move the publish date of “${r.title}”.\n\nTask: ${r.title} (${r.type || "—"})\nAssigned to: ${nameOf(r.owner || "")}\nCreated: ${fmtDT(r.createdAt)}${creator ? ` by ${nameOf(creator)}` : ""}\nMove date: ${fmt(r.from)} -> ${fmt(r.to)}\nRequested by: ${who}\nReason: ${reason}\n\nOpen the task: ${link}\nThen approve or reject it in Marketing OS (My Day -> Publish-date approvals).`,
+        text: `${who} requested to move the publish date of “${r.title}”.\n\nTask: ${r.title} (${r.type || "—"})\nAssigned to: ${nameOf(r.owner || "")}\nCreated: ${fmtDT(r.createdAt)}${creator ? ` by ${nameOf(creator)}` : ""}\nMove date: ${fmt(r.from)} -> ${fmt(r.to)}\nRequested by: ${who}\nReason: ${reason}\n\nOpen the task: ${link}\nApprove or reject: ${approvalsLink}`,
         html: `<p><b>${who}</b> requested to move a publish date — needs your approval.</p>`
           + `<table cellpadding="4" style="font-size:14px;border-collapse:collapse">`
           + `<tr><td><b>Task</b></td><td><a href="${link}">${r.title}</a> <i>(${r.type || "—"})</i></td></tr>`
@@ -103,7 +121,7 @@ export async function requestDateChange(sb: SB, r: { postId: string; title: stri
           + `<tr><td><b>Move date</b></td><td>${fmt(r.from)} → <b>${fmt(r.to)}</b></td></tr>`
           + `<tr><td><b>Requested by</b></td><td>${who}</td></tr>`
           + `<tr><td><b>Reason</b></td><td>${reason}</td></tr>`
-          + `</table><p><a href="${link}"><b>Open the task ↗</b></a> — then approve or reject it in <i>My Day → Publish-date approvals</i>.</p>`,
+          + `</table><p><a href="${link}"><b>Open the task ↗</b></a> &nbsp;·&nbsp; <a href="${approvalsLink}"><b>Approve or reject in Approvals ↗</b></a></p>`,
       });
     } catch { /* email is best-effort */ }
   }
@@ -172,6 +190,28 @@ export async function resolveDateChange(sb: SB, opts: { postId: string; action: 
     await postTeamMessage(sb, opts.approverKey, `⛔ ${who} declined the publish-date change on “${req.title}” — it stays on ${fmt(req.from)}${noteLine || " — no reason given"}.`);
     await postSlack(`⛔ *${who}* declined the publish-date change on *“${req.title}”* — stays on *${fmt(req.from)}*.${noteSlack || "\n*Note:* (no reason given)"}`);
   }
+
+  // Email the person who asked, with the task link (4 Nov 2026) — the bell and chat
+  // already told them; email reaches them when they're not on the dashboard.
+  try {
+    const requester = (await fetchRoster()).find((u) => u.id === (req.requestedBy || "").toLowerCase());
+    if (requester?.email && requester.id !== opts.approverKey && (await hasEmail())) {
+      const ok = opts.action === "approve";
+      const link = taskLink(opts.postId);
+      await sendMail({
+        to: requester.email,
+        subject: `${ok ? "Approved" : "Not approved"}: publish-date change — “${req.title}”`,
+        text: `${who} ${ok ? "approved" : "did not approve"} your request to move “${req.title}” from ${fmt(req.from)} to ${fmt(req.to)}.\n${ok ? `It now publishes on ${fmt(req.to)}.` : `It stays on ${fmt(req.from)}.`}${note ? `\nNote from ${who}: ${note}` : ""}\n\nOpen the task: ${link}`,
+        html: `<p><b>${who}</b> ${ok ? "approved" : "did not approve"} your request to move a publish date.</p>`
+          + `<table cellpadding="4" style="font-size:14px;border-collapse:collapse">`
+          + `<tr><td><b>Task</b></td><td><a href="${link}">${req.title}</a></td></tr>`
+          + `<tr><td><b>Requested</b></td><td>${fmt(req.from)} → ${fmt(req.to)}</td></tr>`
+          + `<tr><td><b>Result</b></td><td>${ok ? `✅ Publishes on <b>${fmt(req.to)}</b>` : `⛔ Stays on <b>${fmt(req.from)}</b>`}</td></tr>`
+          + (note ? `<tr><td><b>Note from ${who}</b></td><td>${note}</td></tr>` : "")
+          + `</table><p><a href="${link}"><b>Open the task ↗</b></a></p>`,
+      });
+    }
+  } catch { /* email is best-effort */ }
 
   const resolved: DateChangeRequest = { ...req, status: opts.action === "approve" ? "approved" : "rejected", resolvedBy: opts.approverKey, resolvedAt: new Date().toISOString(), resolvedNote: note || undefined };
   await sb.from("discover_cache").upsert(

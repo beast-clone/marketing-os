@@ -1,4 +1,5 @@
 "use client";
+import { ApprovalEmails } from "./ApprovalEmails";
 import { onDayPlan } from "@/lib/my-day-task";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -249,6 +250,7 @@ export function TeamCommand({ mode = "team" }: { mode?: "team" | "approvals" } =
           <button className={apprTab === "history" ? "on" : ""} onClick={() => setApprTab("history")}><IconHistory size={15} stroke={1.8} />History <span className="c">{history.length}</span></button>
           <button className={apprTab === "moves" ? "on" : ""} onClick={() => setApprTab("moves")}><IconCalendarDue size={15} stroke={1.8} />Date changes <span className="c">{moves.length}</span></button>
         </div>
+        <ApprovalEmails />
         {apprTab === "moves" ? <DateMoves rows={moves} /> : apprTab === "history" ? <ApprovalHistory rows={history} by={histBy} setBy={setHistBy} /> : (
         /* APPROVALS — publish-date changes waiting for Maheen */
         approvals.length === 0 ? (
