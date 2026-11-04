@@ -5,6 +5,7 @@ import { MY_DAY_CSS } from "@/app/(dashboard)/dashboard/preview/my-day/myDayCss"
 import MissingFieldsModal from "@/app/(dashboard)/dashboard/preview/MissingFieldsModal";
 import { NewTaskForm, type NewTaskDraft } from "./NewTaskForm";
 import { CreateGateError, saveNewTask } from "./save";
+import { copyTaskLink } from "@/lib/task-link";
 
 // The create form as a dialog, for the screens that don't have My Day's right-hand
 // panel to put it in — the Marketing Hub header button and the Content Calendar's
@@ -46,6 +47,7 @@ export function NewTaskDialog({ initial, onClose, onCreated }: {
   // PPL and the API use) to show the routing preview and to own the new row.
   const [writer, setWriter] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>({ k: "form" });
+  const [copied, setCopied] = useState(false);
   const [gate, setGate] = useState<{ missing: string[]; title: string } | null>(null);
 
   useEffect(() => {
@@ -110,6 +112,8 @@ export function NewTaskDialog({ initial, onClose, onCreated }: {
                 </div>
               )}
               <div className="ntd-end-actions">
+                {/* Same link as the task window's Copy task link (4 Nov). */}
+                <button className="btn" onClick={async () => { await copyTaskLink(phase.id); setCopied(true); setTimeout(() => setCopied(false), 2000); }}>{copied ? "Copied" : "Copy task link"}</button>
                 <button className="btn" onClick={() => setPhase({ k: "form" })}>Create another</button>
                 <button className="btn primary" onClick={onClose}>Done</button>
               </div>

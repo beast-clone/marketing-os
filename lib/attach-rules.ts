@@ -6,7 +6,8 @@
 // render — a credible phishing page, and script execution on the Supabase origin.
 
 export const BUCKET = "scheduler-media";
-export type AttachKind = "creative" | "reference" | "attachment";
+// thumbnail = a reel's cover (docs/REEL_THUMBNAIL_SPEC.md): one image, never a slide.
+export type AttachKind = "creative" | "reference" | "attachment" | "thumbnail";
 
 export const ALLOWED_MIME = new Set([
   "image/jpeg", "image/png", "image/gif", "image/webp",
@@ -34,14 +35,19 @@ export const ATTACHMENT_LABEL = "an image, video, pdf, Word, Excel, PowerPoint o
 // to 300 MB through the API, so a bigger file can be stored and shared, not posted.
 export const MAX_MB = 2048;
 
-export const asKind = (v: unknown): AttachKind => (v === "reference" || v === "attachment" ? v : "creative");
+export const asKind = (v: unknown): AttachKind => (v === "reference" || v === "attachment" || v === "thumbnail" ? v : "creative");
+// Kinds that are not the deliverable: never published, never send a task back for review.
+export const NOT_MEDIA = "(reference,attachment,thumbnail)";
+export const isMediaKind = (k: unknown) => k !== "reference" && k !== "attachment" && k !== "thumbnail";
 
 export function mimeAllowed(mime: string, kind: AttachKind): boolean {
   const m = (mime || "").toLowerCase();
+  if (kind === "thumbnail") return m.startsWith("image/") && ALLOWED_MIME.has(m);
   return ALLOWED_MIME.has(m) || (kind === "attachment" && ATTACHMENT_EXTRA.has(m));
 }
 export const mimeRefusal = (kind: AttachKind) =>
-  `That file type isn't allowed — use ${kind === "attachment" ? ATTACHMENT_LABEL : ALLOWED_LABEL}.`;
+  kind === "thumbnail" ? "A thumbnail has to be an image — jpg, png, gif or webp."
+    : `That file type isn't allowed — use ${kind === "attachment" ? ATTACHMENT_LABEL : ALLOWED_LABEL}.`;
 
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Runs of dots collapse to one: a title like "UK Prioritisation Act ... .pdf" kept its

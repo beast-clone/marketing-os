@@ -58,18 +58,23 @@ export async function GET() {
     // per-post-id .in() filter if the table ever outgrows it.
     const { data: atts } = await sb
       .from("mh_attachments")
-      .select("id, post_id, filename, storage_path, kind, sort_order")
-      .in("kind", ["reference", "creative", "attachment"])
+      .select("id, post_id, filename, storage_path, kind, sort_order, size_bytes")
+      .in("kind", ["reference", "creative", "attachment", "thumbnail"])
       .order("uploaded_at", { ascending: false })
       .limit(5000);
     const orderOf = new Map<string, number>();   // the order set by dragging the tiles
-    (atts || []).forEach((a: { id: string; post_id: string; filename: string; storage_path: string; kind: string; sort_order: number | null }) => {
+    // A reel's own cover (kind 'thumbnail', docs/REEL_THUMBNAIL_SPEC.md) — newest wins.
+    const thumbByPost = new Map<string, Creative>();
+    (atts || []).forEach((a: { id: string; post_id: string; filename: string; storage_path: string; kind: string; sort_order: number | null; size_bytes: number | null }) => {
       if (a.sort_order != null) orderOf.set(a.id, a.sort_order);
-      if (a.kind === "creative") {
+      if (a.kind === "thumbnail") {
+        if (!thumbByPost.has(a.post_id)) thumbByPost.set(a.post_id, { name: a.filename, type: "image", url: a.storage_path, attId: a.id });
+      } else if (a.kind === "creative") {
         const arr = creativeByPost.get(a.post_id) || [];
         // A PDF is a document, not a picture — typed "image" it rendered as a blank tile.
         const pdf = /\.pdf($|[?#])/i.test(a.storage_path) || /\.pdf$/i.test(a.filename || "");
-        arr.push({ name: a.filename, type: pdf ? "doc" : isVideo(a.storage_path) ? "video" : "image", url: a.storage_path, attId: a.id });
+        // size: the 300 MB warning on a reel's video (Instagram's limit from outside its app).
+        arr.push({ name: a.filename, type: pdf ? "doc" : isVideo(a.storage_path) ? "video" : "image", url: a.storage_path, attId: a.id, size: a.size_bytes ?? undefined });
         creativeByPost.set(a.post_id, arr);
       } else if (a.kind === "attachment") {
         // Working files that are never published — the task window's Attachments box.
@@ -103,7 +108,13 @@ export async function GET() {
     // Samvaya / other-platform work (spec §14) is split OUT here so it can never leak
     // into the GooCampus board or Manya's view — it only feeds Nandu's own section.
     const isSamvayaRow = (r: Row) => /samvaya|matrimony/i.test(r.sbu || "");
-    const mk = (r: Row) => toTask(r, refByPost.get(r.id) || [], creativeByPost.get(r.id) || [], collabByPost.get(r.id) || [], attByPost.get(r.id) || []);
+    // The linked thumbnail task's newest image stands in for an empty Thumbnail box.
+    const linkedThumb = (r: Row) => {
+      const tid = (r.custom as { thumbnail?: { taskId?: string } } | null)?.thumbnail?.taskId;
+      return tid ? [...(creativeByPost.get(tid) || [])].reverse().find((c) => c.type === "image") || null : null;
+    };
+    const mk = (r: Row) => toTask(r, refByPost.get(r.id) || [], creativeByPost.get(r.id) || [], collabByPost.get(r.id) || [], attByPost.get(r.id) || [],
+      { own: thumbByPost.get(r.id) || null, linked: linkedThumb(r) });
     const mainRows = rows.filter((r) => !isSamvayaRow(r));
     const tasks = mainRows.map(mk);
     // Claim pool = approved video work still up for grabs. Once an editor (Nikhil /

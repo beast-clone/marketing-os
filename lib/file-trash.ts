@@ -61,7 +61,7 @@ export async function restoreFiles(sb: SupabaseClient, ids: string[], actor: str
       await sb.from("mh_activity").insert({ post_id: t.data.post_id, actor_key: actor, action: "file_restored",
         to_value: t.data.filename, detail: `restored a ${t.data.kind || "file"} from the recycle bin` }).then(() => {}, () => {});
       // A creative coming back onto an approved post is a creative change like any other.
-      if (t.data.kind !== "reference" && t.data.kind !== "attachment") await sendBackForReview(sb, t.data.post_id, actor, t.data.filename);
+      if (t.data.kind !== "reference" && t.data.kind !== "attachment" && t.data.kind !== "thumbnail") await sendBackForReview(sb, t.data.post_id, actor, t.data.filename);
       out.done.push(id);
     } catch (e) {
       out.failed.push({ id, error: e instanceof Error ? e.message : String(e) });

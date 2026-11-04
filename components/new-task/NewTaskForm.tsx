@@ -161,6 +161,7 @@ export function NewTaskForm({ writer, initial, onClose, onCreate, onDirty }: {
   const [refs, setRefs] = useState<PendingAsset>(EMPTY_ASSET);       // input references (many links + images)
   const [output, setOutput] = useState<PendingAsset>(EMPTY_ASSET);   // finished creative if the writer does it herself
   const [att, setAtt] = useState<PendingAsset>(EMPTY_ASSET);         // working files, never published
+  const [thumb, setThumb] = useState<PendingAsset>(EMPTY_ASSET);     // a reel's cover (docs/REEL_THUMBNAIL_SPEC.md)
   // People added by hand, on top of whoever the routing rule attaches.
   // "Does this also need a thumbnail?" — only offered for the eligible video types.
   const [wantsThumb, setWantsThumb] = useState(false);
@@ -185,6 +186,8 @@ export function NewTaskForm({ writer, initial, onClose, onCreate, onDirty }: {
   const canHaveThumb = THUMBNAIL_ELIGIBLE.has(type);
   useEffect(() => { if (!canHaveThumb) setWantsThumb(false); }, [canHaveThumb]);
   const thumbType = thumbnailTypeFor(type);
+  // A reel gets its own Thumbnail box and the 300 MB note (docs/REEL_THUMBNAIL_SPEC.md).
+  const isReel = /reel/i.test(type) && !/thumbnail/i.test(type);
   // Left blank, the thumbnail is named after the video — which is what it is.
   const thumbTitleFinal = thumbTitle.trim() || (title.trim() ? `${title.trim()} — Thumbnail` : "");
   const thumbOn = canHaveThumb && wantsThumb;
@@ -226,6 +229,7 @@ export function NewTaskForm({ writer, initial, onClose, onCreate, onDirty }: {
         outLink: output.links[0] || "",
         outFiles: output.files.map((f) => f.file),
         attFiles: att.files.map((f) => f.file),
+        thumbFiles: isReel ? thumb.files.map((f) => f.file) : [],
       },
       route,
       thumbnail: thumbOn
@@ -381,8 +385,14 @@ export function NewTaskForm({ writer, initial, onClose, onCreate, onDirty }: {
       </div>
       <div className="nt-field">
         <PendingAssets title="Creatives & files" drop oneLink value={output} onChange={setOutput} />
-        <span className="nt-hint" style={{ display: "block", marginTop: ".35rem" }}>Finishing it yourself? Drop the ready creative here — otherwise leave it for the designer.</span>
+        <span className="nt-hint" style={{ display: "block", marginTop: ".35rem" }}>Finishing it yourself? Drop the ready creative here — otherwise leave it for the designer.{isReel ? " Keep the video under 300 MB to post on Instagram and Facebook." : ""}</span>
       </div>
+      {isReel && (
+        <div className="nt-field">
+          <PendingAssets title="Thumbnail" oneImage value={thumb} onChange={setThumb} />
+          <span className="nt-hint" style={{ display: "block", marginTop: ".35rem" }}>The reel&apos;s cover — the Scheduler uses it when it&apos;s scheduled. Leave it empty if a thumbnail task will make it.</span>
+        </div>
+      )}
       <div className="nt-field">
         <PendingAssets title="Attachments" noLinks value={att} onChange={setAtt} />
       </div>

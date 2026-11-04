@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       sb.from("mh_attachments").select("id, filename, storage_path, mime_type, size_bytes, uploaded_by, uploaded_at, kind, sort_order").eq("post_id", id).order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true }),   // first uploaded first (22 Oct)
       sb.from("mh_comments").select("id, author_key, body, resolved, created_at").eq("post_id", id).order("created_at", { ascending: false }).limit(20),
       sb.from("mh_activity").select("id, actor_key, action, from_value, to_value, detail, created_at").eq("post_id", id).gte("created_at", new Date(Date.now() - 366 * 86_400_000).toISOString()).order("created_at", { ascending: false }).limit(400),
-      sb.from("mh_posts").select("owner_key, start_at, synced_to_scheduler, airtable_record_id, status, content, caption, additional_info, instagram_url, facebook_url, linkedin_url, output_link, platforms, reference_links").eq("id", id).single(),
+      sb.from("mh_posts").select("owner_key, start_at, synced_to_scheduler, airtable_record_id, status, content, caption, additional_info, instagram_url, facebook_url, linkedin_url, output_link, platforms, reference_links, custom").eq("id", id).single(),
       sb.from("mh_team_members").select("key, display_name, role"),
       // Files taken off the task (still in the recycle bin) — the history shows what
       // was removed, not just a file name (Praveen, 26 Oct).
@@ -76,7 +76,18 @@ export async function GET(req: Request) {
       ? [{ key: ownerKey, name: nameOf(ownerKey), role: roleOf(ownerKey) || "writer", addedAt: null as string | null }, ...collabList]
       : collabList;
 
+    // A reel's linked thumbnail task (docs/REEL_THUMBNAIL_SPEC.md): its newest image
+    // stands in for the reel's own Thumbnail box while that's empty.
+    let linkedThumbnail: { storage_path: string; filename: string } | null = null;
+    const thumbTask = (ownerRes.data?.custom as { thumbnail?: { taskId?: string } } | null)?.thumbnail?.taskId;
+    if (typeof thumbTask === "string" && thumbTask) {
+      const { data: pic } = await sb.from("mh_attachments").select("storage_path, filename").eq("post_id", thumbTask)
+        .eq("kind", "creative").like("mime_type", "image/%").order("uploaded_at", { ascending: false }).limit(1).maybeSingle();
+      if (pic?.storage_path) linkedThumbnail = { storage_path: pic.storage_path as string, filename: (pic.filename as string) || "Thumbnail" };
+    }
+
     return NextResponse.json({
+      linkedThumbnail,
       content,
       caption: (ownerRes.data?.caption || "").trim(),
       notes,

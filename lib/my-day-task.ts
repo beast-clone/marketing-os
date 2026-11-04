@@ -81,9 +81,9 @@ export type Row = {
   created_by: string | null; instagram_url: string | null; facebook_url: string | null;
 };
 export type RefItem = { kind: "link" | "image"; label: string; url: string; attId?: string };
-export type Creative = { name: string; type: "image" | "video" | "doc"; url: string; attId?: string };
+export type Creative = { name: string; type: "image" | "video" | "doc"; url: string; attId?: string; size?: number };
 
-export function toTask(r: Row, refImages: RefItem[] = [], creativeAtts: Creative[] = [], collabKeys: string[] = [], workAtts: Creative[] = []) {
+export function toTask(r: Row, refImages: RefItem[] = [], creativeAtts: Creative[] = [], collabKeys: string[] = [], workAtts: Creative[] = [], cover: { own: Creative | null; linked: Creative | null } = { own: null, linked: null }) {
   const owner = ownerName(r.owner_key);
   const type = r.type || "Post";
   const media = r.media_urls || [];
@@ -132,6 +132,10 @@ export function toTask(r: Row, refImages: RefItem[] = [], creativeAtts: Creative
       activity: [] as unknown[],
       references,
       attachments: workAtts,                      // working files, never published
+      // A reel's cover: its own Thumbnail box, and the linked thumbnail task's image
+      // that stands in while the box is empty (docs/REEL_THUMBNAIL_SPEC.md).
+      coverFile: cover.own,
+      coverLinked: cover.linked,
       outputLink: r.output_link || "",
       createdAt: r.created_at || "",
       startAt: r.start_at || "",

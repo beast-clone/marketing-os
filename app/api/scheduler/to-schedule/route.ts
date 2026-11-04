@@ -30,7 +30,7 @@ export async function GET() {
 
     const { data, error } = await sb
       .from("mh_posts")
-      .select("id, particulars, status, sbu, type, caption, content, output_link, media_urls, publish_to, publish_to_page, publishing_date, priority, updated_at, airtable_record_id")
+      .select("id, particulars, status, sbu, type, caption, content, output_link, media_urls, publish_to, publish_to_page, publishing_date, priority, updated_at, airtable_record_id, custom")
       .in("status", READY_STATUSES)
       // don't re-list anything already pushed into the publish queue
       .is("publish_status", null)
@@ -52,7 +52,7 @@ export async function GET() {
         .from("mh_attachments")
         .select("post_id, storage_path, kind")
         .in("post_id", ids)
-        .not("kind", "in", "(reference,attachment)")   // attachments are working files, never media;
+        .not("kind", "in", "(reference,attachment,thumbnail)")   // attachments are working files, never media;
         .order("sort_order", { ascending: true, nullsFirst: false })   // the order set by dragging the tiles, then
         .order("uploaded_at", { ascending: true })   // first uploaded = first slide (22 Oct)
       for (const a of atts || []) {
@@ -60,6 +60,36 @@ export async function GET() {
         const arr = attByPost.get(a.post_id) || [];
         arr.push(a.storage_path as string);
         attByPost.set(a.post_id, arr);
+      }
+    }
+
+    // A reel's cover (docs/REEL_THUMBNAIL_SPEC.md): its own Thumbnail box first, then
+    // the newest image on its linked thumbnail task. Newest wins in both, so a re-done
+    // thumbnail replaces the old one without anyone deleting it.
+    const linkOf = new Map<string, string>();
+    for (const r of data || []) {
+      const tid = (r.custom as { thumbnail?: { taskId?: string } } | null)?.thumbnail?.taskId;
+      if (typeof tid === "string" && tid) linkOf.set(r.id, tid);
+    }
+    const coverOf = new Map<string, string>();
+    const lookIn = [...ids, ...linkOf.values()];
+    if (lookIn.length) {
+      const { data: pics } = await sb
+        .from("mh_attachments")
+        .select("post_id, storage_path, kind, mime_type")
+        .in("post_id", lookIn)
+        .in("kind", ["thumbnail", "creative"])
+        .like("mime_type", "image/%")
+        .order("uploaded_at", { ascending: false });
+      const own = new Map<string, string>(), fromTask = new Map<string, string>();
+      for (const a of pics || []) {
+        if (!a.storage_path) continue;
+        if (a.kind === "thumbnail" && !own.has(a.post_id)) own.set(a.post_id, a.storage_path as string);
+        if (a.kind === "creative" && !fromTask.has(a.post_id)) fromTask.set(a.post_id, a.storage_path as string);
+      }
+      for (const id of ids) {
+        const c = own.get(id) || fromTask.get(linkOf.get(id) || "");
+        if (c) coverOf.set(id, c);
       }
     }
 
@@ -88,6 +118,7 @@ export async function GET() {
         ...((r.media_urls as string[] | null) || []).filter((u) => !u.includes("/mh-creatives/") || (attByPost.get(r.id) || []).includes(u)),
         ...(attByPost.get(r.id) || []),
       ])],
+      coverUrl: coverOf.get(r.id) || null,
       assetLink: r.output_link || null,
       channel: r.publish_to || null,
       // the page from the primary interest (lib/sbu-pages); "" for Samvaya, which has none of ours

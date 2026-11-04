@@ -321,7 +321,7 @@ export async function schedulePost(args: Record<string, unknown>, userId: string
 
   // Same media as the Scheduler shows: uploaded files, then creative attachments.
   const { data: atts } = await sb().from("mh_attachments").select("storage_path, kind")
-    .eq("post_id", id).not("kind", "in", "(reference,attachment)")
+    .eq("post_id", id).not("kind", "in", "(reference,attachment,thumbnail)")
     .order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true });
   const attUrls = ((atts || []) as { storage_path: string | null }[]).map((a) => a.storage_path).filter((u): u is string => !!u);
   const media = [...new Set([...((post.media_urls as string[] | null) || []).filter((u) => !u.includes("/mh-creatives/") || attUrls.includes(u)), ...attUrls])]
@@ -646,7 +646,7 @@ async function recordFile(id: string, title: string, path: string, filename: str
   if (kind === "creative" && Number.isInteger(pos) && pos >= 1) {
     const { data } = await sb().from("mh_attachments").select("id, kind").eq("post_id", id).neq("id", row.id)
       .order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true });
-    const others = ((data || []) as { id: string; kind: string }[]).filter((f) => f.kind !== "reference" && f.kind !== "attachment").map((f) => f.id);
+    const others = ((data || []) as { id: string; kind: string }[]).filter((f) => f.kind !== "reference" && f.kind !== "attachment" && f.kind !== "thumbnail").map((f) => f.id);
     others.splice(Math.min(pos - 1, others.length), 0, row.id);
     await setOrder(id, others);
   }
@@ -664,7 +664,7 @@ export async function removeFile(args: Record<string, unknown>, userId: string) 
   await notPublishing(f.post_id);
   const gone = await trashFile(sb(), fileId, userId);
   if (!gone) throw new Error("It was already removed.");
-  await sb().from("mh_activity").insert({ post_id: gone.post_id, actor_key: userId, action: gone.kind === "reference" || gone.kind === "attachment" ? `${gone.kind}_removed` : "creative_removed", to_value: gone.filename, detail: `${reason.slice(0, 280)} (via Claude)` });
+  await sb().from("mh_activity").insert({ post_id: gone.post_id, actor_key: userId, action: gone.kind === "reference" || gone.kind === "attachment" || gone.kind === "thumbnail" ? `${gone.kind}_removed` : "creative_removed", to_value: gone.filename, detail: `${reason.slice(0, 280)} (via Claude)` });
   const note = await afterFileChange(gone.post_id, userId, `removed ${gone.filename}`);
   return `Moved “${gone.filename}” to the recycle bin (it can be restored from the dashboard).${note}`;
 }

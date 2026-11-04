@@ -1053,7 +1053,11 @@ function PersonTimelineRow({ card }: {
                 </td>
                 <td className="py-1.5 pr-2 text-gray-500 truncate">{r.sbu || "—"}</td>
                 <td className={`py-1.5 pr-2 tabular-nums whitespace-nowrap ${overdueRows ? "text-rose-600" : "text-gray-500"}`}>{dueLabel(r)}</td>
-                <td className="py-1.5 text-right"><span className={`inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap ${st.c}`}>{st.t}</span></td>
+                {/* The task's own status, in the Master sheet's words and colours — "Completed · in
+                    review" and the like had to be translated back (Praveen, 4 Nov 2026). */}
+                <td className="py-1.5 text-right">{r.status
+                  ? <span className="inline-block text-[11px] font-medium px-2 py-0.5 rounded-full whitespace-nowrap" style={{ background: statusPill(r.status).bg, color: statusPill(r.status).text }}>{r.status}</span>
+                  : <span className="text-gray-300">—</span>}</td>
               </tr>
             );
           })}
@@ -4021,7 +4025,7 @@ function MasterSheet({ rows, facets, onOpen, onSaved, loading, bare, visibleCols
   );
 }
 
-type DetailAttachment = { id: string; filename: string; storage_path: string; mime_type: string | null; kind?: string };
+type DetailAttachment = { id: string; filename: string; storage_path: string; mime_type: string | null; kind?: string; size_bytes?: number | null };
 type TaskDetail = {
   content: string; caption: string; notes: string;
   instagramUrl?: string; facebookUrl?: string; linkedinUrl?: string; outputLink?: string; platforms?: string[]; referenceLinks?: string[];
@@ -4033,6 +4037,7 @@ type TaskDetail = {
   activity: { id: string; action: string; from_value: string | null; to_value: string | null; created_at: string; actorName: string; actor_key: string | null }[];
   scheduler: { syncedToScheduler: boolean; startAt: string | null };
   me?: string | null;
+  linkedThumbnail?: { storage_path: string; filename: string } | null;   // the reel's thumbnail task's image
 };
 // "Mon 17 Aug, 9:51 pm" — the year only when it is not the current one. The shared
 // fmtDateTime spells the weekday and month out in full, which is more than this
@@ -4273,7 +4278,7 @@ export const ACT_VERB: Record<string, string> = {
   priority_changed: "changed the priority", type_changed: "changed the type", content_edited: "edited the content",
   caption_edited: "edited the caption", notes_edited: "edited the notes", sbu_changed: "changed the Primary Interest",
   platforms_changed: "changed platforms", review_changed: "toggled review", output_link_changed: "updated the output link",
-  creative_added: "added a creative", creative_removed: "removed a creative", post_media_removed: "took a file off the post in the Scheduler (it stays on the task)", creatives_reordered: "changed the order of the creatives", attachments_reordered: "changed the order of the attachments", claim: "claimed this",
+  creative_added: "added a creative", creative_removed: "removed a creative", thumbnail_added: "added the thumbnail", thumbnail_removed: "removed the thumbnail", post_media_removed: "took a file off the post in the Scheduler (it stays on the task)", creatives_reordered: "changed the order of the creatives", attachments_reordered: "changed the order of the attachments", claim: "claimed this",
   reference_added: "added a reference", reference_removed: "removed a reference",
   attachment_added: "added an attachment", attachment_removed: "removed an attachment", reference_links_changed: "updated the references",
   instagram_url_changed: "updated the Instagram link", facebook_url_changed: "updated the Facebook link", linkedin_url_changed: "updated the LinkedIn link",
@@ -4967,11 +4972,17 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
   // and attachments (working files, never published — Manya, 10 Oct).
   const attMap = (a: DetailAttachment) => ({ id: a.id as string | undefined, url: a.storage_path, name: a.filename, type: a.mime_type || "", removable: true });
   const creatives = [
-    ...(detail?.attachments || []).filter((a) => a.kind !== "reference" && a.kind !== "attachment").map(attMap),
+    ...(detail?.attachments || []).filter((a) => a.kind !== "reference" && a.kind !== "attachment" && a.kind !== "thumbnail").map(attMap),
     ...row.attachments.map((a) => ({ id: undefined as string | undefined, url: a.url, name: a.filename, type: a.type || "", removable: false })),
   ];
   const refImages = (detail?.attachments || []).filter((a) => a.kind === "reference").map(attMap);
   const workFiles = (detail?.attachments || []).filter((a) => a.kind === "attachment").map(attMap);
+  // A reel's cover (docs/REEL_THUMBNAIL_SPEC.md): its own Thumbnail box, newest first;
+  // the linked thumbnail task's image stands in while it's empty.
+  const isReelTask = /reel/i.test(typeCur) && !/thumbnail/i.test(typeCur);
+  const ownThumb = [...(detail?.attachments || [])].reverse().find((a) => a.kind === "thumbnail") || null;
+  const shownThumb = ownThumb ? attMap(ownThumb) : detail?.linkedThumbnail ? { id: undefined as string | undefined, url: detail.linkedThumbnail.storage_path, name: `${detail.linkedThumbnail.filename} (thumbnail task)`, type: "image/", removable: false } : null;
+  const bigVideos = (detail?.attachments || []).filter((a) => a.kind === "creative" && /^video\//.test(a.mime_type || "") && (a.size_bytes || 0) > 300 * 1024 * 1024);
   // A task opens with its files already showing, small, between the content and
   // History (Praveen, 26 Oct): the CREATIVES once the output is ready (that's what
   // people open it to look at), else the attachments. Neither → no column.
@@ -4997,6 +5008,9 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
   const qCre = useUploadQueue({ ...qOpts, kind: "creative", existing: creatives.map((c) => c.name) });
   const qRef = useUploadQueue({ ...qOpts, kind: "reference", existing: refImages.map((c) => c.name) });
   const qAtt = useUploadQueue({ ...qOpts, kind: "attachment", existing: workFiles.map((c) => c.name) });
+  // A new thumbnail replaces the old one (to the Recycle bin) — the reel has one cover.
+  const qThumb = useUploadQueue({ ...qOpts, kind: "thumbnail", existing: [],
+    onSaved: async () => { if (ownThumb?.id) await removeTaskFile(ownThumb.id, "Replaced by a new thumbnail"); loadDetail(); } });
   const upload = (files: FileList | File[], kind: "creative" | "reference" | "attachment" = "creative") =>
     (kind === "reference" ? qRef : kind === "attachment" ? qAtt : qCre).add(files);
   const uploading = qCre.busy || qRef.busy || qAtt.busy;
@@ -5155,7 +5169,24 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
                     links={(detail?.outputLink ?? row.outputLink) ? [String(detail?.outputLink ?? row.outputLink)] : []} singleLink
                     linkPlaceholder="Paste the output link (Drive / Canva)…"
                     onAddLink={(v) => { saveOne("output_link", v); }} onRemoveLink={() => saveOne("output_link", null)} />
+                  {/* Instagram takes videos up to 300 MB from outside its app (4 Nov). */}
+                  {isReelTask && (bigVideos.length
+                    ? <div className="text-[12px] text-[#C03221] mt-1.5 px-0.5">{bigVideos.map((a) => `${a.filename} is ${Math.round((a.size_bytes || 0) / 1048576)} MB`).join(" · ")} — over 300 MB, so it will post to Facebook only. Export it under 300 MB to post on Instagram too.</div>
+                    : <div className="text-[12px] text-[#8A92A6] mt-1.5 px-0.5">Keep the video under 300 MB to post on Instagram and Facebook.</div>)}
                 </div>
+                {isReelTask && (
+                  <div>
+                    <FilesCard icon={<IconPhoto size={15} stroke={1.8} />} title="Thumbnail"
+                      count={ownThumb ? "the reel's cover" : shownThumb ? "from the thumbnail task" : "the reel's cover · 1 image"}
+                      accept="image/*" onFiles={(f) => qThumb.add([...f].slice(0, 1))} busyText={qThumb.busy ? qThumb.status : undefined}
+                      addLabel={shownThumb ? "Replace" : "+ Add thumbnail"} addSub="one image" askWhy
+                      tiles={shownThumb ? [{ key: shownThumb.id || shownThumb.url, name: shownThumb.name, url: shownThumb.url, kind: "image",
+                        onOpen: () => setLightbox({ items: [shownThumb], index: 0 }),
+                        onRemove: shownThumb.removable && shownThumb.id ? (why) => removeCreative(shownThumb.id!, why) : undefined }] : []}
+                      pending={qThumb.pending} onDismiss={qThumb.dismiss} />
+                    <div className="text-[12px] text-[#8A92A6] mt-1.5 px-0.5">Used as the reel&apos;s cover when it&apos;s scheduled — Instagram and Facebook.</div>
+                  </div>
+                )}
                 <div onMouseOver={() => { pasteKind.current = "reference"; }}>
                   <FilesCard icon={<IconBookmark size={15} stroke={1.8} />} title="References"
                     count={`${refImages.length} file${refImages.length === 1 ? "" : "s"} · ${refLinks.length} link${refLinks.length === 1 ? "" : "s"}`}

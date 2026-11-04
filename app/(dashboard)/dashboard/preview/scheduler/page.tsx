@@ -9,7 +9,7 @@ import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/Previ
 import { LiveIndicator } from "@/components/LiveIndicator";
 import { CreativeThumb } from "@/components/CreativeThumb";
 import { AutoTextarea } from "@/components/AutoTextarea";
-import { IconChevronRight, IconChevronLeft, IconChevronDown, IconCheck, IconCalendarEvent, IconClock, IconPlus, IconBrandMeta, IconBrandLinkedin, IconFileTypePdf, IconPhoto, IconHeart, IconMessageCircle, IconSend, IconBookmark, IconThumbUp, IconShare3, IconRepeat, IconWorld, IconAlertTriangle, IconDeviceMobile, IconDeviceTablet, IconPaperclip, IconMovie, IconFileText, IconSparkles, IconLock, IconPencil, IconTarget, IconBolt, IconWand, IconTrendingUp, IconChartBar, IconBulb, IconCircleCheck, IconArrowBackUp, IconBrandFacebook, IconTrash, IconSearch, IconLayoutSidebarRight, IconLink } from "@tabler/icons-react";
+import { IconChevronRight, IconChevronLeft, IconChevronDown, IconCheck, IconCalendarEvent, IconClock, IconPlus, IconBrandMeta, IconBrandLinkedin, IconFileTypePdf, IconPhoto, IconHeart, IconMessageCircle, IconSend, IconBookmark, IconThumbUp, IconShare3, IconRepeat, IconWorld, IconAlertTriangle, IconDeviceMobile, IconDeviceTablet, IconPaperclip, IconMovie, IconFileText, IconSparkles, IconLock, IconPencil, IconTarget, IconBolt, IconWand, IconTrendingUp, IconChartBar, IconBulb, IconCircleCheck, IconArrowBackUp, IconBrandFacebook, IconTrash, IconSearch, IconLayoutSidebarRight, IconLink, IconX } from "@tabler/icons-react";
 import { showToast } from "../Toast";
 import { LinkedInQueue } from "./LinkedInScheduler";
 import { PdfThumb, pdfPageCount } from "@/components/PdfThumb";
@@ -298,6 +298,7 @@ function Scheduler() {
   type ToScheduleItem = {
     id: string; title: string; status: string; sbu: string | null; type: string | null;
     caption: string | null; content: string | null; mediaUrls: string[]; assetLink: string | null;
+    coverUrl?: string | null;   // the reel's Thumbnail box, or its thumbnail task's image (to-schedule)
     channel: string | null; defaultPage: string; publishingDate: string | null;
     airtableRecordId?: string | null;
   };
@@ -409,7 +410,8 @@ function Scheduler() {
   function taskMedia(t: ToScheduleItem): { media: string[]; cover: string; reel: boolean } {
     const all = (t.mediaUrls || []).filter(Boolean);
     const vids = all.filter(isVideoUrl), pics = all.filter((u) => !isVideoUrl(u) && !isPdfUrl(u));
-    if (/reel/i.test(t.type || "") && vids.length === 1) return { media: vids, cover: pics[0] || "", reel: true };
+    // Cover: the task's Thumbnail box (or its thumbnail task), else the first picture (4 Nov).
+    if (/reel/i.test(t.type || "") && vids.length === 1) return { media: vids, cover: t.coverUrl || pics[0] || "", reel: true };
     return { media: all, cover: "", reel: false };
   }
   // Open the manual composer pre-filled from an Output-Ready task.
@@ -1220,6 +1222,15 @@ function Scheduler() {
   // A post's own "also as a Story" rides with it ("+ Story"), not as a second row.
   const hideCompanions = (l: ScheduledPost[]) => { const ids = new Set(l.map((p) => p.id)); return l.filter((p) => !(p.storyOf && ids.has(p.storyOf))); };
   const hasStory = (id: string) => queue.some((q) => q.storyOf === id);
+  // A story of several files is queued as one row per frame — the first, then the
+  // rest pointing back at it, a few seconds apart (lib/scheduler-enqueue syncFrames).
+  // Put back together in that order so the preview plays every frame.
+  const storyFramesOf = (p: ScheduledPost) => [
+    ...(p.mediaUrls || []),
+    ...queue.filter((q) => q.storyOf === p.id && q.format === "story")
+      .sort((a, b) => dateMs(a.scheduleTime) - dateMs(b.scheduleTime))
+      .flatMap((q) => q.mediaUrls || []),
+  ];
   const rowIso = (p: ScheduledPost) => (p.effectiveStatus === "published" ? p.publishedAt : p.effectiveStatus === "draft" ? p.updatedAt : p.scheduleTime) || p.scheduleTime || p.publishedAt || null;
   const kindOf = (p: ScheduledPost) => (p.format === "reel" ? "Reel" : p.format === "story" ? "Story" : (p.mediaUrls?.length || 0) > 1 ? "Carousel" : (p.type || "Post"));
   const dateMs = (d: string | null) => (d ? new Date(d).getTime() : Number.POSITIVE_INFINITY);
@@ -1567,7 +1578,7 @@ function Scheduler() {
                         </div>
                         <div className="min-w-0">
                           <PreviewHeader platform={previewPlatform} onPlatform={setPreviewPlatform} device={previewDevice} onDevice={setPreviewDevice} />
-                          <SocialPreview platform={previewPlatform} handle={previewHandle} name={previewName} images={previewPlatform === "linkedin" ? (pdfUrls.length ? pdfUrls : metaMediaUrls) : previewPlatform === "facebook" ? fbMedia : igMedia} caption={caption} device={previewDevice} />
+                          <SocialPreview platform={previewPlatform} handle={previewHandle} name={previewName} images={previewPlatform === "linkedin" ? (pdfUrls.length ? pdfUrls : metaMediaUrls) : format === "story" ? metaMediaUrls : previewPlatform === "facebook" ? fbMedia : igMedia} caption={caption} device={previewDevice} story={format === "story"} />
                         </div>
                       </div>
                     </div>
@@ -1605,7 +1616,8 @@ function Scheduler() {
                     </div>
                   </div>
                   <div className="sched-scroll" key={openPost.id}>
-                    <PostPreviewContent key={openPost.id} item={{ kind: "scheduled", whenMs: new Date(rowIso(openPost) || 0).getTime(), post: openPost }} />
+                    <PostPreviewContent key={openPost.id} item={{ kind: "scheduled", whenMs: new Date(rowIso(openPost) || 0).getTime(), post: openPost }}
+                      story={openPost.format === "story" ? { frames: storyFramesOf(openPost), handle: pageHandle(openPost.publishToPage) } : undefined} />
                     {(() => {
                       const i = queueShown.findIndex((x) => x.id === openPost.id);
                       const nx = listFilter === "scheduled" ? queueShown[i + 1] : undefined;
@@ -2102,7 +2114,7 @@ function Scheduler() {
           <div className="sticky top-0">
             <PreviewHeader platform={previewPlatform} onPlatform={setPreviewPlatform}
               device={previewDevice} onDevice={setPreviewDevice} />
-            <SocialPreview platform={previewPlatform} handle={previewHandle} name={previewName} images={previewPlatform === "linkedin" ? (pdfUrls.length ? pdfUrls : metaMediaUrls) : previewPlatform === "facebook" ? fbMedia : igMedia} caption={caption} device={previewDevice} />
+            <SocialPreview platform={previewPlatform} handle={previewHandle} name={previewName} images={previewPlatform === "linkedin" ? (pdfUrls.length ? pdfUrls : metaMediaUrls) : format === "story" ? metaMediaUrls : previewPlatform === "facebook" ? fbMedia : igMedia} caption={caption} device={previewDevice} story={format === "story"} />
             {/* Meta runs this while a reel processes in their own composer, under the
                 preview. Same place here — it is what you are looking at anyway, and
                 the column had dead space below the phone. */}
@@ -3045,9 +3057,10 @@ const SPLIT_CSS = `
 // The post itself — creative (slides / video), status, results, why it failed, caption,
 // links and publishing history. Used by the planner popup and the Scheduler's right
 // pane (layout B, 27 Oct), so the two never drift apart.
-function PostPreviewContent({ item }: { item: CalendarItem }) {
+function PostPreviewContent({ item, story }: { item: CalendarItem; story?: { frames: string[]; handle: string } }) {
   const isPub = item.kind === "published";
   const p = item.post as ScheduledPost & PublishedIG;
+  const asStory = !isPub && p.format === "story";
   // All slides for this post: carousels navigate slide-by-slide; videos play inline.
   const slides: string[] = isPub
     ? (p.mediaUrl ? [p.mediaUrl] : [])
@@ -3080,6 +3093,11 @@ function PostPreviewContent({ item }: { item: CalendarItem }) {
   // stretched to whatever the caption beside it needs.
   return (
     <div className="grid md:grid-cols-2 min-h-0 overflow-auto items-start">
+      {asStory ? (
+        <div className="p-4 bg-[#F6F7FB]">
+          <StoryPreview frames={story?.frames.length ? story.frames : slides} handle={(story?.handle || account).replace(/^@/, "") || "goocampus"} platform={(p.channels || []).length === 1 && p.channels![0] === "facebook" ? "facebook" : "instagram"} />
+        </div>
+      ) : (
       <div className="bg-gray-900 relative">
         {cur
           ? (
@@ -3107,6 +3125,7 @@ function PostPreviewContent({ item }: { item: CalendarItem }) {
           </>
         )}
       </div>
+      )}
       <div className="p-5 space-y-4 overflow-auto">
         <div className="flex items-center gap-2 flex-wrap">
           <span className={`text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusColor[status] || "bg-gray-100 text-gray-700"}`}>{status}</span>
@@ -4268,10 +4287,108 @@ function PdfDocPreview({ url }: { url: string }) {
   );
 }
 
-function SocialPreview({ platform, handle, name, images, caption, device = "mobile" }: {
+// A story as Instagram plays it: full-screen 9:16, one bar per frame across the
+// top, tap the left side to go back and the right to go on, each picture held five
+// seconds and each video for its length. A story of several files used to preview
+// as its first file only (Praveen, 4 Nov 2026).
+const STORY_IMAGE_MS = 5000;
+// Each brand's real profile picture, as Instagram shows it on a story — the same
+// day-cached data URIs the brand picker uses (/api/account-avatars, keyed by account
+// id, which is the handle). Fetched once per page; no picture → the platform logo.
+let storyAvatars: Promise<Record<string, string>> | null = null;
+function useStoryAvatar(handle: string): string | null {
+  const [map, setMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    storyAvatars ??= fetch("/api/account-avatars").then((r) => (r.ok ? r.json() : null)).then((j) => (j?.avatars as Record<string, string>) || {}).catch(() => ({}));
+    let live = true;
+    storyAvatars.then((m) => { if (live) setMap(m); });
+    return () => { live = false; };
+  }, []);
+  return map[handle.replace(/^@/, "")] || null;
+}
+function StoryPreview({ frames, handle, platform }: { frames: string[]; handle: string; platform: "instagram" | "facebook" }) {
+  const avatar = useStoryAvatar(handle);
+  const [idx, setIdx] = useState(0);
+  const [progress, setProgress] = useState(0);   // 0–1 through the current frame
+  const [paused, setPaused] = useState(false);
+  useEffect(() => { setIdx(0); setProgress(0); }, [frames.join("|")]);
+  const safeIdx = frames.length ? Math.min(idx, frames.length - 1) : 0;
+  const cur = frames[safeIdx] || null;
+  const video = !!cur && isVideoUrl(cur);
+  const go = (delta: number) => { setProgress(0); setIdx((i) => (i + delta + frames.length) % frames.length); };
+  // Pictures run on a clock; videos report their own progress below.
+  useEffect(() => {
+    if (!cur || video || paused) return;
+    const step = 50;
+    const t = setInterval(() => setProgress((p) => {
+      const n = p + step / STORY_IMAGE_MS;
+      if (n >= 1) { setIdx((i) => (i + 1) % frames.length); return 0; }
+      return n;
+    }), step);
+    return () => clearInterval(t);
+  }, [cur, video, paused, frames.length]);
+
+  return (
+    <div className="relative w-full max-w-[300px] mx-auto aspect-[9/16] bg-black rounded-2xl overflow-hidden select-none"
+      onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      {cur ? (
+        <>
+          {/* What isn't 9:16 sits on a blurred copy of itself, the way Instagram fills the screen. */}
+          {!video && /* eslint-disable-next-line @next/next/no-img-element */ <img src={cur} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-60" />}
+          {video
+            ? <video key={cur} src={cur} muted autoPlay playsInline className="absolute inset-0 w-full h-full object-contain"
+                onTimeUpdate={(e) => { const v = e.currentTarget; if (v.duration) setProgress(v.currentTime / v.duration); }}
+                onEnded={() => go(1)} />
+            : /* eslint-disable-next-line @next/next/no-img-element */ <img key={cur} src={cur} alt="" className="absolute inset-0 w-full h-full object-contain" />}
+        </>
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
+          <IconPhoto size={28} stroke={1.6} /><div className="text-[12.5px] font-medium mt-2">Add media to preview</div>
+        </div>
+      )}
+
+      {/* Top shade, so the bars and the name read on a white picture. */}
+      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/50 to-transparent pointer-events-none" />
+      <div className="absolute top-2 inset-x-2 flex gap-1 z-10">
+        {(frames.length ? frames : [""]).map((_, i) => (
+          <div key={i} className="flex-1 h-[2px] rounded-full bg-white/35 overflow-hidden">
+            <div className="h-full bg-white" style={{ width: `${i < safeIdx ? 100 : i === safeIdx ? progress * 100 : 0}%` }} />
+          </div>
+        ))}
+      </div>
+      <div className="absolute top-5 inset-x-3 flex items-center gap-2 z-10 text-white">
+        {avatar
+          ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={avatar} alt="" className="w-8 h-8 rounded-full object-cover flex-none" />
+          : <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-none">{platform === "facebook" ? <FacebookLogo size={32} /> : <InstagramLogo size={20} />}</span>}
+        <span className="text-[13px] font-medium truncate">{handle}</span>
+        <span className="text-[12px] text-white/70 shrink-0">now</span>
+        <span className="ml-auto text-white/90">⋯</span>
+        <IconX size={18} stroke={2} className="text-white/90" />
+      </div>
+
+      {/* Tap zones: a third on the left goes back, the rest goes on. */}
+      {frames.length > 1 && (
+        <>
+          <button type="button" aria-label="Previous story" onClick={() => go(-1)} className="absolute left-0 top-14 bottom-16 w-1/3 z-[5]" />
+          <button type="button" aria-label="Next story" onClick={() => go(1)} className="absolute right-0 top-14 bottom-16 w-2/3 z-[5]" />
+        </>
+      )}
+
+      <div className="absolute bottom-3 inset-x-3 flex items-center gap-3 z-10 text-white">
+        <div className="flex-1 h-10 rounded-full border border-white/60 px-4 flex items-center text-[13px] text-white/85">Send message</div>
+        <IconHeart size={24} stroke={1.8} />
+        <IconSend size={24} stroke={1.8} />
+      </div>
+    </div>
+  );
+}
+
+function SocialPreview({ platform, handle, name, images, caption, device = "mobile", story = false }: {
   platform: PreviewPlatform; handle: string; name: string; images: string[]; caption: string;
   /** Feed width to render at — the same two Meta offers beside their preview. */
   device?: PreviewDevice;
+  /** Drawn as a story (every file a frame) instead of a feed post. LinkedIn has no stories. */
+  story?: boolean;
 }) {
   // A phone feed and a tablet feed wrap a caption differently and crop nothing
   // the same way, which is the only reason to offer the choice at all.
@@ -4327,6 +4444,7 @@ function SocialPreview({ platform, handle, name, images, caption, device = "mobi
     </div>
   );
 
+  if (story && platform !== "linkedin") return <StoryPreview frames={images} handle={handle} platform={platform} />;
   if (platform === "facebook") {
     return (
       <div className={shell}>

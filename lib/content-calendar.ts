@@ -286,7 +286,7 @@ export async function fetchScheduledQueueFromSupabase(limit = 100): Promise<Sche
       .from("mh_attachments")
       .select("post_id, storage_path, kind")
       .in("post_id", ids)
-      .not("kind", "in", "(reference,attachment)")   // attachments are working files, never media;
+      .not("kind", "in", "(reference,attachment,thumbnail)")   // attachments are working files, never media;
       .order("sort_order", { ascending: true, nullsFirst: false })   // the order set by dragging the tiles, then
       .order("uploaded_at", { ascending: true })   // first uploaded = first slide (22 Oct)
     for (const a of (atts as { post_id: string; storage_path: string | null }[] | null) || []) {

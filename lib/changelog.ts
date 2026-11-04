@@ -33,6 +33,22 @@ export type Release = {
 export const RELEASES: Release[] = [
   {
     date: "2026-11-04",
+    title: "Stories that play like Instagram, a Thumbnail box for reels, and My Day that keeps itself up to date",
+    summary: "A story with several files now previews frame by frame like Instagram, reels get their own Thumbnail that the Scheduler uses as the cover, and My Day shows new tasks on its own with a New badge.",
+    changes: [
+      { kind: "new", what: "Story preview plays like Instagram", detail: "A story with several files used to preview only its first file. It now plays every frame full screen, with a bar per frame at the top — 5 seconds a picture, a video for its length. Click the right side to go on, the left to go back, hover to pause. The brand's own profile picture and handle sit at the top, as on Instagram.", where: "Scheduler" },
+      { kind: "new", what: "A Thumbnail box on Reel tasks", detail: "Reel tasks have a Thumbnail box in New task, My Day and the task window — one image, the reel's cover. When the reel is scheduled it opens with that cover already set. If the box is empty, the image from the reel's thumbnail task is used. Before, the cover was simply the first picture among the creatives.", where: "Marketing Hub" },
+      { kind: "new", what: "300 MB note on reel creatives", detail: "Under a reel's Creatives: keep the video under 300 MB to post on Instagram and Facebook. A bigger video turns it red, with the file's size — Instagram doesn't take it, so it would post to Facebook only.", where: "Marketing Hub" },
+      { kind: "new", what: "My Day shows new tasks on its own", detail: "A task the rules add, or a teammate creates, now appears within half a minute — no refresh needed — and straight away when you come back to the tab.", where: "My Workspace" },
+      { kind: "new", what: "\"New\" on tasks added today", detail: "A small blue New marks every task created today, whatever day it's due. It goes the next day.", where: "My Workspace" },
+      { kind: "changed", what: "Cleaner task cards in My Day", detail: "The title has its line to itself (with New and any status pill), and the due date sits on the line below, level with the type and Primary Interest chips. More room inside each card.", where: "My Workspace" },
+      { kind: "changed", what: "Workload shows the real status", detail: "The Status column says the task's own status in the Master sheet's words and colours — Content - Approved, Output - Ready and so on — instead of labels like \"Completed · in review\".", where: "My Workspace" },
+      { kind: "fixed", what: "Videos preview in New task", detail: "A video added in New task showed as a plain \"MP4\" file. It now shows a frame of the video with ▶, and the Creatives Upload button takes videos too.", where: "Marketing Hub" },
+      { kind: "new", what: "Copy task link right after creating a task", detail: "The Created message in My Day has Copy task link, and the Task created screen has the same button — paste the link to whoever picks it up.", where: "Marketing Hub" },
+    ],
+  },
+  {
+    date: "2026-11-04",
     title: "Plan with AI, date changes without approval, reels with thumbnails, and Claude connectors",
     summary: "The AI suggests better days on the Content calendar with its sources, a publish date now changes straight away with one 9 PM email to the admin, reels open with their thumbnail, a story with several files posts every frame, and Claude can do more of the routine work — with every connection listed and in your control.",
     changes: [

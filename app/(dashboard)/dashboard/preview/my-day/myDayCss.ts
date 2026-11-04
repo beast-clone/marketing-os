@@ -1215,5 +1215,12 @@ html[data-theme="dark"] .hmd .plan-bar .pb-buffer{background:#262B3C}
 .hmd .sbu-chip.lg,.hmd .type-chip.lg{font-size:12px;padding:.1rem .55rem}
 .hmd .mm:has(.sbu-chip,.type-chip),.hmd .d-sub:has(.sbu-chip,.type-chip){display:flex;align-items:center;gap:.35rem;min-width:0}
 .hmd .task > .mm{margin:.4rem 0 0}
+/* Breathing room: title and New on one line, chips and date on the next, with air between (4 Nov). */
+.hmd .task,.hmd .task.duetoday,.hmd .task.overdue{padding:.8rem .9rem}
+.hmd .task > .mm{margin:.6rem 0 0}
+.hmd .task > .mm:has(.mm-date){display:flex;align-items:center;gap:.35rem;min-width:0}
+.hmd .task > .mm .mm-date{margin-left:auto;flex:none;padding-left:.5rem}
+.hmd .reel-size{font-size:12px;color:var(--muted);margin:.35rem .15rem 0}
+.hmd .reel-size.bad{color:#C03221}
 html[data-theme="dark"] .hmd .sbu-chip{background:#2C3666;color:#93A3FF}
 `;

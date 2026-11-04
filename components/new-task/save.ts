@@ -142,12 +142,13 @@ export async function saveNewTask(draft: NewTaskDraft, writerKey: string): Promi
       body: JSON.stringify({ id: postId, actor: writerKey, fields }),
     }).catch(() => {});
   }
-  const upload = async (file: File, kind: "reference" | "creative" | "attachment") => {
+  const upload = async (file: File, kind: "reference" | "creative" | "attachment" | "thumbnail") => {
     await uploadTaskFile(postId, file, kind, writerKey).catch(() => null);
   };
   for (const f of draft.assets.refFiles) await upload(f, "reference");
   for (const f of draft.assets.outFiles) await upload(f, "creative");
   for (const f of draft.assets.attFiles || []) await upload(f, "attachment");
+  for (const f of draft.assets.thumbFiles || []) await upload(f, "thumbnail");   // a reel's cover
 
   // 3 — hand-picked collaborators, before any status move.
   if (draft.collaborators.length) {

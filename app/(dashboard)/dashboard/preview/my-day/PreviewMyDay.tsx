@@ -2,7 +2,7 @@
 import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
 import { PreviewDatePicker } from "@/app/(dashboard)/dashboard/preview/PreviewDatePicker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconSunHigh, IconLayoutGrid, IconChartBar, IconCalendarEvent, IconWand, IconBrandInstagram, IconBrandLinkedin, IconBrandYoutube, IconBrandFacebook, IconUsers, IconSpeakerphone, IconSettings, IconPencil, IconArrowsExchange, IconTrash, IconLink, IconUpload, IconPaperclip, IconPin, IconBolt, IconFileText, IconHourglass, IconArrowsSort, IconX, IconHistory, IconReport, IconCheck, IconArrowRight, IconCircleCheck } from "@tabler/icons-react";
+import { IconPhoto, IconSunHigh, IconLayoutGrid, IconChartBar, IconCalendarEvent, IconWand, IconBrandInstagram, IconBrandLinkedin, IconBrandYoutube, IconBrandFacebook, IconUsers, IconSpeakerphone, IconSettings, IconPencil, IconArrowsExchange, IconTrash, IconLink, IconUpload, IconPaperclip, IconPin, IconBolt, IconFileText, IconHourglass, IconArrowsSort, IconX, IconHistory, IconReport, IconCheck, IconArrowRight, IconCircleCheck } from "@tabler/icons-react";
 import { estimateTaskMinutes } from "@/lib/task-estimate";
 import { CONTENT_TYPES, VIDEO_TYPES as VIDEO_TYPE_SET } from "@/lib/mh-content-types";
 import { MemberHub } from "./MemberHub";
@@ -13,6 +13,7 @@ import { Overlay } from "../Overlay";
 import { confirmDialog, promptDialog } from "../ConfirmDialog";
 import { showToast } from "../Toast";
 import { uploadTaskFile, removeTaskFile, reorderTaskFiles } from "@/lib/upload-task-file";
+import { copyTaskLink } from "@/lib/task-link";
 import { useUploadQueue } from "@/lib/use-upload-queue";
 import { openRefPreview, closeRefPreview } from "@/components/RefPreview";
 import { FilesCard, type FileTile } from "@/components/FilesCard";
@@ -155,6 +156,13 @@ function matchesTab(t: { status: string; detail: { typeLine: string } }, tab: Ta
 // `today` is its own state, not a flavour of overdue: work due today is still savable,
 // work that is late already isn't. They were rendered identically, so a task you could
 // still finish looked exactly like one you had already missed.
+// Created today, on this computer's calendar (the same one `today` comes from).
+function isNewToday(t: Task, today: string): boolean {
+  const c = t.detail.createdAt ? new Date(t.detail.createdAt) : null;
+  if (!c || isNaN(c.getTime())) return false;
+  return `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, "0")}-${String(c.getDate()).padStart(2, "0")}` === today;
+}
+
 function dueInfo(due: string, today: string): { label: string; overdue: boolean; today: boolean; tomorrow?: boolean } {
   if (!due) return { label: "", overdue: false, today: false };
   const d = Math.round((new Date(due + "T00:00:00").getTime() - new Date(today + "T00:00:00").getTime()) / 86_400_000);
@@ -181,6 +189,8 @@ type Task = {
     creatives: { name: string; type: "image" | "video" | "doc"; url?: string; attId?: string }[]; // post media + uploaded assets
     references?: RefItem[];                             // links + images the team adds for context
     attachments?: CreativeItem[];                       // working files, never published (kind='attachment')
+    coverFile?: CreativeItem | null;                    // a reel's Thumbnail box (kind='thumbnail', docs/REEL_THUMBNAIL_SPEC.md)
+    coverLinked?: CreativeItem | null;                  // …or its thumbnail task's newest image, while the box is empty
     outputLink?: string;                                // the finished-creative link (Drive/Canva) — output_link
     collaborators: Person[];
     activity: { who: string; text: string; time: string }[];
@@ -524,7 +534,7 @@ function ReferencesSection({ initial, postId, uploadedBy, onSaved }: { initial: 
   );
 }
 
-type CreativeItem = { name: string; type: "image" | "video" | "doc"; url?: string; attId?: string };
+type CreativeItem = { name: string; type: "image" | "video" | "doc"; url?: string; attId?: string; size?: number };
 // PDFs as well as images and videos — "I can't add PDFs as creatives; they're greyed
 // out" (Praveen, 21 Oct). The server always took PDFs; only the picker refused them.
 const UPLOAD_ACCEPT = "image/*,video/*,.pdf,application/pdf";
@@ -532,7 +542,10 @@ const UPLOAD_ACCEPT = "image/*,video/*,.pdf,application/pdf";
 // Creatives & files — the task's post media + uploaded creative files. Upload (click
 // or drag-drop) persists to mh_attachments (kind='creative') and shows immediately;
 // click any creative to open the preview (image / carousel slideshow / video play).
-function CreativesSection({ creatives, outputLink, postId, uploadedBy, onSaved, title }: { creatives: CreativeItem[]; outputLink?: string; postId: string; uploadedBy: string; onSaved: () => void; title?: string }) {
+// Instagram takes videos up to 300 MB from outside its app; bigger goes to Facebook only.
+const IG_VIDEO_MAX = 300 * 1024 * 1024;
+const mb = (b: number) => `${Math.round(b / 1048576)} MB`;
+function CreativesSection({ creatives, outputLink, postId, uploadedBy, onSaved, title, reel }: { creatives: CreativeItem[]; outputLink?: string; postId: string; uploadedBy: string; onSaved: () => void; title?: string; reel?: boolean }) {
   const [preview, setPreview] = useState<number | null>(null);
   const [link, setLink] = useState(outputLink || "");   // the output link (Drive/Canva) — output_link
   const viewable = creatives.filter((c) => c.url && c.type !== "doc");
@@ -580,9 +593,48 @@ function CreativesSection({ creatives, outputLink, postId, uploadedBy, onSaved, 
         } : undefined}
         links={link ? [link] : []} singleLink linkPlaceholder="Paste the output link (Drive / Canva)…"
         onAddLink={(v) => saveLink(v)} onRemoveLink={() => saveLink("")} />
+      {reel && <ReelSizeNote creatives={creatives} />}
       {preview !== null && viewable.length > 0 && (
         <CreativePreview items={viewable} index={preview} onIndex={setPreview} onClose={() => setPreview(null)} />
       )}
+    </div>
+  );
+}
+
+// Under a reel's Creatives: the 300 MB rule, red with the file named once a video breaks it.
+function ReelSizeNote({ creatives }: { creatives: { name: string; type: string; size?: number }[] }) {
+  const big = creatives.filter((c) => c.type === "video" && (c.size || 0) > IG_VIDEO_MAX);
+  return big.length
+    ? <div className="reel-size bad">{big.map((c) => `${c.name} is ${mb(c.size!)}`).join(" · ")} — over 300 MB, so it will post to Facebook only. Export it under 300 MB to post on Instagram too.</div>
+    : <div className="reel-size">Keep the video under 300 MB to post on Instagram and Facebook.</div>;
+}
+
+// A reel's cover (docs/REEL_THUMBNAIL_SPEC.md): one image, which the Scheduler uses as the
+// reel's thumbnail. While it's empty, the linked thumbnail task's image stands in. A new
+// upload replaces the old one (it goes to the Recycle bin).
+function ThumbnailSection({ own, linked, postId, uploadedBy, onSaved }: { own?: CreativeItem | null; linked?: CreativeItem | null; postId: string; uploadedBy: string; onSaved: () => void }) {
+  const [preview, setPreview] = useState(false);
+  const shown = own || linked || null;
+  const q = useUploadQueue({ postId, kind: "thumbnail", uploadedBy, existing: [],   // a same-named replacement is the point, not a duplicate
+    onSaved: async () => { if (own?.attId) await removeTaskFile(own.attId, "Replaced by a new thumbnail"); onSaved(); },
+    onError: (name, msg) => showToast({ who: `Couldn't add ${name}`, body: msg, color: "#C03221", av: "!" }) });
+  const remove = async (attId: string, why?: string) => {
+    const res = await removeTaskFile(attId, why);
+    if (!res.ok) { const j = await res.json().catch(() => ({})); showToast({ who: "Couldn't remove it", body: (j as { error?: string }).error || `HTTP ${res.status}`, color: "#C03221", av: "!" }); }
+    onSaved();
+  };
+  return (
+    <div className="up-wrap">
+      <FilesCard icon={<IconPhoto size={15} stroke={1.8} />} title="Thumbnail"
+        count={own ? "the reel's cover" : linked ? "from the thumbnail task" : "the reel's cover · 1 image"}
+        accept="image/*" onFiles={(f) => q.add([...f].slice(0, 1))} busyText={q.busy ? q.status : undefined}
+        addLabel={shown ? "Replace" : "+ Add thumbnail"} addSub="one image"
+        tiles={shown ? [{ key: shown.attId || shown.url || "thumb", name: own ? shown.name : `${shown.name} (thumbnail task)`, url: shown.url, kind: "image",
+          onOpen: shown.url ? () => setPreview(true) : undefined,
+          onRemove: own?.attId ? (why) => remove(own.attId!, why) : undefined }] : []}
+        pending={q.pending} onDismiss={q.dismiss} askWhy />
+      <div className="reel-size">Used as the reel&apos;s cover when it&apos;s scheduled — Instagram and Facebook.</div>
+      {preview && shown?.url && <CreativePreview items={[shown]} index={0} onIndex={() => {}} onClose={() => setPreview(false)} />}
     </div>
   );
 }
@@ -1442,7 +1494,11 @@ function TaskBody({ task, label, onStatusChange, onSetDuration, uploadedBy, onSa
           : <Markdown value={task.detail.content || ""} />}
       </div>
 
-      <CreativesSection key={`cr-${task.id}`} title={task.title} creatives={task.detail.creatives} outputLink={task.detail.outputLink} postId={task.id} uploadedBy={uploadedBy || "maheen"} onSaved={onSaved || (() => {})} />
+      <CreativesSection key={`cr-${task.id}`} title={task.title} creatives={task.detail.creatives} outputLink={task.detail.outputLink} postId={task.id} uploadedBy={uploadedBy || "maheen"} onSaved={onSaved || (() => {})} reel={/reel/i.test(task.detail.typeLine) && !/thumbnail/i.test(task.detail.typeLine)} />
+
+      {/reel/i.test(task.detail.typeLine) && !/thumbnail/i.test(task.detail.typeLine) && (
+        <ThumbnailSection key={`th-${task.id}`} own={task.detail.coverFile} linked={task.detail.coverLinked} postId={task.id} uploadedBy={uploadedBy || "maheen"} onSaved={onSaved || (() => {})} />
+      )}
 
       <ReferencesSection key={task.id} initial={task.detail.references || []} postId={task.id} uploadedBy={uploadedBy || "maheen"} onSaved={onSaved || (() => {})} />
 
@@ -2349,6 +2405,15 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
     } catch { /* keep whatever we last had */ } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  // A task the rules add (or a teammate creates) shows up on its own — every 30s
+  // while the tab is open, and straight away on coming back to it — instead of
+  // waiting for a refresh (Praveen, 4 Nov 2026).
+  useEffect(() => {
+    const id = setInterval(() => { if (shouldPoll()) load(); }, 30_000);
+    const back = () => { if (!document.hidden) load(); };
+    document.addEventListener("visibilitychange", back);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", back); };
+  }, [load]);
 
   // "Tasks I created", loaded on its own so the range picker can reach back past the
   // main feed's 60-day window. Re-runs when the viewed person or the range changes.
@@ -2546,6 +2611,15 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
 
   // No fallback to the first row: nothing is open until the person opens something.
   const task = sel === null ? null : shownTasks[sel] || null;
+  // `sel` is a position in the list, so a task arriving on the 30s refresh would
+  // shift it onto a different task. Remember WHICH task is open, and follow it.
+  const selId = useRef<string | null>(null);
+  useEffect(() => { selId.current = sel === null ? null : shownTasks[sel]?.id ?? null; }, [sel]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!selId.current) return;
+    const i = shownTasks.findIndex((t) => t.id === selId.current);
+    if (i >= 0 && i !== sel) setSel(i);
+  }, [shownTasks]); // eslint-disable-line react-hooks/exhaustive-deps
   // A claimable video opened for a look before claiming (Nandu: "I want to open and
   // see the task"). Shown in the detail panel, read-only, with a Claim button.
   const [peekId, setPeekId] = useState<string | null>(null);
@@ -3364,13 +3438,14 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
           if (Object.keys(fields).length) {
             await fetch("/api/marketing-hub/update", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: postId, actor: person, fields }) }).catch(() => {});
           }
-          const upload = async (file: File, kind: "reference" | "creative" | "attachment") => {
+          const upload = async (file: File, kind: "reference" | "creative" | "attachment" | "thumbnail") => {
             const r = await uploadTaskFile(postId, file, kind, person);
             if (!r.ok) showToast({ who: `Couldn't add ${file.name}`, body: r.error, color: "#C03221", av: "!" });
           };
           for (const f of assets.refFiles) await upload(f, "reference");
           for (const f of assets.outFiles) await upload(f, "creative");
           for (const f of assets.attFiles || []) await upload(f, "attachment");
+          for (const f of assets.thumbFiles || []) await upload(f, "thumbnail");   // a reel's cover
         }
         // Hand-picked collaborators go on BEFORE the status move, so a Content-Approved
         // handoff never lands on a half-built team.
@@ -3394,8 +3469,10 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
             statusNote = `created, but it stayed at Content - Pending — move it to ${STATUS[status].label} from the task`;
           }
         }
-        const extras = assets ? [assets.refFiles.length + assets.refLinks.length ? "references" : "", assets.outFiles.length + (assets.outLink ? 1 : 0) ? "output" : "", assets.attFiles?.length ? "attachments" : ""].filter(Boolean).join(" + ") : "";
-        setToast({ who: "Created", color: "#3A57E8", av: PPL[person]?.av || me.av, body: `“${t.title}” added — ${statusNote}${extras ? ` · ${extras} attached` : ""}.` });
+        const extras = assets ? [assets.refFiles.length + assets.refLinks.length ? "references" : "", assets.outFiles.length + (assets.outLink ? 1 : 0) ? "output" : "", assets.attFiles?.length ? "attachments" : "", assets.thumbFiles?.length ? "thumbnail" : ""].filter(Boolean).join(" + ") : "";
+        // The new task's link, one click away — to paste to whoever picks it up (4 Nov).
+        showToast({ who: "Created", color: "#3A57E8", av: PPL[person]?.av || me.av, body: `“${t.title}” added — ${statusNote}${extras ? ` · ${extras} attached` : ""}.`,
+          ...(postId ? { action: "Copy task link", onOpen: () => { void copyTaskLink(postId).then(() => showToast({ who: "Link copied", color: "#3A57E8", av: "✓", body: "Paste it in WhatsApp or Slack." })); } } : {}) });
         load();
         loadCreated(); // the new row belongs in "Tasks I created" straight away
       })
@@ -4297,7 +4374,8 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
                         <div className="tt">{t.title}</div>
                       </div>
                       <div className="task-side">
-                        <DueChip due={t.due} today={todayStr} />
+                        {/* Added today — whatever day it's due — so a new task stands out from the rest. */}
+                        {isNewToday(t, todayStr) && <span className="pill xs" style={{ background: "#3A57E8", color: "#fff" }}>New</span>}
                         {/* The View picker already says the status; only "In progress" earns a pill. */}
                         {upNext?.id === t.id && <span className="pill xs fx-now-tag">Now open</span>}
                         {moveFx?.id === t.id && moveFx.kind === "start" && moveFx.phase === "lift"
@@ -4311,7 +4389,9 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
                     </div>
                     {/* Type and brand chips run the full card width, under the date too,
                         so the brand isn't squeezed into the title column (Praveen, 23 Oct). */}
-                    <div className="mm">{t.detail.typeLine ? <span className="type-chip">{t.detail.typeLine}</span> : t.meta}{t.detail.brand && <span className="sbu-chip">{t.detail.brand}</span>}</div>
+                    {/* The due date sits on this line, level with the chips, so the title
+                        line on top is the title and its New / status pills (Praveen, 4 Nov). */}
+                    <div className="mm">{t.detail.typeLine ? <span className="type-chip">{t.detail.typeLine}</span> : t.meta}{t.detail.brand && <span className="sbu-chip">{t.detail.brand}</span>}<span className="mm-date"><DueChip due={t.due} today={todayStr} /></span></div>
                     {moveFx?.id === t.id && moveFx.kind === "start" && moveFx.phase === "landed" && (
                       <div className="fx-moved"><IconArrowRight size={13} stroke={2} /> Moved to In progress · timer running</div>
                     )}
@@ -4978,14 +5058,7 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
 // Copy link: it opens the task in the Master sheet.
 function CopyTaskLink({ id }: { id: string }) {
   const [done, setDone] = useState(false);
-  const copy = async () => {
-    const href = `${window.location.origin}/dashboard/preview/marketing-hub?tab=master&open=${id}`;
-    try { await navigator.clipboard.writeText(href); } catch {
-      const t = document.createElement("textarea"); t.value = href; t.style.position = "fixed"; t.style.opacity = "0";
-      document.body.appendChild(t); t.select(); try { document.execCommand("copy"); } catch { /* copied by hand */ } document.body.removeChild(t);
-    }
-    setDone(true); setTimeout(() => setDone(false), 2000);
-  };
+  const copy = async () => { await copyTaskLink(id); setDone(true); setTimeout(() => setDone(false), 2000); };
   return (
     <button type="button" className={`btn sm hist-btn ${done ? "on" : ""}`} onClick={copy} title="Copy a link to this task — paste it in WhatsApp or Slack">
       {done ? <IconCheck size={14} stroke={2} /> : <IconLink size={14} stroke={1.8} />} {done ? "Copied" : "Copy task link"}

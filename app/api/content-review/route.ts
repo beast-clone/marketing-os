@@ -47,7 +47,7 @@ export async function GET() {
         .in("post_id", ids)
         .order("sort_order", { ascending: true, nullsFirst: false })   // the order set by dragging the tiles
         .order("uploaded_at", { ascending: true })
-        .not("kind", "in", "(reference,attachment)")   // attachments are working files, never media;
+        .not("kind", "in", "(reference,attachment,thumbnail)")   // attachments are working files, never media;
       for (const a of atts || []) {
         if (!a.storage_path) continue;
         const arr = attByPost.get(a.post_id) || [];
