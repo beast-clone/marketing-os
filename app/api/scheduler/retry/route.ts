@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSection, requireSchedulerPost } from "@/lib/api-guard";
-import { NOT_PUBLISHING, notUpdated, freshPublishState } from "@/lib/scheduler-lock";
+import { notUpdated } from "@/lib/scheduler-lock";
+import { retryPost } from "@/lib/scheduler-actions";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
 
@@ -26,15 +27,7 @@ export async function POST(req: Request) {
     // Like Publish now on a failed post: a fresh upload and try count (the old failed
     // upload is what made a retried reel fail again at once), never while it's being
     // sent, and what already went out stays marked so it isn't posted twice.
-    const { data: cur } = await sb.from("mh_posts").select("custom").eq("id", body.recordId).maybeSingle();
-    const { data, error } = await sb
-      .from("mh_posts")
-      .update({ publish_status: "scheduled", failure_reason: null, custom: freshPublishState(cur?.custom) })
-      .eq("id", body.recordId)
-      .or(NOT_PUBLISHING)
-      .select("id");
-    if (error) throw new Error(error.message);
-    if (!data?.length) return notUpdated(sb, body.recordId);
+    if (!(await retryPost(sb, body.recordId))) return notUpdated(sb, body.recordId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(safeError(err, "Retry failed"), { status: 502 });

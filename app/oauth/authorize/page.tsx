@@ -81,16 +81,13 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Pa
       <div className="mt-5 rounded-xl border border-gray-100 bg-[#F6F7FB] p-4">
         <p className="text-[12px] font-semibold text-[#8A92A6] uppercase tracking-wider mb-2">It will be able to</p>
         <ul className="space-y-1.5">
-          <Li yes>Create tasks on the content board</Li>
-          <Li yes>Read tasks, search them, see what&apos;s due or overdue</Li>
-          <Li yes>Change status, dates, priority, owner and copy</Li>
-          <Li yes>Read what Content Radar has found</Li>
+          <Li yes>Read tasks, the Scheduler queue and Content Radar; comment on tasks</Li>
+          <Li yes>Create, edit, schedule and delete tasks — only what an admin has switched on for you (Team &amp; access → Connectors)</Li>
         </ul>
         <p className="text-[12px] font-semibold text-[#8A92A6] uppercase tracking-wider mt-3.5 mb-2">It will not be able to</p>
         <ul className="space-y-1.5">
-          <Li>Delete anything — there is no such tool</Li>
+          <Li>Erase anything for good — deleted tasks go to the recycle bin, with a reason</Li>
           <Li>Move a task to a different Primary Interest</Li>
-          <Li>Publish posts — unless an admin has switched on Publish from Claude for you</Li>
           <Li>See your password, or act as anyone else</Li>
         </ul>
       </div>

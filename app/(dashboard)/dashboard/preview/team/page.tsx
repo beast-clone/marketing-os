@@ -2,12 +2,12 @@
 import { useEffect, useState } from "react";
 import {
   IconUsersGroup, IconKey, IconMail, IconCheck, IconUserPlus, IconAlertTriangle,
-  IconLayoutGrid, IconClockHour4, IconChecklist, IconCalendarEvent, IconIdBadge2, IconLock, IconSend,
+  IconLayoutGrid, IconClockHour4, IconChecklist, IconCalendarEvent, IconIdBadge2, IconLock, IconSend, IconPlugConnected,
 } from "@tabler/icons-react";
 import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/PreviewDashboardShell";
 import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
 import { usePublishPages } from "@/lib/use-publish-pages";
-import { CAPABILITIES, DATE_APPROVAL_RULE, DATE_REASON_RULE, TABS, TASK_ACTIONS, canConnectClaude, canPublishFromClaude, hasCapability, needsDateApproval, needsDateReason, canEditCalendar, type Capability } from "@/lib/permissions";
+import { CAPABILITIES, DATE_APPROVAL_RULE, DATE_REASON_RULE, TABS, TASK_ACTIONS, canConnectClaude, canClaude, hasCapability, needsDateApproval, needsDateReason, canEditCalendar, type Capability } from "@/lib/permissions";
 
 type Member = {
   id: string;
@@ -32,7 +32,7 @@ type WorkRole = "writer" | "designer" | "editor" | "manager";
 const WORK_ROLES: { v: WorkRole; label: string }[] = [
   { v: "writer", label: "Writer" }, { v: "designer", label: "Designer" }, { v: "editor", label: "Editor" }, { v: "manager", label: "Manager" },
 ];
-type Perm = Record<string, unknown> & { tabs?: Record<string, boolean>; scheduler_pages?: string[]; task_access?: "full" | "partial"; calendar_edit?: boolean; date_needs_approval?: boolean; date_needs_reason?: boolean; manage_access?: boolean; claude_publish?: boolean };
+type Perm = Record<string, unknown> & { tabs?: Record<string, boolean>; scheduler_pages?: string[]; task_access?: "full" | "partial"; calendar_edit?: boolean; date_needs_approval?: boolean; date_needs_reason?: boolean; manage_access?: boolean; claude_publish?: boolean; claude_create?: boolean; claude_edit?: boolean; claude_delete?: boolean };
 type AccessReq = { id: string; from: string; fromName: string; text: string; at: string };
 
 export default function TeamPage() {
@@ -388,14 +388,35 @@ function PersonEditor({ m, team, busy, viewerId, onSave, onAction }: { m: Member
             ))}
           </div>
         ) : <div className="text-[12.5px] text-[#8A92A6]">{CAPABILITIES.filter((c) => TASK_ACTIONS.includes(c.key)).map((c) => c.label).join(" · ")}</div>}
-        <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-gray-50">
-          <div><div className="text-[13px] text-[#232D42]">Connect Claude</div><div className="text-[12px] text-[#8A92A6]">Create tasks from Claude with a personal key (My Account).</div></div>
-          <Toggle checked={canConnectClaude({ isAdmin: d.isAdmin, permissions: d.permissions as never })} disabled={busy} label="Connect Claude" onChange={(v) => setPerm({ claude_connector: v })} />
-        </div>
-        <div className="flex items-center justify-between gap-3 mt-3">
-          <div><div className="text-[13px] text-[#232D42]">Publish from Claude</div><div className="text-[12px] text-[#8A92A6]">{canConnectClaude({ isAdmin: d.isAdmin, permissions: d.permissions as never }) ? "Claude can schedule a ready post or publish it now — only to their Scheduler pages." : "Needs Connect Claude to be on first."}</div></div>
-          <Toggle checked={canPublishFromClaude({ isAdmin: d.isAdmin, permissions: d.permissions as never })} disabled={busy || !canConnectClaude({ isAdmin: d.isAdmin, permissions: d.permissions as never })} label="Publish from Claude" onChange={(v) => setPerm({ claude_publish: v })} />
-        </div>
+      </Section>
+
+      {/* Everything Claude may do for this person, in one place (Praveen, 4 Nov 2026).
+          Each switch also needs the matching permission above. */}
+      <Section icon={<IconPlugConnected size={16} stroke={1.8} />} title="Connectors" hint="What Claude (Claude app, claude.ai, Claude Code) may do for them. Each also needs the matching task permission above.">
+        {(() => {
+          const u = { isAdmin: d.isAdmin, permissions: d.permissions as never };
+          const on = canConnectClaude(u);
+          const rows: { key: string; label: string; desc: string; checked: boolean; needs?: string }[] = [
+            { key: "claude_create", label: "Create tasks", desc: "Make new tasks on the board.", checked: canClaude(u, "create"), needs: hasCapability(u, "create_tasks") ? undefined : "Needs Create tasks." },
+            { key: "claude_edit", label: "Edit tasks", desc: "Status, dates, owner, caption, content, collaborators. Date moves follow the approval rules.", checked: canClaude(u, "edit"), needs: hasCapability(u, "edit_tasks") ? undefined : "Needs Edit tasks." },
+            { key: "claude_publish", label: "Schedule & publish", desc: "Schedule, reschedule, unschedule, retry or publish now — only to their Scheduler pages.", checked: canClaude(u, "publish") },
+            { key: "claude_delete", label: "Delete tasks", desc: "To the recycle bin only, one or many, and only with a reason. Can restore from the bin.", checked: canClaude(u, "delete"), needs: hasCapability(u, "delete_tasks") ? undefined : "Needs Delete tasks." },
+          ];
+          return (
+            <div className="divide-y divide-gray-50">
+              <div className="flex items-center justify-between gap-3 py-2">
+                <div><div className="text-[13px] text-[#232D42]">Connect Claude</div><div className="text-[12px] text-[#8A92A6]">They can connect Claude to the dashboard (System → Connectors).</div></div>
+                <Toggle checked={on} disabled={busy} label="Connect Claude" onChange={(v) => setPerm({ claude_connector: v })} />
+              </div>
+              {rows.map((r) => (
+                <div key={r.key} className="flex items-center justify-between gap-3 py-2 pl-4">
+                  <div><div className="text-[13px] text-[#232D42]">{r.label}</div><div className="text-[12px] text-[#8A92A6]">{!on ? "Needs Connect Claude to be on first." : r.needs || r.desc}</div></div>
+                  <Toggle checked={r.checked} disabled={busy || !on || !!r.needs} label={r.label} onChange={(v) => setPerm({ [r.key]: v })} />
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </Section>
 
       <Section icon={<IconCalendarEvent size={16} stroke={1.8} />} title="Calendar & dates">

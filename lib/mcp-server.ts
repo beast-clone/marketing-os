@@ -6,9 +6,9 @@ import { rosterById, fetchRoster, activeTeamIds } from "@/lib/team-db";
 import { SBU_OPTIONS } from "@/lib/sbus";
 import { fetchSbus } from "@/lib/sbus-db";
 import { CONTENT_TYPES, ALL_TYPES } from "@/lib/mh-content-types";
-import { hasCapability } from "@/lib/permissions";
+import { canClaude } from "@/lib/permissions";
 import { createTask, normalizeOwner } from "@/lib/task-create";
-import { listTasks, getTask, searchTasks, updateTask, whatsDue, listRadar, schedulePost } from "@/lib/mcp-tools";
+import { listTasks, getTask, searchTasks, updateTask, whatsDue, listRadar, schedulePost, deleteTasks, listRecycleBin, restoreTasks, listQueue, unscheduleTool, rescheduleTool, retryTool, setCollaborators, addComment } from "@/lib/mcp-tools";
 import { fetchContentTypes } from "@/lib/content-types-db";
 
 // The Claude connector, protocol and all.
@@ -145,6 +145,85 @@ const TOOLS = [
     },
   },
   {
+    name: "delete_tasks",
+    title: "Delete tasks (to the recycle bin)",
+    description:
+      "Move one or more tasks to the recycle bin. A reason is REQUIRED — ask the user why before calling; without one nothing is deleted. " +
+      "Nothing is erased: they can be restored with restore_tasks. Only for people with Connectors → Delete tasks switched on. " +
+      "Name the task(s) back to the user and get a clear yes first, especially for several at once.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ids: { type: "array", items: { type: "string" }, description: "Task ids (1-50). Find them with search_tasks or list_tasks first." },
+        reason: { type: "string", description: "Why they're being deleted — saved in the task's history." },
+      },
+      required: ["ids", "reason"], additionalProperties: false,
+    },
+  },
+  {
+    name: "list_recycle_bin",
+    title: "See the recycle bin",
+    description: "Recently deleted tasks: title, who deleted it, when and why. Use it to find ids for restore_tasks.",
+    inputSchema: { type: "object", properties: { limit: { type: "number", description: "1-50, default 20." } }, additionalProperties: false },
+  },
+  {
+    name: "restore_tasks",
+    title: "Restore tasks from the recycle bin",
+    description: "Bring deleted tasks back, exactly as they were. Same permission as delete_tasks.",
+    inputSchema: { type: "object", properties: { ids: { type: "array", items: { type: "string" } } }, required: ["ids"], additionalProperties: false },
+  },
+  {
+    name: "list_queue",
+    title: "See the Scheduler queue",
+    description: "Posts in the Scheduler by status — scheduled (default, soonest first), published (newest first), failed or draft — with page, format, time (India) and any failure reason.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        status: { type: "string", enum: ["scheduled", "published", "failed", "draft"] },
+        limit: { type: "number", description: "1-100, default 30." },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "unschedule_post",
+    title: "Take a post out of the queue",
+    description: "Remove a scheduled (or failed) post from the queue; it goes back to Ready to schedule, nothing is deleted. Its Story / extra story frames go with it. Needs Connectors → Schedule & publish and the page in their Scheduler pages. Confirm with the user first.",
+    inputSchema: { type: "object", properties: { id: { type: "string" }, reason: { type: "string", description: "Optional — saved in the history." } }, required: ["id"], additionalProperties: false },
+  },
+  {
+    name: "reschedule_post",
+    title: "Move a queued post to a new time",
+    description: "Change when a scheduled (or failed) post goes out. when: \"YYYY-MM-DD HH:mm\" in India time. Story frames move with it. Same permission as schedule_post. Confirm the new time with the user first.",
+    inputSchema: { type: "object", properties: { id: { type: "string" }, when: { type: "string" } }, required: ["id", "when"], additionalProperties: false },
+  },
+  {
+    name: "retry_post",
+    title: "Retry a failed post",
+    description: "Send a failed post again (like the Scheduler's Try again). Check failure in list_queue first — if the creative itself is the problem, fix it before retrying.",
+    inputSchema: { type: "object", properties: { id: { type: "string" } }, required: ["id"], additionalProperties: false },
+  },
+  {
+    name: "set_collaborators",
+    title: "Add or remove collaborators on a task",
+    description: "Teammates working on a task alongside its owner. Needs Connectors → Edit tasks.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string" },
+        add: { type: "array", items: { type: "string", enum: [...TEAM] } },
+        remove: { type: "array", items: { type: "string", enum: [...TEAM] } },
+      },
+      required: ["id"], additionalProperties: false,
+    },
+  },
+  {
+    name: "add_comment",
+    title: "Comment on a task",
+    description: "Add a comment to a task's thread, under the user's own name.",
+    inputSchema: { type: "object", properties: { id: { type: "string" }, text: { type: "string" } }, required: ["id", "text"], additionalProperties: false },
+  },
+  {
     name: "whats_due",
     title: "What is due, and what is overdue",
     description: "Tasks with a publishing date on or before N days from today (IST), split into overdue and due. Anything already published or ready to publish is left out.",
@@ -165,7 +244,7 @@ const TOOLS = [
 // What each tool needs when the caller is a connector (lib/connectors). People are
 // checked by their own permissions instead; scopes is undefined for them.
 const TOOL_SCOPE: Record<string, Scope> = {
-  list_tasks: "read", get_task: "read", search_tasks: "read", whats_due: "read",
+  list_tasks: "read", get_task: "read", search_tasks: "read", whats_due: "read", list_queue: "read",
   create_task: "create", update_task: "update", list_radar: "radar",
 };
 const DATE_FIELDS = ["publishing_date", "due_date"];
@@ -185,8 +264,8 @@ async function liveTools(scopes?: Scope[]) {
 
 async function createOne(id: Rpc["id"], userId: string, args: Record<string, unknown>, origin: string, via?: string, scopes?: Scope[]) {
   const me = await rosterById(userId);
-  if (!scopes && !hasCapability(me, "create_tasks")) {
-    return say(id, "You don't have permission to create tasks in the dashboard. Ask an admin (Team page → Create tasks).", true);
+  if (!scopes && !canClaude(me, "create")) {
+    return say(id, "Creating tasks from Claude isn't switched on for you. Ask an admin (Team & access → Connectors → Create tasks).", true);
   }
   const s = (k: string) => (typeof args[k] === "string" ? (args[k] as string).trim() : "");
   const title = s("title"), sbu = s("primary_interest"), type = s("content_type"), date = s("publishing_date");
@@ -238,12 +317,21 @@ async function callTool(id: Rpc["id"], userId: string, name: string, args: Recor
     case "list_radar":   return json(id, await listRadar(args));
     case "update_task": {
       const me = await rosterById(userId);
-      if (!scopes && !hasCapability(me, "create_tasks")) {
-        return say(id, "You don't have permission to change tasks in the dashboard. Ask an admin (Team page → Create tasks).", true);
+      if (!scopes && !canClaude(me, "edit")) {
+        return say(id, "Editing tasks from Claude isn't switched on for you. Ask an admin (Team & access → Connectors → Edit tasks).", true);
       }
       const res = await updateTask(args, userId, origin, via);
       return say(id, `Changed ${res.updated.join(", ")} on “${res.task.title}”.\n${res.task.link}\n\n${JSON.stringify(res.task, null, 1)}`);
     }
+    case "delete_tasks":     return json(id, await deleteTasks(args, userId, via));
+    case "list_recycle_bin": return json(id, await listRecycleBin(args));
+    case "restore_tasks":    return json(id, await restoreTasks(args, userId));
+    case "list_queue":       return json(id, await listQueue(args));
+    case "unschedule_post":  return say(id, await unscheduleTool(args, userId));
+    case "reschedule_post":  return say(id, await rescheduleTool(args, userId));
+    case "retry_post":       return say(id, await retryTool(args, userId));
+    case "set_collaborators": return say(id, await setCollaborators(args, userId));
+    case "add_comment":      return say(id, await addComment(args, userId));
     case "schedule_post": {
       const res = await schedulePost(args, userId, via);
       return say(id, `${res.message}\n“${res.title}” · ${res.format}`);

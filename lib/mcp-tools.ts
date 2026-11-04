@@ -5,7 +5,10 @@ import { ALL_TYPES } from "@/lib/mh-content-types";
 import { SBU_OPTIONS } from "@/lib/sbus";
 import { listItems } from "@/lib/content-radar";
 import { rosterById } from "@/lib/team-db";
-import { needsDateApproval, needsDateReason, canPublishFromClaude, maySchedulePage } from "@/lib/permissions";
+import { needsDateApproval, needsDateReason, canPublishFromClaude, canClaude, maySchedulePage } from "@/lib/permissions";
+import { trashTasks, restoreTasks as restoreFromBin } from "@/lib/task-trash";
+import { unschedulePost, reschedulePost, retryPost } from "@/lib/scheduler-actions";
+import { activeTeamIds } from "@/lib/team-db";
 import { enqueuePost } from "@/lib/scheduler-enqueue";
 import { pageForSbu } from "@/lib/sbu-pages";
 import { requestDateChange, supersedeDateChange } from "@/lib/date-approvals";
@@ -312,15 +315,7 @@ export async function schedulePost(args: Record<string, unknown>, userId: string
   const notMine = pages.filter((p) => !maySchedulePage(me, p));
   if (notMine.length) throw new Error(`You can't post to ${notMine.join(", ")} — it isn't in your Scheduler pages on Team & access.`);
 
-  // "now", or a date and time in India (UTC+5:30) unless it carries its own offset.
-  let scheduleTimeISO = "";
-  if (whenRaw.toLowerCase() !== "now") {
-    const m = whenRaw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})$/);
-    const t = m ? Date.parse(`${m[1]}T${m[2].padStart(2, "0")}:${m[3]}:00+05:30`) : Date.parse(whenRaw);
-    if (!Number.isFinite(t)) throw new Error("when must be \"now\" or like \"2026-11-05 18:30\" (India time).");
-    if (t < Date.now() + 60_000) throw new Error("That time has passed — use \"now\" to post straight away, or a later time.");
-    scheduleTimeISO = new Date(t).toISOString();
-  }
+  const scheduleTimeISO = whenRaw.toLowerCase() === "now" ? "" : parseWhen(whenRaw);
 
   const res = await enqueuePost(sb(), {
     taskId: id, particulars: post.particulars || "Post", pages, publishToPage: pages[0],
@@ -340,4 +335,165 @@ export async function schedulePost(args: Record<string, unknown>, userId: string
       ? `Queued to publish now to ${pages.join(", ")} — it goes live within a couple of minutes.`
       : `Scheduled for ${at} (India time) on ${pages.join(", ")}.`,
   };
+}
+
+/** A date and time in India (UTC+5:30) unless it carries its own offset; must be ahead. */
+function parseWhen(whenRaw: string): string {
+  const m = whenRaw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})$/);
+  const t = m ? Date.parse(`${m[1]}T${m[2].padStart(2, "0")}:${m[3]}:00+05:30`) : Date.parse(whenRaw);
+  if (!Number.isFinite(t)) throw new Error("when must be \"now\" or like \"2026-11-05 18:30\" (India time).");
+  if (t < Date.now() + 60_000) throw new Error("That time has passed — use \"now\" to post straight away, or a later time.");
+  return new Date(t).toISOString();
+}
+
+const ist = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : null);
+const idsFrom = (args: Record<string, unknown>, max: number): string[] => {
+  const raw = Array.isArray(args.ids) ? args.ids : typeof args.id === "string" ? [args.id] : [];
+  const ids = [...new Set((raw as unknown[]).filter((x): x is string => typeof x === "string" && !!x.trim()).map((x) => x.trim()))];
+  if (!ids.length) throw new Error("Give the task id(s) — find them with search_tasks first.");
+  if (ids.length > max) throw new Error(`At most ${max} at a time.`);
+  return ids;
+};
+
+/* ------------------------------------------------- delete / restore (4 Nov 2026)
+ * Recycle bin only — never erased — and never without a reason, which is saved in the
+ * task's history before it moves (so it's there again if the task is restored). Needs
+ * "Delete tasks" on Team & access → Connectors and the Delete tasks permission. */
+export async function deleteTasks(args: Record<string, unknown>, userId: string, via?: string) {
+  const me = await rosterById(userId);
+  if (!canClaude(me, "delete")) throw new Error("Deleting from Claude isn't switched on for you. An admin can turn on Connectors → Delete tasks on Team & access.");
+  const reason = typeof args.reason === "string" ? args.reason.trim() : "";
+  if (reason.length < 3) throw new Error("A reason is required to delete — ask the user why, then pass it as `reason`. Nothing was deleted.");
+  const ids = idsFrom(args, 50);
+  const { data: rows } = await sb().from("mh_posts").select("id, particulars, publish_status").in("id", ids);
+  const found = (rows || []) as { id: string; particulars: string | null; publish_status: string | null }[];
+  const busy = found.filter((r) => r.publish_status === "publishing").map((r) => r.id);
+  const go = found.filter((r) => !busy.includes(r.id)).map((r) => r.id);
+  for (const id of go) {
+    await sb().from("mh_activity").insert({ post_id: id, actor_key: userId, action: "deleted", detail: { reason: reason.slice(0, 500), source: "claude-connector", ...(via ? { via } : {}) } }).then(() => {}, () => {});
+  }
+  const out = go.length ? await trashTasks(sb(), go, userId) : { done: [] as string[], missing: [] as string[], failed: [] as { id: string; error: string }[] };
+  bustMarketingHubCache();
+  const title = (id: string) => found.find((r) => r.id === id)?.particulars || id;
+  return {
+    moved_to_recycle_bin: out.done.map(title),
+    not_found: [...ids.filter((id) => !found.some((r) => r.id === id)), ...out.missing],
+    being_published_now: busy.map(title),
+    failed: out.failed.map((f) => `${title(f.id)}: ${f.error}`),
+    reason,
+  };
+}
+
+export async function listRecycleBin(args: Record<string, unknown>) {
+  const limit = Math.min(Math.max(Number(args.limit) || 20, 1), 50);
+  const { data } = await sb().from("mh_posts_trash").select("id, particulars, deleted_by, deleted_at, activity")
+    .is("purged_at", null).order("deleted_at", { ascending: false }).limit(limit);
+  return { count: (data || []).length, items: ((data || []) as { id: string; particulars: string | null; deleted_by: string | null; deleted_at: string; activity: { action?: string; detail?: { reason?: string } }[] | null }[]).map((r) => ({
+    id: r.id, title: r.particulars, deleted_by: r.deleted_by, deleted_at: ist(r.deleted_at),
+    reason: [...(r.activity || [])].reverse().find((a) => a.action === "deleted" && a.detail?.reason)?.detail?.reason || null,
+  })) };
+}
+
+export async function restoreTasks(args: Record<string, unknown>, userId: string) {
+  const me = await rosterById(userId);
+  if (!canClaude(me, "delete")) throw new Error("Restoring from the recycle bin needs Connectors → Delete tasks on Team & access.");
+  const ids = idsFrom(args, 50);
+  const out = await restoreFromBin(sb(), ids, userId);
+  bustMarketingHubCache();
+  return { restored: out.done, not_in_bin: out.missing, failed: out.failed.map((f) => `${f.id}: ${f.error}`) };
+}
+
+/* -------------------------------------------- the Scheduler queue (4 Nov 2026) */
+const QUEUE_COLS = "id, particulars, type, publish_status, schedule_time, publish_to_pages, failure_reason, custom";
+export async function listQueue(args: Record<string, unknown>) {
+  const want = typeof args.status === "string" && ["scheduled", "published", "failed", "draft"].includes(args.status) ? args.status : "scheduled";
+  const limit = Math.min(Math.max(Number(args.limit) || 30, 1), 100);
+  let q = sb().from("mh_posts").select(QUEUE_COLS).eq("publish_status", want);
+  q = want === "published" ? q.order("schedule_time", { ascending: false }) : q.order("schedule_time", { ascending: true });
+  const { data } = await q.limit(limit);
+  return { status: want, count: (data || []).length, posts: ((data || []) as Record<string, unknown>[]).map((r) => {
+    const c = (r.custom || {}) as Record<string, unknown>;
+    return {
+      id: r.id, title: r.particulars, format: c.publish_format || "post", pages: r.publish_to_pages,
+      when: ist(r.schedule_time as string | null), status: r.publish_status,
+      ...(c.frame ? { story_frame_of: c.story_of, frame: c.frame } : c.story_of ? { story_of: c.story_of } : {}),
+      ...(r.failure_reason ? { failure: r.failure_reason } : {}),
+    };
+  }) };
+}
+
+// A queued post this person may act on: Schedule & publish switched on, and every page
+// it goes to is one of their Scheduler pages.
+async function queuedPostFor(userId: string, id: string) {
+  const me = await rosterById(userId);
+  if (!canPublishFromClaude(me)) throw new Error("Scheduling from Claude isn't switched on for you. An admin can turn on Connectors → Schedule & publish on Team & access.");
+  if (!id) throw new Error("id is required — find it with list_queue first.");
+  const { data: post } = await sb().from("mh_posts").select("id, particulars, publish_status, schedule_time, publish_to_pages").eq("id", id).maybeSingle();
+  if (!post) throw new Error("No post with that id.");
+  const pages = (post.publish_to_pages as string[] | null) || [];
+  const notMine = pages.filter((p) => !maySchedulePage(me, p));
+  if (notMine.length) throw new Error(`You can't change posts for ${notMine.join(", ")} — it isn't in your Scheduler pages.`);
+  if (post.publish_status === "publishing") throw new Error("It's being published right now — try again in a minute.");
+  if (post.publish_status === "published") throw new Error("That post has already been published.");
+  return post;
+}
+
+export async function unscheduleTool(args: Record<string, unknown>, userId: string) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const post = await queuedPostFor(userId, id);
+  if (!post.publish_status) throw new Error("It isn't in the queue.");
+  const reason = typeof args.reason === "string" ? args.reason : undefined;
+  if (!(await unschedulePost(sb(), id, userId, reason))) throw new Error("It couldn't be taken out — it may be publishing right now.");
+  return `Took “${post.particulars}” out of the queue — it's back in Ready to schedule.`;
+}
+
+export async function rescheduleTool(args: Record<string, unknown>, userId: string) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const whenRaw = typeof args.when === "string" ? args.when.trim() : "";
+  if (!whenRaw || whenRaw.toLowerCase() === "now") throw new Error("when must be a date and time like \"2026-11-05 18:30\" (India time). To post now, use schedule_post with when \"now\".");
+  const post = await queuedPostFor(userId, id);
+  if (!post.publish_status) throw new Error("It isn't in the queue yet — use schedule_post to schedule it.");
+  const iso = parseWhen(whenRaw);
+  if (!(await reschedulePost(sb(), id, iso))) throw new Error("It couldn't be moved — it may be publishing right now.");
+  return `Moved “${post.particulars}” from ${ist(post.schedule_time as string | null) || "no time"} to ${ist(iso)} (India time).`;
+}
+
+export async function retryTool(args: Record<string, unknown>, userId: string) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const post = await queuedPostFor(userId, id);
+  if (post.publish_status !== "failed") throw new Error(`Only a failed post can be retried — this one is "${post.publish_status || "not queued"}".`);
+  if (!(await retryPost(sb(), id))) throw new Error("It couldn't be retried — it may be publishing right now.");
+  return `Retrying “${post.particulars}” — the publisher picks it up within a minute.`;
+}
+
+/* ---------------------------------------- collaborators and comments (4 Nov 2026) */
+export async function setCollaborators(args: Record<string, unknown>, userId: string) {
+  const me = await rosterById(userId);
+  if (!canClaude(me, "edit")) throw new Error("Editing tasks from Claude isn't switched on for you (Team & access → Connectors → Edit tasks).");
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  if (!id) throw new Error("id is required.");
+  const team = await activeTeamIds();
+  const list = (k: string) => (Array.isArray(args[k]) ? (args[k] as unknown[]).filter((x): x is string => typeof x === "string").map((x) => x.toLowerCase().trim()) : []);
+  const add = list("add"), remove = list("remove");
+  const bad = [...add, ...remove].filter((k) => !team.has(k));
+  if (bad.length) throw new Error(`Not on the team: ${bad.join(", ")}. Use one of: ${[...team].join(", ")}.`);
+  if (!add.length && !remove.length) throw new Error("Say who to add and/or remove.");
+  const { data: post } = await sb().from("mh_posts").select("particulars").eq("id", id).maybeSingle();
+  if (!post) throw new Error("No task with that id.");
+  if (add.length) { const { error } = await sb().from("mh_post_collaborators").upsert(add.map((k) => ({ post_id: id, member_key: k })), { onConflict: "post_id,member_key", ignoreDuplicates: true }); if (error) throw new Error(error.message); }
+  if (remove.length) { const { error } = await sb().from("mh_post_collaborators").delete().eq("post_id", id).in("member_key", remove); if (error) throw new Error(error.message); }
+  const { data: now } = await sb().from("mh_post_collaborators").select("member_key").eq("post_id", id);
+  bustMarketingHubCache();
+  return `Collaborators on “${post.particulars}” are now: ${((now || []) as { member_key: string }[]).map((r) => r.member_key).join(", ") || "nobody"}.`;
+}
+
+export async function addComment(args: Record<string, unknown>, userId: string) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const text = typeof args.text === "string" ? args.text.trim() : "";
+  if (!id || !text) throw new Error("id and text are required.");
+  const { data: post } = await sb().from("mh_posts").select("particulars").eq("id", id).maybeSingle();
+  if (!post) throw new Error("No task with that id.");
+  const { error } = await sb().from("mh_comments").insert({ post_id: id, author_key: userId, body: text.slice(0, 4000) });
+  if (error) throw new Error(error.message);
+  return `Comment added to “${post.particulars}” as ${userId}.`;
 }

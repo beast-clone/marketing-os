@@ -40,6 +40,12 @@ export type Permissions = Partial<Record<Capability, boolean>> & {
   /** Claude may schedule and publish posts for them (to their Scheduler pages only).
    *  Off unless switched on, for admins too (Praveen, 3 Nov 2026). */
   claude_publish?: boolean;
+  /** What Claude may do for them, one switch each (Team & access → Connectors, Praveen
+   *  4 Nov 2026). Create and edit default on (they always could); delete is off unless
+   *  switched on. Each also needs the matching dashboard permission. */
+  claude_create?: boolean;
+  claude_edit?: boolean;
+  claude_delete?: boolean;
   // Everything below is a switch on Team & access — nothing is fixed per person in
   // code (Praveen, 22 Oct). Unset always means "behave as before".
   /** "full" = every task action; "partial" = only the ticked capabilities. Applies to
@@ -112,9 +118,22 @@ export function canConnectClaude(user: { isAdmin?: boolean; active?: boolean; pe
   return user.isAdmin ? v !== false : v === true;
 }
 
+/** What Claude may do for someone: their Connectors switch AND the matching dashboard
+ *  permission (create → Create tasks, edit → Edit tasks, delete → Delete tasks;
+ *  publish also stays inside their Scheduler pages, checked where it's used). */
+export type ClaudeAction = "create" | "edit" | "publish" | "delete";
+export function canClaude(user: { isAdmin?: boolean; active?: boolean; permissions?: Permissions } | null | undefined, action: ClaudeAction): boolean {
+  if (!canConnectClaude(user)) return false;
+  const p = user?.permissions || {};
+  if (action === "create") return p.claude_create !== false && hasCapability(user, "create_tasks");
+  if (action === "edit") return p.claude_edit !== false && hasCapability(user, "edit_tasks");
+  if (action === "delete") return p.claude_delete === true && hasCapability(user, "delete_tasks");
+  return p.claude_publish === true;
+}
+
 /** May Claude schedule and publish posts for them? Needs Connect Claude as well. */
 export function canPublishFromClaude(user: { isAdmin?: boolean; active?: boolean; permissions?: Permissions } | null | undefined): boolean {
-  return canConnectClaude(user) && user?.permissions?.claude_publish === true;
+  return canClaude(user, "publish");
 }
 
 /** Brand pages they may schedule to; null = all of them. */
@@ -142,6 +161,7 @@ export function cleanPermissions(raw: unknown): Permissions {
     if (typeof r.manage_access === "boolean") out.manage_access = r.manage_access;
     if (r.claude_connector === false) out.claude_connector = false;
     if (typeof r.claude_publish === "boolean") out.claude_publish = r.claude_publish;
+    for (const k of ["claude_create", "claude_edit", "claude_delete"] as const) if (typeof r[k] === "boolean") out[k] = r[k] as boolean;
     if (Array.isArray(r.scheduler_pages)) out.scheduler_pages = r.scheduler_pages.filter((x): x is string => typeof x === "string");
     if (r.tabs && typeof r.tabs === "object") {
       const t: Record<string, boolean> = {};

@@ -97,7 +97,10 @@ export async function restoreTasks(sb: SupabaseClient, ids: string[], actor: str
       for (const [key, table] of KEPT) {
         const rows = (t.data[key] as unknown[]) || [];
         if (rows.length) {
-          const r = await sb.from(table).insert(rows);
+          // Skip rows already there: re-inserting the task fires the rules engine,
+          // which can add the same collaborator back before we do — a plain insert
+          // then failed the restore halfway (4 Nov 2026).
+          const r = await sb.from(table).upsert(rows, { ignoreDuplicates: true });
           if (r.error) throw new Error(`${table}: ${r.error.message}`);
         }
       }

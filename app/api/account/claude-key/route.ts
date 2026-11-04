@@ -3,7 +3,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { canUseConnector, connectorStatus, issueKey, revokeKey } from "@/lib/claude-connector";
 import { listGrants, revokeAllGrants } from "@/lib/oauth";
 import { rosterById } from "@/lib/team-db";
-import { canPublishFromClaude } from "@/lib/permissions";
+import { canClaude } from "@/lib/permissions";
 
 // GET    → { allowed, connected, createdAt, lastUsedAt, grants[] }   (System → Connectors)
 // POST   → { key }  a new personal key (shown once; replaces any old one)
@@ -22,7 +22,8 @@ export async function GET() {
   const allowed = await canUseConnector(uid);
   if (!allowed) return NextResponse.json({ allowed: false, connected: false, grants: [] });
   const [status, grants, me] = await Promise.all([connectorStatus(uid), listGrants(uid), rosterById(uid)]);
-  return NextResponse.json({ allowed, ...status, grants, who: me?.first || me?.name || uid, isAdmin: !!me?.isAdmin, canPublish: canPublishFromClaude(me) });
+  return NextResponse.json({ allowed, ...status, grants, who: me?.first || me?.name || uid, isAdmin: !!me?.isAdmin,
+    can: { create: canClaude(me, "create"), edit: canClaude(me, "edit"), publish: canClaude(me, "publish"), delete: canClaude(me, "delete") } });
 }
 
 export async function POST() {

@@ -20,7 +20,7 @@ import {
 // never set up a connector before.
 
 type Grant = { clientId: string; name: string; createdAt: string; lastUsedAt?: string };
-type KeyState = { allowed: boolean; connected: boolean; createdAt?: string; lastUsedAt?: string; grants?: Grant[]; who?: string; isAdmin?: boolean; canPublish?: boolean };
+type KeyState = { allowed: boolean; connected: boolean; createdAt?: string; lastUsedAt?: string; grants?: Grant[]; who?: string; isAdmin?: boolean; can?: { create: boolean; edit: boolean; publish: boolean; delete: boolean } };
 type Person = { id: string; name: string; key: { createdAt?: string; lastUsedAt?: string } | null; grants: Grant[] };
 
 const when = (iso?: string) =>
@@ -286,15 +286,14 @@ function ClaudeConnector() {
       {/* Step 3 — what it can and can't do, so nobody has to find out */}
       <Step n={3} title="What Claude can and can&apos;t do" last>
         <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1.5">
-          <Can yes>Create a task on the board</Can>
-          <Can yes>Read tasks, search them, see what&apos;s overdue</Can>
-          <Can yes>Change status, dates, priority, owner and copy</Can>
-          <Can yes>Read what Content Radar has found</Can>
-          <Can>Delete anything — there is no such tool</Can>
-          <Can>Move a task to a different Primary Interest</Can>
-          {st.canPublish
-            ? <Can yes>Schedule or publish posts — to your Scheduler pages, after you say yes</Can>
-            : <Can>Publish posts — an admin can switch on Publish from Claude for you</Can>}
+          {/* Follows this person's switches on Team & access → Connectors (4 Nov 2026). */}
+          <Can yes>Read tasks, search them, see what&apos;s due, see the Scheduler queue</Can>
+          <Can yes>Read what Content Radar has found, and comment on tasks</Can>
+          <Can yes={!!st.can?.create}>Create tasks{st.can?.create ? "" : " — not switched on for you"}</Can>
+          <Can yes={!!st.can?.edit}>Edit tasks — status, dates, owner, copy, collaborators{st.can?.edit ? "" : " — not switched on for you"}</Can>
+          <Can yes={!!st.can?.publish}>Schedule, reschedule, unschedule, retry or publish posts — to your Scheduler pages{st.can?.publish ? "" : " — not switched on for you"}</Can>
+          <Can yes={!!st.can?.delete}>Delete tasks to the recycle bin (with a reason) and restore them{st.can?.delete ? "" : " — not switched on for you"}</Can>
+          <Can>Erase anything for good, or move a task to a different Primary Interest</Can>
           <Can>See another person&apos;s key, or act as them</Can>
         </div>
         <p className="text-[12px] text-[#A6ACBE] mt-3">

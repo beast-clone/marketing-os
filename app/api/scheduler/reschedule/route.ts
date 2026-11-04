@@ -1,10 +1,9 @@
-import { FRAME_STEP_MS } from "@/lib/scheduler-enqueue";
 import { NextResponse } from "next/server";
 import { requireSection, requireSchedulerPost, requireCapability } from "@/lib/api-guard";
 import { getSupabase } from "@/lib/supabase";
-import { NOT_PUBLISHING, notUpdated, freshPublishState } from "@/lib/scheduler-lock";
+import { notUpdated } from "@/lib/scheduler-lock";
+import { reschedulePost } from "@/lib/scheduler-actions";
 import { safeError } from "@/lib/errors";
-import { logQueueAction, istTime } from "@/lib/publish-history";
 
 export const dynamic = "force-dynamic";
 
@@ -30,26 +29,7 @@ export async function POST(req: Request) {
   try {
     const sb = getSupabase();
     if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
-    const { data: was } = await sb.from("mh_posts").select("schedule_time, custom").eq("id", body.recordId).maybeSingle();
-    const { data, error } = await sb
-      .from("mh_posts")
-      // A failed post rescheduled must not go back to its old (failed) upload or carry
-      // its old try count; what already went out stays marked so it isn't re-posted.
-      .update({ schedule_time: new Date(body.scheduleTime).toISOString(), publish_status: "scheduled", failure_reason: null, custom: freshPublishState(was?.custom) })
-      .eq("id", body.recordId)
-      .or(NOT_PUBLISHING)   // never while the publisher is sending it
-      .select("id");
-    if (error) throw new Error(error.message);
-    if (!data?.length) return notUpdated(sb, body.recordId);
-    await logQueueAction(sb, body.recordId, "publish_rescheduled", istTime(was?.schedule_time), istTime(body.scheduleTime));
-    // Its "also as a Story" moves with it (enqueue syncStory, 27 Oct), and a
-    // multi-frame story's other frames keep their order (syncFrames, 3 Nov).
-    const { data: linked } = await sb.from("mh_posts").select("id, custom").eq("custom->>story_of", body.recordId).eq("publish_status", "scheduled");
-    const base = new Date(body.scheduleTime).getTime();
-    for (const r of (linked || []) as { id: string; custom: Record<string, unknown> | null }[]) {
-      const frame = Number(r.custom?.frame) || 0;
-      await sb.from("mh_posts").update({ schedule_time: new Date(base + (frame > 1 ? (frame - 1) * FRAME_STEP_MS : 0)).toISOString() }).eq("id", r.id);
-    }
+    if (!(await reschedulePost(sb, body.recordId, body.scheduleTime))) return notUpdated(sb, body.recordId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(safeError(err, "Reschedule failed"), { status: 502 });
