@@ -30,18 +30,18 @@ export function emailLayout(o: {
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(o.preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F7FB;font-family:${FONT}"><tr><td align="center" style="padding:28px 12px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px">
-<tr><td style="padding:0 4px 16px"><a href="${APP_URL}/dashboard/preview"><img src="${APP_URL}/logo-lockup.png" width="168" height="23" alt="GooCampus Marketing OS" style="display:block;border:0"></a></td></tr>
 <tr><td style="background:#FFFFFF;border:1px solid #E9ECF2;border-radius:14px;overflow:hidden">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-<tr><td style="background:${t.bg};padding:20px 28px;border-radius:13px 13px 0 0">
+<tr><td style="background:${t.bg};padding:18px 20px 18px 28px;border-radius:13px 13px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="vertical-align:middle">
 <div style="font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:${t.fg};opacity:.8;font-weight:600">${esc(o.tag)}</div>
-<div style="font-size:19px;line-height:1.35;color:${t.fg};font-weight:600;margin-top:4px">${esc(o.title)}</div></td></tr>
+<div style="font-size:19px;line-height:1.35;color:${t.fg};font-weight:600;margin-top:4px">${esc(o.title)}</div></td>
+<td width="76" align="right" style="vertical-align:middle"><a href="${APP_URL}/dashboard/preview" style="display:inline-block;background:#FFFFFF;border-radius:10px;padding:6px 8px"><img src="${APP_URL}/goocampus-logo-small.png" width="60" height="51" alt="GooCampus" style="display:block;border:0"></a></td></tr></table></td></tr>
 <tr><td style="padding:22px 28px 6px;font-size:14px;line-height:1.55;color:#4A5468">${o.intro}</td></tr>
 <tr><td style="padding:0 28px 10px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>
 ${quote}
 <tr><td style="padding:16px 28px 22px">${buttons}</td></tr>
 </table></td></tr>
-<tr><td style="padding:16px 4px 0;font-size:12px;line-height:1.5;color:#A6ACBE">Sent by the GooCampus Marketing OS dashboard · <a href="${APP_URL}/dashboard/preview/approvals" style="color:#8A92A6">Approvals</a><br>Who gets these emails is set on the Approvals page.</td></tr>
+<tr><td style="padding:16px 4px 0;font-size:12px;line-height:1.5;color:#A6ACBE">Sent by the GooCampus dashboard · <a href="${APP_URL}/dashboard/preview/approvals" style="color:#8A92A6">Approvals</a><br>Who gets these emails is set on the Approvals page.</td></tr>
 </table></td></tr></table></body></html>`;
 }
 
