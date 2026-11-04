@@ -32,6 +32,25 @@ export type Release = {
 
 export const RELEASES: Release[] = [
   {
+    date: "2026-11-04",
+    title: "Plan with AI, date-change emails, multi-frame stories, and Claude connectors",
+    summary: "The AI suggests better days on the Content calendar with its sources, date-change requests and decisions now come by email, a story with several files posts every frame, and Claude can do more of the routine work — with every connection listed and in your control.",
+    changes: [
+      { kind: "new", what: "Plan with AI on the Content calendar", detail: "Press Plan with AI and it reads each task, searches the web for what's happening on its topic, and suggests a better day — only within the task's own Monday–Sunday week and never before today. Switch between Original and AI plan: purple tasks are the AI's moves (\"AI · was Mon\"), with a brief of why and the sources it found. Nothing moves until you apply it, and it shows what the run cost.", where: "Content calendar" },
+      { kind: "new", what: "Date-change emails", detail: "When someone asks to move a publish date, the approvers get an email with the task link, the old and new date and the reason. The person who asked gets an email when it's approved or not, with the approver's note. Both look like the dashboard, with the GooCampus logo.", where: "My Workspace" },
+      { kind: "new", what: "Choose who gets the date-change emails", detail: "Approvals has an Email notifications card: pick teammates from the list or type any address. An address that isn't @goocampus.in is marked Outside GooCampus. Admins change it; until then it goes to the managers.", where: "My Workspace" },
+      { kind: "new", what: "Date changes log", detail: "Approvals has a Date changes view: every publish date that was moved without needing approval, by whom and when.", where: "My Workspace" },
+      { kind: "new", what: "A story with several files posts every frame", detail: "Add several images or videos to a story and each one goes out as its own frame, in order and together. A Story task now opens as a Story, so several files no longer start as a carousel.", where: "Scheduler" },
+      { kind: "fixed", what: "Stories need no caption", detail: "A story could be held back for a missing caption. Stories never need one now, for every Primary Interest.", where: "Scheduler" },
+      { kind: "fixed", what: "Samvaya Matrimony in Content Review", detail: "Samvaya tasks now show in the main review queue and in its filter.", where: "Content" },
+      { kind: "new", what: "Connectors on Team & access", detail: "Every connection to Claude is listed under its person and app, with what it may do. Add a connector for any outside tool, and switch Claude's create, edit, delete and publish on or off per person.", where: "System" },
+      { kind: "new", what: "More Claude can do", detail: "From Claude you can now schedule or publish posts (if it's switched on for you), see the Scheduler queue and unschedule, reschedule or retry a post, add collaborators and comments, and delete tasks — one or many — with a reason. Deleted tasks go to the recycle bin and can be restored.", where: "System" },
+      { kind: "fixed", what: "Approve on the Claude sign-in screen", detail: "Approve did nothing when connecting Claude. It now hands back to Claude straight away, and the screen says Primary Interest, not brand.", where: "System" },
+      { kind: "fixed", what: "Team & access: \"Changes saved\"", detail: "Saving left \"You have unsaved changes\" on screen. It now shows a green Changes saved.", where: "System" },
+      { kind: "fixed", what: "Security fixes", detail: "Closed the findings from the 3 November security check. Nothing changes in how you use the dashboard.", where: "System" },
+    ],
+  },
+  {
     date: "2026-11-03",
     title: "Reports for every month, year and person, Airtable Backup, and Samvaya in the Scheduler",
     summary: "Every month's report in one list, a yearly report and team reports, a read-only backup of Airtable's Content Calendar, Marketing OS as an app, and Samvaya Matrimony wherever our pages are — plus \"Primary Interest\" instead of \"brand\" and a search box in long dropdowns.",
