@@ -587,22 +587,26 @@ async function afterFileChange(id: string, userId: string, what: string): Promis
 async function listFiles(id: string) {
   const { data } = await sb().from("mh_attachments").select("id, filename, kind, mime_type, size_bytes, sort_order, uploaded_at, uploaded_by, storage_path")
     .eq("post_id", id).order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true });
-  let n = 0;
+  const n: Record<string, number> = {};
   return ((data || []) as Record<string, unknown>[]).map((f) => ({
-    id: f.id, filename: f.filename, kind: f.kind,
-    ...(f.kind !== "reference" && f.kind !== "attachment" ? { position: ++n } : {}),
-    type: f.mime_type, size_mb: f.size_bytes ? Math.round(Number(f.size_bytes) / 104857.6) / 10 : null,
+    id: f.id, filename: f.filename, kind: f.kind, position: (n[String(f.kind)] = (n[String(f.kind)] || 0) + 1),
+    type: f.mime_type, size: f.size_bytes ? (Number(f.size_bytes) < 1048576 ? `${Math.max(1, Math.round(Number(f.size_bytes) / 1024))} KB` : `${(Number(f.size_bytes) / 1048576).toFixed(1)} MB`) : null,
     uploaded: ist(f.uploaded_at as string | null), uploaded_by: f.uploaded_by, url: f.storage_path,
   }));
 }
 
-/** Put the creatives in this order (ids first, any others after, as they were). */
+/** Put one kind of file (creatives, references or attachments — whichever the ids are)
+ *  in this order: the ids first, any others of that kind after, as they were. */
 async function setOrder(id: string, firstIds: string[]) {
   const { data } = await sb().from("mh_attachments").select("id, kind").eq("post_id", id)
     .order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true });
-  const creatives = ((data || []) as { id: string; kind: string }[]).filter((f) => f.kind !== "reference" && f.kind !== "attachment").map((f) => f.id);
+  const rows = (data || []) as { id: string; kind: string }[];
+  const group = (k: string) => (k === "reference" || k === "attachment" ? k : "creative");
+  const kinds = new Set(rows.filter((f) => firstIds.includes(f.id)).map((f) => group(f.kind)));
+  if (kinds.size > 1) throw new Error("Order one kind at a time — creatives, references and attachments each have their own order.");
+  const creatives = rows.filter((f) => group(f.kind) === ([...kinds][0] || "creative")).map((f) => f.id);
   const unknown = firstIds.filter((x) => !creatives.includes(x));
-  if (unknown.length) throw new Error(`Not creatives on this task: ${unknown.join(", ")}. get_task lists them.`);
+  if (unknown.length) throw new Error(`Not files on this task: ${unknown.join(", ")}. get_task lists them.`);
   const order = [...firstIds, ...creatives.filter((x) => !firstIds.includes(x))];
   for (let i = 0; i < order.length; i++) {
     const { error } = await sb().from("mh_attachments").update({ sort_order: i + 1 }).eq("id", order[i]).eq("post_id", id);
@@ -649,9 +653,12 @@ export async function reorderFiles(args: Record<string, unknown>, userId: string
   if (!UUID.test(id) || !ids.length) throw new Error("id (the task) and file_ids (in the new order) are required.");
   await notPublishing(id);
   const order = await setOrder(id, ids);
-  await sb().from("mh_activity").insert({ post_id: id, actor_key: userId, action: "creatives_reordered", detail: "via Claude" });
+  const { data: k } = await sb().from("mh_attachments").select("kind").eq("id", order[0]).maybeSingle();
+  await sb().from("mh_activity").insert({ post_id: id, actor_key: userId, action: k?.kind === "attachment" ? "attachments_reordered" : "creatives_reordered", detail: "via Claude" });
   const note = await afterFileChange(id, userId, "reordered");
-  return `New order: ${order.map((x, i) => `${i + 1}. ${x}`).join(", ")}.${note}`;
+  const { data: named } = await sb().from("mh_attachments").select("id, filename").in("id", order);
+  const nameOf = new Map(((named || []) as { id: string; filename: string }[]).map((f) => [f.id, f.filename]));
+  return `New order: ${order.map((x, i) => `${i + 1}. ${nameOf.get(x) || x}`).join(", ")}.${note}`;
 }
 
 /** Step 1 of uploading a file from the user's computer: a one-time upload link. */

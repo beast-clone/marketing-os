@@ -243,8 +243,8 @@ const TOOLS = [
   },
   {
     name: "reorder_files",
-    title: "Change the order of a task's creatives",
-    description: "The order is the slide/frame order everywhere: the task, Content Review, the Scheduler and the published carousel or story. Give the creatives' ids (from get_task) in the new order; any left out keep their order after them. Needs Connectors → Edit tasks.",
+    title: "Change the order of a task's files",
+    description: "Give file ids (from get_task) of one kind in the new order; any of that kind left out keep their order after them. For creatives this is the slide/frame order everywhere: the task, Content Review, the Scheduler and the published carousel or story. References and attachments each have their own order too. Needs Connectors → Edit tasks.",
     inputSchema: { type: "object", properties: { id: { type: "string", description: "Task id" }, file_ids: { type: "array", items: { type: "string" } } }, required: ["id", "file_ids"], additionalProperties: false },
   },
   {

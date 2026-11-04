@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     if (!post) return NextResponse.json({ error: "Task not found" }, { status: 404 });
     if (post.publish_status === "publishing") return NextResponse.json({ error: "This post is being published right now — try again in a minute." }, { status: 409 });
 
-    const { data: atts } = await sb.from("mh_attachments").select("id, storage_path").eq("post_id", postId).in("id", ids);
+    const { data: atts } = await sb.from("mh_attachments").select("id, storage_path, kind").eq("post_id", postId).in("id", ids);
     if ((atts || []).length !== new Set(ids).size) return NextResponse.json({ error: "Some of these files aren't on this task any more — refresh and try again." }, { status: 409 });
 
     for (let i = 0; i < ids.length; i++) {
@@ -42,7 +42,9 @@ export async function POST(req: Request) {
       }
     }
 
-    await sb.from("mh_activity").insert({ post_id: postId, actor_key: getSessionUserId() || null, action: "creatives_reordered" });
+    // Attachments have their own order too (Manya, 4 Nov) — say which was reordered.
+    const allAttachments = (atts || []).every((a) => a.kind === "attachment");
+    await sb.from("mh_activity").insert({ post_id: postId, actor_key: getSessionUserId() || null, action: allAttachments ? "attachments_reordered" : "creatives_reordered" });
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(safeError(err, "Couldn't save the order"), { status: 502 });

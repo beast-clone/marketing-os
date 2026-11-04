@@ -613,6 +613,11 @@ function AttachmentsSection({ files, postId, uploadedBy, onSaved }: { files: Cre
             onOpen: !pdf && f.url ? () => { const idx = viewable.indexOf(f); if (idx >= 0) setPreview(idx); } : undefined,
             onRemove: f.attId ? () => remove(f.attId!) : undefined };
         })}
+        onReorder={files.length > 1 && files.every((f) => f.attId) ? async (ids) => {
+          const res = await reorderTaskFiles(postId, ids);
+          if (!res.ok) { const j = await res.json().catch(() => ({})); showToast({ who: "Couldn't save the new order", body: (j as { error?: string }).error || `HTTP ${res.status}`, color: "#C03221", av: "!" }); }
+          onSaved();
+        } : undefined}
         pending={q.pending} onDismiss={q.dismiss} />
       {preview !== null && viewable.length > 0 && (
         <CreativePreview items={viewable} index={preview} onIndex={setPreview} onClose={() => setPreview(null)} />

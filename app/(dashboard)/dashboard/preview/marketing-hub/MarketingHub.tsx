@@ -4273,7 +4273,7 @@ export const ACT_VERB: Record<string, string> = {
   priority_changed: "changed the priority", type_changed: "changed the type", content_edited: "edited the content",
   caption_edited: "edited the caption", notes_edited: "edited the notes", sbu_changed: "changed the Primary Interest",
   platforms_changed: "changed platforms", review_changed: "toggled review", output_link_changed: "updated the output link",
-  creative_added: "added a creative", creative_removed: "removed a creative", post_media_removed: "took a file off the post in the Scheduler (it stays on the task)", creatives_reordered: "changed the order of the creatives", claim: "claimed this",
+  creative_added: "added a creative", creative_removed: "removed a creative", post_media_removed: "took a file off the post in the Scheduler (it stays on the task)", creatives_reordered: "changed the order of the creatives", attachments_reordered: "changed the order of the attachments", claim: "claimed this",
   reference_added: "added a reference", reference_removed: "removed a reference",
   attachment_added: "added an attachment", attachment_removed: "removed an attachment", reference_links_changed: "updated the references",
   instagram_url_changed: "updated the Instagram link", facebook_url_changed: "updated the Facebook link", linkedin_url_changed: "updated the LinkedIn link",
@@ -5178,6 +5178,11 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
                     accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv" onFiles={(f) => upload(f, "attachment")} busyText={qAtt.busy ? qAtt.status : undefined}
                     tiles={workFiles.map((c, i): FileTile => ({ key: c.id || `${c.url}-${i}`, name: c.name, url: c.url, kind: creativeKind(c.name, c.type),
                       onRemove: c.id ? () => removeCreative(c.id!) : undefined }))}
+                    onReorder={workFiles.length > 1 && workFiles.every((c) => c.id) ? async (ids) => {
+                      const res = await reorderTaskFiles(row.id, ids);
+                      if (!res.ok) { const j = await res.json().catch(() => ({})); setFailure({ kind: "error", message: (j as { error?: string }).error || "couldn't save the new order" }); }
+                      await loadDetail();
+                    } : undefined}
                     pending={qAtt.pending} onDismiss={qAtt.dismiss} />
                 </div>
               </div>
