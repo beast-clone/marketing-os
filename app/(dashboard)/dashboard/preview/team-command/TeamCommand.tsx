@@ -224,7 +224,7 @@ export function TeamCommand({ mode = "team" }: { mode?: "team" | "approvals" } =
       <div className="tc-hero">
         <div>
           <div className="tc-h1">{view === "approvals" ? <><IconCalendarDue size={22} stroke={1.7} /> Approvals</> : <><IconUsersGroup size={22} stroke={1.7} /> Team Command</>}</div>
-          <div className="tc-sub">{dateStr}{dateStr ? " · " : ""}<span className="tc-live">● live</span>{fetchedAt ? ` · updated ${fetchedAt.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</div>
+          <div className="tc-sub">{dateStr}{dateStr ? " · " : ""}<span className="tc-live">● live</span>{fetchedAt ? ` · updated ${fetchedAt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true })}` : ""}</div>
         </div>
         {view === "approvals" ? (
           <div className="tc-hstats">
