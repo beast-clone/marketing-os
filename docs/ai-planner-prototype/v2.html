@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calendar — Plan with AI (prototype)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  :root{--brand:#3A57E8;--brand-dark:#2138B0;--brand-light:#E9ECFB;--ink:#232D42;--muted:#8A92A6;--line:#EEF0F5;--canvas:#F6F7FB;--pill:#93B8F7;--pill-b:#7BA6F2;--ok:#0F6E3C;--ok-bg:#E8F6EE;--warn:#B76E00;--warn-bg:#FFF4E0;--red:#C03221;--red-bg:#FDECEC;--ai:#6D4AE8;--ai-bg:#EFEAFE}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--canvas);color:var(--ink);font-size:14px}
+  .wrap{max-width:1240px;margin:0 auto;padding:16px 16px 60px}
+  .proto{background:#fff;border:1px dashed #D9DEEA;border-radius:12px;padding:9px 14px;margin-bottom:12px;font-size:12.5px;color:var(--muted)}
+  .proto b{color:var(--ink);font-weight:500}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px}
+  .top{display:flex;align-items:center;gap:12px;padding:14px 18px;margin-bottom:14px;flex-wrap:wrap}
+  .top h1{font-size:19px;font-weight:600;margin:0 auto 0 0}
+  .sel{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13.5px;min-width:180px;display:flex;justify-content:space-between;gap:10px;background:#fff}
+  .meta{font-size:12.5px;color:var(--muted);display:flex;gap:10px;align-items:center}
+  .live{color:var(--muted)} .live:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#1AA053;margin-right:5px}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:8px 14px;font:500 13px Inter;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.ai{background:var(--ai);border-color:var(--ai);color:#fff}
+  .btn.ai:hover{filter:brightness(.95)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .calhead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap}
+  .nav{display:flex;gap:8px}
+  .nav .sq{width:40px;height:36px;border-radius:9px;background:var(--brand);color:#fff;border:0;font-size:16px}
+  .nav .today{background:var(--brand-light);color:var(--brand-dark);border:0;border-radius:9px;padding:0 14px;font:500 14px Inter}
+  .title{font-size:21px;font-weight:600}
+  .views{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .views span{padding:8px 14px;font-size:13px;color:#4A5468}
+  .views span.on{background:var(--brand);color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr)}
+  .dow{background:#F6F7FB;font-size:11.5px;font-weight:600;letter-spacing:.06em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+  .cell{min-height:150px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 6px;position:relative}
+  .cell.out{background:#F6F7FB}
+  .cell.out .n{color:#A6ACBE}
+  .cell.today{background:#F2F4FD}
+  .n{font-size:13px;font-weight:500;margin:0 0 8px 4px;display:inline-block}
+  .cell.today .n{background:var(--brand);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-grid;place-items:center;font-size:12px}
+  .p{background:var(--pill);border:1px solid var(--pill-b);border-radius:7px;padding:5px 8px;font-size:12.5px;line-height:1.3;margin-bottom:5px;color:#1B2A4A;cursor:pointer;position:relative;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .p.ai{background:#E7E0FD;border:1.5px solid var(--ai);padding-right:8px}
+  .p.ai .badge{display:inline-flex;align-items:center;gap:3px;background:var(--ai);color:#fff;font-size:10px;font-weight:600;border-radius:5px;padding:1px 5px;margin-right:4px;vertical-align:1px}
+  .p.wait{background:#FFF4E0;border:1.5px dashed #E08A00}
+  .p.wait .badge{display:inline-flex;align-items:center;gap:3px;background:#E08A00;color:#fff;font-size:10px;font-weight:600;border-radius:5px;padding:1px 5px;margin-right:4px;vertical-align:1px}
+  .ghost{border:1.5px dashed #C9C0F5;border-radius:7px;padding:4px 8px;font-size:11px;color:#8C7FD9;margin-bottom:5px;background:repeating-linear-gradient(135deg,#fff,#fff 6px,#F7F4FF 6px,#F7F4FF 12px)}
+  .banner{display:none;align-items:center;gap:10px;background:var(--ai-bg);border:1px solid #D9CEFB;color:#3F2A9C;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;flex-wrap:wrap}
+  .banner.on{display:flex}
+  .banner b{font-weight:600}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);padding:10px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
+  .legend span:before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+  .lg1:before{background:var(--pill);border:1px solid var(--pill-b)}
+  .lg2:before{background:#E7E0FD;border:1.5px solid var(--ai)}
+  .lg3:before{background:#FFF4E0;border:1.5px dashed #E08A00}
+  .lg4:before{border:1.5px dashed #C9C0F5}
+  /* drawer */
+  .scrim{position:fixed;inset:0;background:rgba(35,45,66,.35);display:none;justify-content:flex-end;z-index:20}
+  .scrim.on{display:flex}
+  .drawer{width:100%;max-width:560px;height:100%;background:#fff;display:flex;flex-direction:column}
+  .dh{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .dh .t1{font-size:16px;font-weight:600;display:flex;gap:8px;align-items:center}
+  .db{padding:14px 18px;overflow:auto;flex:1}
+  .df{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:50px 0;color:var(--muted);font-size:13px}
+  .ring{width:56px;height:56px;border-radius:50%;border:5px solid rgba(109,74,232,.12);border-top-color:var(--ai);border-right-color:var(--ai);animation:spin .9s cubic-bezier(.5,.15,.5,.85) infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .steps{font-size:12.5px;line-height:1.9;align-self:stretch;padding:0 30px}
+  .steps i{color:var(--ok)}
+  .cost{display:flex;justify-content:space-between;font-size:12px;color:#4A5468;background:var(--canvas);border-radius:10px;padding:8px 12px;margin-bottom:12px}
+  .sum{background:var(--ai-bg);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+  .sum .h{font-weight:600;font-size:13.5px;margin-bottom:4px;color:#3F2A9C;display:flex;gap:6px;align-items:center}
+  .sum p{margin:0;font-size:12.5px;color:#3B4457;line-height:1.5}
+  .sug{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start}
+  .sug input{margin-top:3px;accent-color:var(--ai)}
+  .sug .tt{font-weight:500;font-size:13px}
+  .move{display:flex;align-items:center;gap:6px;font-size:12.5px;margin-top:4px}
+  .move .from{color:var(--muted);text-decoration:line-through}
+  .move .to{font-weight:600;color:var(--ai)}
+  .why{font-size:12px;color:#4A5468;margin-top:4px;line-height:1.45}
+  .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .tag{font-size:11px;border-radius:999px;padding:2px 8px;background:var(--canvas);color:#4A5468;border:1px solid var(--line)}
+  .tag.hot{background:#FFF0EB;color:#C2410C;border-color:#FED7C3}
+  .tag.ap{background:var(--warn-bg);color:var(--warn);border-color:#F6DEB0}
+  .keep{border-style:dashed;background:#FBFBFD}
+  .blocked{background:var(--red-bg);border-color:#F5C9C3}
+  .blocked .why{color:var(--red)}
+  .brief{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:#FBFBFD;padding:8px 10px}
+  .brief summary{cursor:pointer;font-size:12px;font-weight:600;color:#3F2A9C;list-style:none;display:flex;gap:5px;align-items:center}
+  .brief .b{font-size:12px;line-height:1.5;color:#3B4457;margin-top:6px}
+  .brief .b span{display:block;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .brief .src{font-size:11.5px;color:var(--muted);margin-top:6px}
+  .grp{margin:14px 0 6px;font-size:11.5px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+  .rules{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:14px;font-size:12px;color:#4A5468;line-height:1.6}
+  .rules b{font-weight:600;color:var(--ink)}
+  /* task popover */
+  .pop{position:fixed;inset:0;background:rgba(35,45,66,.35);display:none;align-items:center;justify-content:center;z-index:30;padding:16px}
+  .pop.on{display:flex}
+  .pc{background:#fff;border-radius:16px;max-width:520px;width:100%;border:1px solid var(--line)}
+  .pc .ph{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .pc .pb{padding:14px 18px}
+  .aibox{border:1px solid #D9CEFB;background:#FAF8FF;border-radius:12px;padding:10px 12px;margin-top:10px}
+  .aibox .h{display:flex;gap:6px;align-items:center;font-weight:600;font-size:13px;color:#3F2A9C}
+  .hist{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.7}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ok-bg);color:var(--ok);border:1px solid #BFE6CD;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:500;display:none;gap:6px;align-items:center;z-index:40}
+  .toast.on{display:flex}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="proto"><b>Prototype</b> of the real Content calendar with <b>Plan with AI</b>. Tasks are Samvaya's real November tasks; the AI reasons are examples (the real ones come from Perplexity at the time). Click <b>Plan with AI</b>, apply, then click a purple task.</div>
+
+  <div class="card top">
+    <h1>Calendar</h1>
+    <div class="sel">Samvaya Matrimony <i class="ti ti-chevron-down"></i></div>
+    <div class="sel">All Primary Interests (34) <i class="ti ti-chevron-down"></i></div>
+    <div class="sel">All statuses (34) <i class="ti ti-chevron-down"></i></div>
+    <div class="meta"><span>34 tasks in view</span><span class="live">Live</span></div>
+    <button class="btn ai" onclick="openAI()"><i class="ti ti-sparkles"></i>Plan with AI</button>
+  </div>
+
+  <div class="banner" id="banner"><i class="ti ti-sparkles"></i><span id="bannerText"></span><span style="margin-left:auto;display:flex;gap:8px"><button class="btn" onclick="showOnlyAI()"><i class="ti ti-filter"></i>Show AI changes only</button><button class="btn" onclick="undoAll()"><i class="ti ti-arrow-back-up"></i>Undo all</button></span></div>
+
+  <div class="card">
+    <div class="calhead">
+      <div class="nav"><button class="sq">‹</button><button class="sq">›</button><button class="today">Today</button></div>
+      <div class="title">November 2026</div>
+      <div class="views"><span class="on">Month</span><span>Week</span><span>Day</span><span>List</span></div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="legend"><span class="lg1">Task</span><span class="lg2">Moved by AI</span><span class="lg3">AI move waiting for approval</span><span class="lg4">Where an AI-moved task used to be</span></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="if(event.target===this)closeAI()">
+  <div class="drawer">
+    <div class="dh"><div class="t1"><i class="ti ti-sparkles" style="color:var(--ai)"></i><span id="dtitle">Plan with AI</span></div><button class="btn" onclick="closeAI()"><i class="ti ti-x"></i></button></div>
+    <div class="db" id="body"></div>
+    <div class="df" id="foot" style="display:none"><span style="font-size:12.5px;color:var(--muted)" id="count"></span>
+      <div style="display:flex;gap:8px"><button class="btn" onclick="closeAI()">Close</button><button class="btn ai" id="apply" onclick="apply()">Apply</button></div></div>
+  </div>
+</div>
+
+<div class="pop" id="pop" onclick="if(event.target===this)closePop()"><div class="pc" id="pc"></div></div>
+<div class="toast" id="toast"><i class="ti ti-circle-check"></i><span id="toastText"></span></div>
+
+<script>
+// Samvaya's November tasks, as on the real calendar.
+const T = [
+  [3,"Samvaya 3 Nov · Story · Samvaya in 3 frames"],[3,"Samvaya 3 Nov · Post · Brand opener"],
+  [4,"Samvaya 4 Nov · Carousel · What's the catch with free?"],[4,"Samvaya 4 Nov · Story · What free covers"],[4,"Samvaya 4 Nov · Post · Not public content"],
+  [5,"Samvaya 5 Nov · Post · Your number on the biodata"],[5,"Samvaya 5 Nov · Story · Biodata tip"],
+  [6,"Samvaya 6 Nov · Story · Live face check, explained"],[6,"Samvaya 6 Nov · Post · Live face check"],[6,"Samvaya 6 Nov · Carousel · What happens after you share your interest"],
+  [7,"Samvaya 7 Nov · Carousel · How to answer \"When are you getting married?\""],[7,"Samvaya 7 Nov · Post · Diwali question"],[7,"Samvaya 7 Nov · Story · One Diwali answer"],
+  [8,"Samvaya 8 Nov · Post · Happy Diwali"],[8,"Samvaya 8 Nov · Story · Happy Diwali"],
+  [9,"Samvaya 9 Nov · Story · Age is a filter"],[9,"Samvaya 9 Nov · Post · 29 is not too old"],
+  [10,"Samvaya 10 Nov · Post · Money before meeting"],[10,"Samvaya 10 Nov · Story · Scam quiz"],
+  [11,"Samvaya 11 Nov · Post · A biodata is not a CV"],[11,"Samvaya 11 Nov · Story · A biodata on one page"],[11,"Samvaya 11 Nov · Carousel · Marriage after 30"],
+  [12,"Samvaya 12 Nov · Post · Hobbies vs three lines"],[12,"Samvaya 12 Nov · Story · Three lines"],
+  [13,"Samvaya 13 Nov · Carousel · 7 biodata mistakes"],[13,"Samvaya 13 Nov · Story · Before you forward"],[13,"Samvaya 13 Nov · Post · Groups you've never joined"],
+  [14,"Samvaya 14 Nov · Story · A few, chosen with care"],[14,"Samvaya 14 Nov · Post · A few, chosen with care"],
+  [15,"Samvaya 15 Nov · Post · AI, people, you"],[15,"Samvaya 15 Nov · Carousel · Where AI helps"],[15,"Samvaya 15 Nov · Story · Who picks your introductions?"],
+  [16,"Samvaya 16 Nov · Story · Beyond the filter"],[16,"Samvaya 16 Nov · Post · Filter row"],
+].map(([d,t],i)=>({id:i+1,d,t}));
+const find = (frag) => T.find((x) => x.t.includes(frag));
+const SUG = [
+  {task:find("When are you getting married"), to:8, why:"Diwali is Sunday — this is the question people get asked at family gatherings that day.", tags:["timely","Diwali"],
+   brief:{about:"A carousel with replies to 'When are you getting married?'.", now:"Diwali is Sun 8 Nov. Family gatherings are when this question comes up most; searches for it rise around festivals.", date:"Sunday puts it in front of people on the day they'll actually hear the question.", effect:"Saturday drops to 2 Samvaya posts; Sunday goes to 3 (limit 3).", source:"Google search interest around festivals · Diwali date"}},
+  {task:find("Money before meeting"), to:12, why:"A matrimony-fraud story is in the news this week; the money-safety post works better a little later, after 'Scam quiz'.", tags:["trending now"], approval:true,
+   brief:{about:"A post on never sending money before meeting someone from a match.", now:"News this week covers a matrimony-site fraud ring; interest in 'matrimony scam' is up.", date:"Thursday follows Tuesday's 'Scam quiz' story, so the two build on each other instead of landing on the same day.", effect:"This task's owner needs admin approval for date changes, so it waits in Approvals → Waiting until an admin approves.", source:"News: matrimony fraud reports · Google search interest"}},
+  {task:find("Marriage after 30"), to:9, why:"Pairs with Monday's '29 is not too old' post — same idea on consecutive days reads as one story.", tags:["series"],
+   brief:{about:"A carousel on marrying after 30.", now:"Monday already has '29 is not too old'. Your page's best results last month were two related posts back to back.", date:"Monday 9 keeps the age theme together and lightens Wednesday, which has three posts.", effect:"Wednesday 11 goes from 3 to 2 posts; Monday 9 from 2 to 3.", source:"Your Instagram: series posts got more saves"}},
+];
+const KEEP = [
+  {task:find("Post · Happy Diwali"), why:"Diwali greeting stays on the day."},
+  {task:find("AI, people, you"), why:"No reason to move — the AI explainer weekend is set."},
+];
+const BLOCKED = [{t:"Samvaya 16 Nov · Post · Filter row", why:"Would fit better on Sat 14, but it is on Mon 16, which starts a new week (Mon 16 – Sun 22) — moves never cross weeks. Left on Mon 16."}];
+let moved = []; let onlyAI = false;
+
+function render(){
+  const g = document.getElementById("grid"); g.innerHTML = "";
+  for (const d of ["MON","TUE","WED","THU","FRI","SAT","SUN"]) g.innerHTML += `<div class="dow">${d}</div>`;
+  const days = [26,27,28,29,30,31].map((n)=>({n,out:true})).concat(Array.from({length:22},(_,i)=>({n:i+1})));
+  for (const day of days){
+    let h = `<div class="cell${day.out?' out':''}${day.n===4&&!day.out?' today':''}"><span class="n">${day.n}</span>`;
+    if (!day.out){
+      for (const m of moved.filter((x)=>x.from===day.n && !x.wait)) h += `<div class="ghost"><i class="ti ti-sparkles"></i> moved to ${m.to} Nov by AI</div>`;
+      for (const t of T.filter((x)=>x.d===day.n)){
+        const m = moved.find((x)=>x.id===t.id);
+        if (onlyAI && !m) continue;
+        const cls = m ? (m.wait ? "p wait" : "p ai") : "p";
+        const badge = m ? (m.wait ? `<span class="badge"><i class="ti ti-clock"></i>AI → ${m.to} Nov · approval</span>` : `<span class="badge"><i class="ti ti-sparkles"></i>AI</span>`) : "";
+        h += `<div class="${cls}" onclick="openTask(${t.id})">${badge}${t.t}</div>`;
+      }
+    }
+    g.innerHTML += h + `</div>`;
+  }
+}
+render();
+
+function openAI(){
+  document.getElementById("scrim").classList.add("on");
+  document.getElementById("foot").style.display = "none";
+  document.getElementById("dtitle").textContent = "Plan with AI";
+  const body = document.getElementById("body");
+  body.innerHTML = `<div class="loading"><div class="ring"></div><b style="color:var(--ink);font-weight:500">Reading 34 Samvaya Matrimony tasks for 3–16 Nov…</b><div class="steps" id="st"></div></div>`;
+  const steps = ["Read each task's content and caption","Searched the web: Diwali, matrimony news, wedding season, search trends","Checked Content Radar news from the last 7 days","Checked which formats and days worked on the Samvaya page","Applied the rules: same week only, not before today, daily limit, approvals"];
+  let i = 0; const st = document.getElementById("st");
+  const tick = setInterval(() => { if (i < steps.length) st.innerHTML += `<div><i class="ti ti-check"></i> ${steps[i++]}</div>`; else { clearInterval(tick); results(); } }, 500);
+}
+function results(){
+  document.getElementById("dtitle").textContent = "AI suggestions · Samvaya Matrimony";
+  let h = `<div class="cost"><span><i class="ti ti-coin" style="color:var(--ai)"></i> This run used <b>$0.021</b> · 7 web searches</span><span>Month so far: <b>$0.091</b></span></div>
+    <div class="sum"><div class="h"><i class="ti ti-bulb"></i>What's timely</div><p>Diwali is Sunday 8 Nov — family conversations about marriage peak that day. A matrimony-fraud story is in the news this week. Most of the plan is already well placed; 3 small moves.</p></div>
+    <div class="grp">Suggested moves</div>`;
+  for (const s of SUG){
+    h += `<label class="sug"><input type="checkbox" checked data-id="${s.task.id}" data-to="${s.to}" data-wait="${s.approval?1:0}" onchange="recount()"><div style="flex:1"><div class="tt">${s.task.t}</div>
+      <div class="move"><span class="from">${s.task.d} Nov</span><i class="ti ti-arrow-right"></i><span class="to">${s.to} Nov</span></div>
+      <div class="why">${s.why}</div>
+      <div class="tags">${s.tags.map(x=>`<span class="tag ${/trend/.test(x)?'hot':''}">${x}</span>`).join("")}${s.approval?'<span class="tag ap"><i class="ti ti-clock"></i> goes to Approvals</span>':''}</div>
+      <details class="brief"><summary><i class="ti ti-file-text"></i> Why it moves</summary>
+        <div class="b"><span>The post</span>${s.brief.about}</div><div class="b"><span>What's happening</span>${s.brief.now}</div>
+        <div class="b"><span>Why ${s.to} Nov</span>${s.brief.date}</div><div class="b"><span>Knock-on</span>${s.brief.effect}</div>
+        <div class="src"><i class="ti ti-link"></i> ${s.brief.source}</div></details></div></label>`;
+  }
+  h += `<div class="grp">Stays where it is</div>` + KEEP.map((k)=>`<div class="sug keep"><i class="ti ti-pin" style="color:var(--muted);margin-top:2px"></i><div><div class="tt">${k.task.t}</div><div class="why">${k.why}</div></div></div>`).join("");
+  h += `<div class="grp">Not allowed</div>` + BLOCKED.map((b)=>`<div class="sug blocked"><i class="ti ti-ban" style="color:var(--red);margin-top:2px"></i><div><div class="tt">${b.t}</div><div class="why">${b.why}</div></div></div>`).join("");
+  h += `<div class="rules"><b>Rules the dashboard enforces</b>: moves stay inside the task's own week (Mon–Sun) · never before today · never anything already scheduled, published or waiting for approval · daily limits from the Rules page · owners who need approval get an Approvals request instead.</div>`;
+  document.getElementById("body").innerHTML = h;
+  document.getElementById("foot").style.display = "flex";
+  recount();
+}
+function recount(){
+  const n = document.querySelectorAll('.sug input:checked').length;
+  document.getElementById("count").textContent = `${n} of 3 moves selected`;
+  const b = document.getElementById("apply"); b.disabled = !n; b.innerHTML = `<i class="ti ti-check"></i>Apply ${n} move${n===1?"":"s"}`;
+}
+function apply(){
+  const picked = [...document.querySelectorAll('.sug input:checked')];
+  for (const p of picked){
+    const t = T.find((x)=>x.id===+p.dataset.id); const wait = p.dataset.wait === "1";
+    const s = SUG.find((x)=>x.task.id===t.id);
+    moved.push({id:t.id, from:t.d, to:+p.dataset.to, wait, brief:s.brief, why:s.why});
+    if (!wait) t.d = +p.dataset.to;
+  }
+  closeAI(); render();
+  const direct = moved.filter((m)=>!m.wait).length, waiting = moved.filter((m)=>m.wait).length;
+  document.getElementById("bannerText").innerHTML = `<b>AI moved ${direct} task${direct===1?"":"s"}</b>${waiting?` · ${waiting} waiting for approval`:""} · today 9:42 am by Praveen · click a purple task to see why`;
+  document.getElementById("banner").classList.add("on");
+  toast(`${direct} dates changed · ${waiting} sent to Approvals · each move is in the task's history`);
+}
+function openTask(id){
+  const t = T.find((x)=>x.id===id); const m = moved.find((x)=>x.id===id);
+  let h = `<div class="ph"><div><div style="font-size:16px;font-weight:600">${t.t}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px">Samvaya Matrimony · Publishing ${t.d} Nov 2026</div></div><button class="btn" onclick="closePop()"><i class="ti ti-x"></i></button></div><div class="pb">`;
+  if (m){
+    h += `<div class="aibox"><div class="h"><i class="ti ti-sparkles"></i>${m.wait ? `AI suggested moving it to ${m.to} Nov — waiting for approval` : `Moved by AI from ${m.from} Nov to ${m.to} Nov`}</div>
+      <div class="brief" style="border:0;background:transparent;padding:0;margin-top:4px">
+      <div class="b"><span>The post</span>${m.brief.about}</div><div class="b"><span>What's happening</span>${m.brief.now}</div>
+      <div class="b"><span>Why ${m.to} Nov</span>${m.brief.date}</div><div class="b"><span>Knock-on</span>${m.brief.effect}</div>
+      <div class="src"><i class="ti ti-link"></i> ${m.brief.source}</div></div>
+      <div style="display:flex;gap:8px;margin-top:10px">${m.wait ? `<button class="btn" onclick="closePop()"><i class="ti ti-external-link"></i>Open in Approvals</button>` : `<button class="btn" onclick="undo(${id})"><i class="ti ti-arrow-back-up"></i>Undo — back to ${m.from} Nov</button>`}</div></div>
+      <div class="hist"><b style="color:var(--ink);font-weight:500">History</b><br>${m.wait ? `Today 9:42 am · AI plan (by Praveen) asked to move ${m.from} → ${m.to} Nov · waiting for an admin` : `Today 9:42 am · Publishing date ${m.from} Nov → ${m.to} Nov · <span style="color:var(--ai)">AI plan</span>, applied by Praveen`}</div>`;
+  } else {
+    h += `<div style="font-size:13px;color:#4A5468">The usual task detail opens here (status, owner, caption, creative…). Purple tasks also show why the AI moved them.</div>`;
+  }
+  document.getElementById("pc").innerHTML = h + `</div>`;
+  document.getElementById("pop").classList.add("on");
+}
+function undo(id){
+  const m = moved.find((x)=>x.id===id); const t = T.find((x)=>x.id===id);
+  t.d = m.from; moved = moved.filter((x)=>x.id!==id); closePop(); render();
+  const direct = moved.filter((x)=>!x.wait).length;
+  if (!moved.length) document.getElementById("banner").classList.remove("on");
+  else document.getElementById("bannerText").innerHTML = `<b>AI moved ${direct} task${direct===1?"":"s"}</b> · click a purple task to see why`;
+  toast(`Moved back to ${m.from} Nov`);
+}
+function undoAll(){ for (const m of [...moved]) { const t = T.find((x)=>x.id===m.id); t.d = m.from; } moved = []; onlyAI = false; render(); document.getElementById("banner").classList.remove("on"); toast("All AI moves undone"); }
+function showOnlyAI(){ onlyAI = !onlyAI; render(); }
+function closeAI(){ document.getElementById("scrim").classList.remove("on"); }
+function closePop(){ document.getElementById("pop").classList.remove("on"); }
+function toast(msg){ const t = document.getElementById("toast"); document.getElementById("toastText").textContent = msg; t.classList.add("on"); setTimeout(()=>t.classList.remove("on"), 3500); }
+</script>
+</body>
+</html>
