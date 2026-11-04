@@ -25,7 +25,9 @@ export async function POST(req: Request) {
   const __noDates = await requireCapability("reschedule");
   if (__noDates) return __noDates;
 
-  let body: { items?: { id: string; dateISO: string }[]; reason?: string };
+  // `why` per item: the reason the AI gave for that move (Plan with AI, 4 Nov 2026) —
+  // it becomes that task's reason, so no separate reason is asked for.
+  let body: { items?: { id: string; dateISO: string; why?: string }[]; reason?: string };
   try { body = await req.json(); }
   catch { return NextResponse.json({ error: "Invalid JSON" }, { status: 400 }); }
 
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
       return !!c?.publishing_date && day(c.publishing_date as string) !== day(new Date(it.dateISO).toISOString());
     };
     const reason = String(body.reason || "").trim();
-    if (items.some(isMove) && needsDateReason(who) && !reason) {
+    if (items.some((it) => isMove(it) && !String(it.why || "").trim()) && needsDateReason(who) && !reason) {
       return NextResponse.json({ error: "Add a short reason for moving the dates.", gate: "reason" }, { status: 422 });
     }
     const approval = needsDateApproval(who);
@@ -58,11 +60,12 @@ export async function POST(req: Request) {
       if (!c) continue;
       const when = new Date(it.dateISO).toISOString();
       const moving = isMove(it);
+      const why = String(it.why || "").trim().slice(0, 300) || reason;
       if (moving && approval) {
         await requestDateChange(sb, {
           postId: it.id, title: String(c.particulars || "a task"), type: (c.type as string) || undefined,
           owner: (c.owner_key as string) || undefined, createdAt: (c.created_at as string) || undefined,
-          from: c.publishing_date as string, to: when, reason: reason || undefined, requestedBy: me || "someone",
+          from: c.publishing_date as string, to: when, reason: why ? `AI plan · ${why}` : "AI plan", requestedBy: me || "someone",
         });
         pending++;
         continue;
@@ -79,7 +82,7 @@ export async function POST(req: Request) {
       if (error) throw new Error(error.message);
       if (moving) {
         await supersedeDateChange(sb, it.id, me || "someone");
-        await sb.from("mh_activity").insert({ post_id: it.id, actor_key: me || null, action: "rescheduled", from_value: fmt(c.publishing_date as string), to_value: fmt(when), detail: reason ? `AI plan · ${reason}` : "AI plan" }).then(() => {}, () => {});
+        await sb.from("mh_activity").insert({ post_id: it.id, actor_key: me || null, action: "rescheduled", from_value: fmt(c.publishing_date as string), to_value: fmt(when), detail: why ? `AI plan · ${why}` : "AI plan" }).then(() => {}, () => {});
       }
       applied++;
     }

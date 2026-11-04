@@ -4,6 +4,7 @@ import { useDraft } from "@/lib/use-draft";
 import { openRefPreview } from "@/components/RefPreview";
 import { Fragment, Suspense, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { SyncFromAirtable } from "./SyncFromAirtable";
+import { AiPlanPanel, AiPlanBar, Brief, type Plan } from "./AiPlanner";
 import { fmtDate, fmtDateShort, fmtDateTime } from "@/lib/date";
 import { estimateTaskMinutes } from "@/lib/task-estimate";
 import { createPortal } from "react-dom";
@@ -28,7 +29,7 @@ import { EMPTY_FILTER, OPS_BY_TYPE, countConditions, evalFilter as evalFilterSha
   type FieldType, type FilterCondition, type FilterFieldDef, type FilterModel, type FilterOp } from "@/lib/filter-model";
 import { useApi } from "@/lib/use-api";
 import type { TrashItem } from "@/lib/task-trash";
-import { IconRestore, IconSearch, IconPaperclip, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandYoutube, IconFilter, IconLayoutList, IconPalette, IconBookmark, IconDeviceFloppy, IconUser, IconUsers, IconLock, IconDots, IconPencil, IconFileDescription, IconCopy, IconClipboardCopy, IconUserShare, IconDownload, IconPrinter, IconTrash, IconCheck, IconPlus, IconPhoto, IconCloudUpload, IconMessageCircle2, IconHistory, IconCalendarEvent, IconExternalLink, IconFileText, IconChevronLeft, IconChevronRight, IconChevronDown, IconX, IconPlayerPlay, IconArrowsSort, IconColumns, IconAlertTriangle, IconArrowRight, IconLink } from "@tabler/icons-react";
+import { IconRestore, IconSearch, IconPaperclip, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandYoutube, IconFilter, IconLayoutList, IconPalette, IconBookmark, IconDeviceFloppy, IconUser, IconUsers, IconLock, IconDots, IconPencil, IconFileDescription, IconCopy, IconClipboardCopy, IconUserShare, IconDownload, IconPrinter, IconTrash, IconCheck, IconPlus, IconPhoto, IconCloudUpload, IconMessageCircle2, IconHistory, IconCalendarEvent, IconExternalLink, IconFileText, IconChevronLeft, IconChevronRight, IconChevronDown, IconX, IconPlayerPlay, IconArrowsSort, IconColumns, IconAlertTriangle, IconArrowRight, IconLink, IconSparkles } from "@tabler/icons-react";
 import MissingFieldsModal, { gateFromResponse, type GateBlock } from "../MissingFieldsModal";
 import { alertDialog, confirmDialog, promptDialog } from "@/app/(dashboard)/dashboard/preview/ConfirmDialog";
 import { pageForSbu } from "@/lib/sbu-pages";
@@ -1773,6 +1774,7 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
   const canCreate = hasCapability(me.data?.user as never, "create_tasks");
   // Team & access → "Edit calendar" (22 Oct). Off = view only: no dragging, no drops.
   const canMove = !me.data ? false : canEditCalendar(me.data.user as never);
+  const canChangeDates = hasCapability(me.data?.user as never, "reschedule");   // Plan with AI
   const [view, setView] = useState<CalView>("month");
   // Anchor date drives every view; ‹ › shifts by month/week/day, Today resets it.
   const [anchor, setAnchor] = useState(() => new Date());
@@ -1814,6 +1816,49 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
     for (const q of pendingMoves.data?.requests || []) if (q.status === "pending" && q.to) m.set(q.postId, { from: q.from, to: q.to.slice(0, 10) });
     return m;
   }, [pendingMoves.data]);
+  // Plan with AI (4 Nov 2026, AiPlanner.tsx): the AI's version sits beside the
+  // calendar; the switch shows it, and only what's applied is saved.
+  const [aiPlan, setAiPlan] = useState<Plan | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
+  const [aiRunning, setAiRunning] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiView, setAiView] = useState(false);
+  const [aiApplying, setAiApplying] = useState(false);
+  const [aiOff, setAiOff] = useState<Set<string>>(new Set());
+  const [aiPick, setAiPick] = useState<string | null>(null);
+  const aiTo = useMemo(() => {
+    const m = new Map<string, { from: string; to: string }>();
+    for (const mv of aiPlan?.moves || []) if (mv.ok && !aiOff.has(mv.id)) m.set(mv.id, { from: mv.from, to: mv.to });
+    return m;
+  }, [aiPlan, aiOff]);
+  const dayMon = (ymd: string) => new Date(`${ymd}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  const aiBlocked = useMemo(() => new Map((aiPlan?.moves || []).filter((m) => !m.ok).map((m) => [m.id, m])), [aiPlan]);
+  const runAiPlan = async (ids: string[]) => {
+    setAiOpen(true); setAiRunning(true); setAiError(""); setAiPlan(null); setAiOff(new Set()); setAiView(false);
+    try {
+      const r = await fetch("/api/ai-planner", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ids }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "Planning failed — try again.");
+      setAiPlan(j as Plan);
+    } catch (e) { setAiError((e as Error).message); }
+    finally { setAiRunning(false); }
+  };
+  const applyAiPlan = async (only?: string) => {
+    const moves = (aiPlan?.moves || []).filter((m) => m.ok && !aiOff.has(m.id) && (!only || m.id === only));
+    if (!moves.length) return;
+    setAiApplying(true);
+    try {
+      const r = await fetch("/api/post-planner/apply", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: moves.map((m) => ({ id: m.id, dateISO: m.to, why: m.why })) }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "Couldn't apply — try again.");
+      showToast({ who: only ? "AI move applied" : "AI plan applied", body: `${j.applied || 0} moved${j.pending ? ` · ${j.pending} sent to Approvals` : ""} · each move is in the task's history as "AI plan".`, color: "#6D4AE8", av: "✓" });
+      if (only) { setAiOff((s) => new Set(s).add(only)); setAiPlan((p) => p && { ...p, moves: p.moves.filter((m) => m.id !== only) }); }
+      else { setAiPlan(null); setAiView(false); }
+      setAiPick(null); await pendingMoves.refresh(); onSaved();
+    } catch (e) { setFailure({ kind: "error", message: (e as Error).message }); }
+    finally { setAiApplying(false); }
+  };
   const dropOn = async (e: React.DragEvent, dayKey: string) => {
     e.preventDefault();
     setDragOver(null);
@@ -1845,14 +1890,14 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
   const byDay = useMemo(() => {
     const m = new Map<string, Row[]>();
     for (const r of filteredRows) {
-      const d = movedTo.get(r.id)?.to ?? r.publishingDate?.slice(0, 10);
+      const d = (aiView ? aiTo.get(r.id)?.to : undefined) ?? movedTo.get(r.id)?.to ?? r.publishingDate?.slice(0, 10);
       if (!d) continue;
       let list = m.get(d);
       if (!list) { list = []; m.set(d, list); }
       list.push(r);
     }
     return m;
-  }, [filteredRows, movedTo]);
+  }, [filteredRows, movedTo, aiView, aiTo]);
 
   // Per-brand counts across the current (unfiltered) range — powers the chip badges.
   const brandCounts = useMemo(() => {
@@ -1925,6 +1970,18 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
   const EvBar = (r: Row, block?: boolean) => {
     const st = calStatusStyle(r.status);
     const moved = movedTo.get(r.id);
+    const ai = aiView ? aiTo.get(r.id) : undefined;
+    const aiNo = aiView ? aiBlocked.get(r.id) : undefined;
+    if (ai || aiNo) return (
+      <button key={r.id} onClick={() => setAiPick(r.id)} className={`mhcal-ev${block ? " block" : ""}`}
+        style={ai ? { background: "#E7E0FD", borderColor: "#6D4AE8", borderWidth: 1.5, color: "#2A1C6E" } : { background: st.bg, borderColor: "#E58B80", borderWidth: 2, color: st.text }}>
+        <span className="mhcal-evtitle">
+          <span style={{ background: ai ? "#6D4AE8" : "#C03221", color: "#fff", fontSize: 10, fontWeight: 600, borderRadius: 4, padding: "0 4px", marginRight: 4 }}>
+            {ai ? `AI · was ${dayMon(ai.from)}` : `AI wanted ${dayMon(aiNo!.to)} — not allowed`}
+          </span>{r.particulars || "(untitled)"}
+        </span>
+      </button>
+    );
     return (
       <button
         key={r.id}
@@ -1936,7 +1993,7 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
         onMouseLeave={() => setTip((t) => (t?.r.id === r.id ? null : t))}
         onDragEnd={() => setTip(null)}
         className={`mhcal-ev${block ? " block" : ""}`}
-        style={{ background: st.bg, borderColor: moved ? "#3A57E8" : st.border, borderStyle: moved ? "dashed" : undefined, color: st.text }}
+        style={{ background: st.bg, borderColor: moved ? "#3A57E8" : st.border, borderStyle: moved ? "dashed" : undefined, color: st.text, opacity: aiView ? 0.45 : undefined }}
       >
         {/* Just the title. The chip is already tinted by status (with a legend
             below), so a second brand-coloured square only made the grid busy
@@ -1989,8 +2046,53 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
           </div>
           <span className="mhcal-tc-count">{fmtInt(filteredRows.length)} tasks in view</span>
           <span className="mhcal-live"><span className="dot" />{loading ? "Syncing…" : "Live"}</span>
+          {canChangeDates && (
+            <button onClick={() => (aiPlan ? setAiOpen(true) : runAiPlan(filteredRows.map((r) => r.id)))} disabled={aiRunning}
+              title="Suggest better days for the next two weeks, based on what's timely — nothing changes until you apply"
+              className="inline-flex items-center gap-1.5 bg-[#6D4AE8] hover:brightness-95 text-white text-[13px] font-medium rounded-lg px-3.5 py-2 disabled:opacity-50">
+              <IconSparkles size={15} />{aiRunning ? "Planning…" : aiPlan ? "AI plan" : "Plan with AI"}
+            </button>
+          )}
         </div>
       </div>
+
+      {aiPlan && (
+        <AiPlanBar aiView={aiView} setAiView={setAiView} count={aiTo.size} applying={aiApplying}
+          onWhy={() => setAiOpen(true)} onApply={() => applyAiPlan()}
+          onDiscard={() => { setAiPlan(null); setAiView(false); showToast({ who: "AI plan discarded", body: "The calendar is unchanged.", color: "#6D4AE8", av: "✓" }); }} />
+      )}
+      <AiPlanPanel open={aiOpen} onClose={() => setAiOpen(false)} plan={aiPlan} running={aiRunning} error={aiError}
+        excluded={aiOff} onToggle={(id, on) => setAiOff((s) => { const n = new Set(s); if (on) n.delete(id); else n.add(id); return n; })}
+        onSeeCalendar={() => { setAiOpen(false); setAiView(true); }} />
+      {aiPick && (() => {
+        const mv = aiPlan?.moves.find((m) => m.id === aiPick);
+        const r = rows.find((x) => x.id === aiPick);
+        if (!mv || !r) return null;
+        return (
+          <div className="fixed inset-0 z-50 bg-[#232D42]/35 flex items-center justify-center p-4" onClick={(e) => { if (e.target === e.currentTarget) setAiPick(null); }}>
+            <div className="bg-white rounded-2xl border border-gray-100 w-full max-w-[520px]">
+              <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-gray-100">
+                <div><div className="text-[16px] font-semibold text-[#232D42]">{r.particulars}</div><div className="text-[12.5px] text-[#8A92A6] mt-0.5">{r.sbu} · {r.status} · on the calendar: {fmtDateShort(mv.from)}</div></div>
+                <button onClick={() => setAiPick(null)} className="p-1.5 rounded-lg text-[#8A92A6] hover:bg-[#F6F7FB]" aria-label="Close"><IconX size={18} /></button>
+              </div>
+              <div className="px-5 py-4">
+                <div className={`rounded-xl border px-3 py-2.5 ${mv.ok ? "border-[#D9CEFB] bg-[#FAF8FF]" : "border-[#F5C9C3] bg-[#FDECEC]"}`}>
+                  <div className={`text-[13px] font-semibold ${mv.ok ? "text-[#3F2A9C]" : "text-[#C03221]"}`}>{mv.ok ? `AI plan: ${fmtDateShort(mv.from)} → ${fmtDateShort(mv.to)} (not applied yet)` : `AI wanted ${fmtDateShort(mv.to)} — not allowed`}</div>
+                  <div className="text-[12.5px] text-[#4A5468] mt-1">{mv.ok ? mv.why : mv.blocked}</div>
+                  {mv.ok && <Brief m={mv} open />}
+                  {mv.ok && (
+                    <div className="flex gap-2 mt-3">
+                      <button onClick={() => applyAiPlan(mv.id)} disabled={aiApplying} className="inline-flex items-center gap-1.5 bg-[#6D4AE8] text-white rounded-lg px-3 py-1.5 text-[12.5px] font-medium disabled:opacity-40"><IconCheck size={14} />Apply just this move</button>
+                      <button onClick={() => { setAiOff((s) => new Set(s).add(mv.id)); setAiPick(null); }} className="border border-gray-200 rounded-lg px-3 py-1.5 text-[12.5px] font-medium text-[#4A5468]">Leave it out</button>
+                      <button onClick={() => { setAiPick(null); onOpen(r.id); }} className="ml-auto border border-gray-200 rounded-lg px-3 py-1.5 text-[12.5px] font-medium text-[#4A5468]">Open task</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Calendar card — toolbar INSIDE the card, then the active view */}
       <div className="mhcal-card">
@@ -2018,6 +2120,11 @@ export function CalendarView({ rows, facets, onOpen, onSaved, loading }: { rows:
                 const key = ymd(cell.date);
                 const list = byDay.get(key) || [];
                 const bars = list.map((r) => EvBar(r));
+                // AI plan view: where a moved task used to be.
+                if (aiView) for (const r of filteredRows) { const mv = aiTo.get(r.id); if (mv && mv.from === key) bars.unshift(
+                  <button key={`ghost-${r.id}`} onClick={() => setAiPick(r.id)} className="mhcal-ev" style={{ background: "repeating-linear-gradient(135deg,#fff,#fff 6px,#F7F4FF 6px,#F7F4FF 12px)", border: "1.5px dashed #C9C0F5", color: "#8C7FD9" }}>
+                    <span className="mhcal-evtitle">→ {dayMon(mv.to)} · {r.particulars || "(untitled)"}</span>
+                  </button>); }
                 const cls = `mhcal-cell${cell.inMonth ? "" : " out"}${cell.isToday ? " today" : ""}${dragOver === key ? " over" : ""}`;
                 return (
                   <div key={key} className={cls}
