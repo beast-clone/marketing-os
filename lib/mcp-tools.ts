@@ -14,8 +14,9 @@ import { pageForSbu } from "@/lib/sbu-pages";
 import { requestDateChange, supersedeDateChange } from "@/lib/date-approvals";
 import { freshPublishState } from "@/lib/scheduler-lock";
 import { safeFetch } from "@/lib/ssrf";
-import { BUCKET, UUID, asKind, mimeAllowed, mimeRefusal, safeName } from "@/lib/attach-rules";
-import { sendBackForReview } from "@/lib/re-review";
+import { BUCKET, MAX_MB, UUID, asKind, mimeAllowed, mimeRefusal, safeName } from "@/lib/attach-rules";
+import { trashFile } from "@/lib/file-trash";
+import { TASK_STATUSES, isTaskStatus } from "@/lib/statuses";
 
 // The read and update half of the Claude connector.
 //
@@ -93,7 +94,7 @@ export async function getTask(args: Record<string, unknown>, origin: string) {
   const { data, error } = await sb().from("mh_posts").select(COLS).eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) throw new Error(`No task with id ${id}.`);
-  return brief(data as Row, origin, true);
+  return { ...brief(data as Row, origin, true), files: await listFiles(id) };
 }
 
 export async function searchTasks(args: Record<string, unknown>, origin: string) {
@@ -151,7 +152,10 @@ export async function updateTask(args: Record<string, unknown>, userId: string, 
   const s = (k: string) => (typeof args[k] === "string" ? (args[k] as string).trim() : undefined);
   const patch: Record<string, unknown> = {};
 
-  if (s("status") !== undefined) patch.status = s("status");
+  if (s("status") !== undefined) {
+    if (!isTaskStatus(s("status"))) throw new Error(`"${s("status")}" isn't a status. Use one of: ${TASK_STATUSES.join(", ")}.`);
+    patch.status = s("status");
+  }
   if (s("priority") !== undefined) patch.priority = s("priority");
   if (s("caption") !== undefined) patch.caption = s("caption");
   if (s("content") !== undefined) patch.content = s("content");
@@ -324,6 +328,7 @@ export async function schedulePost(args: Record<string, unknown>, userId: string
     taskId: id, particulars: post.particulars || "Post", pages, publishToPage: pages[0],
     caption: post.caption || "", mediaUrls: media, format, sbu: post.sbu || undefined,
     scheduleTimeISO, alsoStory: args.also_story === true,
+    ...(Array.isArray(args.channels) && args.channels.length ? { channels: (args.channels as unknown[]).filter((c): c is string => c === "instagram" || c === "facebook") } : {}),
   }, userId);
   if ("error" in res) throw new Error(res.error);
   await sb().from("mh_activity").insert({
@@ -407,7 +412,7 @@ export async function restoreTasks(args: Record<string, unknown>, userId: string
 }
 
 /* -------------------------------------------- the Scheduler queue (4 Nov 2026) */
-const QUEUE_COLS = "id, particulars, type, publish_status, schedule_time, publish_to_pages, failure_reason, custom";
+const QUEUE_COLS = "id, particulars, type, publish_status, schedule_time, publish_to_pages, failure_reason, custom, instagram_url, facebook_url";
 export async function listQueue(args: Record<string, unknown>) {
   const want = typeof args.status === "string" && ["scheduled", "published", "failed", "draft"].includes(args.status) ? args.status : "scheduled";
   const limit = Math.min(Math.max(Number(args.limit) || 30, 1), 100);
@@ -421,8 +426,21 @@ export async function listQueue(args: Record<string, unknown>) {
       when: ist(r.schedule_time as string | null), status: r.publish_status,
       ...(c.frame ? { story_frame_of: c.story_of, frame: c.frame } : c.story_of ? { story_of: c.story_of } : {}),
       ...(r.failure_reason ? { failure: r.failure_reason } : {}),
+      ...channelResults(r, c),
     };
   }) };
+}
+
+// Instagram and Facebook are sent one after the other, and either can fail on its own —
+// a "failed" post may still be live on Instagram (4 Nov: the 3 Nov Samvaya post). The
+// publisher marks each one as it lands (custom.ig_media_id / fb_done), so say each.
+function channelResults(r: Record<string, unknown>, c: Record<string, unknown>) {
+  const wanted = Array.isArray(c.channels) && c.channels.length ? (c.channels as string[]) : ["instagram", "facebook"];
+  const pending = r.publish_status === "failed" ? "failed" : r.publish_status === "published" ? "published" : "waiting";
+  const out: Record<string, string> = {};
+  if (wanted.includes("instagram")) out.instagram = c.ig_media_id ? `published${r.instagram_url ? ` (${r.instagram_url})` : ""}` : pending;
+  if (wanted.includes("facebook")) out.facebook = c.fb_done ? `published${r.facebook_url ? ` (${r.facebook_url})` : ""}` : pending;
+  return out;
 }
 
 // A queued post this person may act on: Schedule & publish switched on, and every page
@@ -527,6 +545,7 @@ export async function attachFromLink(args: Record<string, unknown>, userId: stri
 
   const r = await safeFetch(directLink(url), { timeoutMs: 20_000, headers: { "User-Agent": "Mozilla/5.0 GooCampus-Dashboard" } })
     .catch((e: Error) => { throw new Error(/blocked/.test(e.message) ? "That link isn't a public web address." : `Couldn't reach that link: ${e.message}`); });
+  await notPublishing(id);
   if (!r.ok) throw new Error(`Couldn't download it (${r.status}). Make sure the link is shared as "Anyone with the link".`);
   const mime = (r.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
   if (mime === "text/html") throw new Error("That link opens a web page, not the file. Share it as \"Anyone with the link\" (Google Drive files over ~100 MB can't be fetched this way — upload those in the dashboard).");
@@ -542,11 +561,134 @@ export async function attachFromLink(args: Record<string, unknown>, userId: stri
   const path = `mh-creatives/${id}/${Date.now()}-${safeName(filename)}`;
   const { error: upErr } = await sb().storage.from(BUCKET).upload(path, buf, { contentType: mime, upsert: false });
   if (upErr) throw new Error(`Upload failed: ${upErr.message}`);
-  const publicUrl = sb().storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
-  const { error } = await sb().from("mh_attachments").insert({ post_id: id, filename, storage_path: publicUrl, mime_type: mime, size_bytes: buf.length, uploaded_by: userId, kind });
-  if (error) { await sb().storage.from(BUCKET).remove([path]); throw new Error(error.message); }
-  await sb().from("mh_activity").insert({ post_id: id, actor_key: userId, action: `${kind}_added`, to_value: filename, detail: "via Claude" });
-  const sentBack = kind === "creative" ? await sendBackForReview(sb(), id, userId, filename) : false;
+  return recordFile(id, String(post.particulars), path, filename, mime, buf.length, kind, userId, args.position);
+}
+
+// ── Task files from Claude (Praveen, 4 Nov 2026 — docs: marketing-os-mcp-blockers.md) ──
+// Unlike a dashboard upload, a change made here leaves the task's status alone (Praveen
+// chose this, 4 Nov: Claude replaces creatives in bulk and each would otherwise go
+// back to review). A post already in the Scheduler queue is taken out, though, so it
+// can never go out with the old files — schedule_post puts it back.
+const QUEUED = new Set(["scheduled", "failed", "draft"]);
+async function notPublishing(id: string) {
+  const { data } = await sb().from("mh_posts").select("publish_status").eq("id", id).maybeSingle();
+  if (data?.publish_status === "publishing") throw new Error("It's being published right now — try again in a minute.");
+  if (data?.publish_status === "published") throw new Error("That post is already live — its files can't change now.");
+}
+async function afterFileChange(id: string, userId: string, what: string): Promise<string> {
   bustMarketingHubCache();
-  return `Added ${kind} “${filename}” (${(buf.length / 1048576).toFixed(1)} MB, ${mime}) to “${post.particulars}”.${sentBack ? " The task went back to review because its creative changed." : ""}`;
+  const { data } = await sb().from("mh_posts").select("publish_status").eq("id", id).maybeSingle();
+  if (!QUEUED.has(String(data?.publish_status))) return "";
+  const out = await unschedulePost(sb(), id, userId, `Files changed through Claude (${what}) — schedule it again`);
+  return out ? " It was in the Scheduler queue, so it was taken out — schedule it again with schedule_post once the files are right." : "";
+}
+
+/** A task's files, in the order they're posted. */
+async function listFiles(id: string) {
+  const { data } = await sb().from("mh_attachments").select("id, filename, kind, mime_type, size_bytes, sort_order, uploaded_at, uploaded_by, storage_path")
+    .eq("post_id", id).order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true });
+  let n = 0;
+  return ((data || []) as Record<string, unknown>[]).map((f) => ({
+    id: f.id, filename: f.filename, kind: f.kind,
+    ...(f.kind !== "reference" && f.kind !== "attachment" ? { position: ++n } : {}),
+    type: f.mime_type, size_mb: f.size_bytes ? Math.round(Number(f.size_bytes) / 104857.6) / 10 : null,
+    uploaded: ist(f.uploaded_at as string | null), uploaded_by: f.uploaded_by, url: f.storage_path,
+  }));
+}
+
+/** Put the creatives in this order (ids first, any others after, as they were). */
+async function setOrder(id: string, firstIds: string[]) {
+  const { data } = await sb().from("mh_attachments").select("id, kind").eq("post_id", id)
+    .order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true });
+  const creatives = ((data || []) as { id: string; kind: string }[]).filter((f) => f.kind !== "reference" && f.kind !== "attachment").map((f) => f.id);
+  const unknown = firstIds.filter((x) => !creatives.includes(x));
+  if (unknown.length) throw new Error(`Not creatives on this task: ${unknown.join(", ")}. get_task lists them.`);
+  const order = [...firstIds, ...creatives.filter((x) => !firstIds.includes(x))];
+  for (let i = 0; i < order.length; i++) {
+    const { error } = await sb().from("mh_attachments").update({ sort_order: i + 1 }).eq("id", order[i]).eq("post_id", id);
+    if (error) throw new Error(error.message);
+  }
+  return order;
+}
+
+async function recordFile(id: string, title: string, path: string, filename: string, mime: string, size: number, kind: ReturnType<typeof asKind>, userId: string, position: unknown) {
+  const publicUrl = sb().storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  const { data: row, error } = await sb().from("mh_attachments").insert({ post_id: id, filename, storage_path: publicUrl, mime_type: mime, size_bytes: size, uploaded_by: userId, kind }).select("id").single();
+  if (error || !row) { await sb().storage.from(BUCKET).remove([path]); throw new Error(error?.message || "Couldn't save it"); }
+  await sb().from("mh_activity").insert({ post_id: id, actor_key: userId, action: `${kind}_added`, to_value: filename, detail: "via Claude" });
+  const pos = Number(position);
+  if (kind === "creative" && Number.isInteger(pos) && pos >= 1) {
+    const { data } = await sb().from("mh_attachments").select("id, kind").eq("post_id", id).neq("id", row.id)
+      .order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true });
+    const others = ((data || []) as { id: string; kind: string }[]).filter((f) => f.kind !== "reference" && f.kind !== "attachment").map((f) => f.id);
+    others.splice(Math.min(pos - 1, others.length), 0, row.id);
+    await setOrder(id, others);
+  }
+  const note = await afterFileChange(id, userId, `added ${filename}`);
+  return `Added ${kind} “${filename}” (${(size / 1048576).toFixed(1)} MB, ${mime}) to “${title}” — file id ${row.id}.${note}`;
+}
+
+export async function removeFile(args: Record<string, unknown>, userId: string) {
+  const fileId = typeof args.file_id === "string" ? args.file_id.trim() : "";
+  const reason = typeof args.reason === "string" ? args.reason.trim() : "";
+  if (!UUID.test(fileId)) throw new Error("file_id is required — get_task lists each file's id.");
+  if (!reason) throw new Error("Say why it's being removed (reason) — it's shown in the task's history.");
+  const { data: f } = await sb().from("mh_attachments").select("post_id").eq("id", fileId).maybeSingle();
+  if (!f) throw new Error("No file with that id (it may already be removed).");
+  await notPublishing(f.post_id);
+  const gone = await trashFile(sb(), fileId, userId);
+  if (!gone) throw new Error("It was already removed.");
+  await sb().from("mh_activity").insert({ post_id: gone.post_id, actor_key: userId, action: gone.kind === "reference" || gone.kind === "attachment" ? `${gone.kind}_removed` : "creative_removed", to_value: gone.filename, detail: `${reason.slice(0, 280)} (via Claude)` });
+  const note = await afterFileChange(gone.post_id, userId, `removed ${gone.filename}`);
+  return `Moved “${gone.filename}” to the recycle bin (it can be restored from the dashboard).${note}`;
+}
+
+export async function reorderFiles(args: Record<string, unknown>, userId: string) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const ids = Array.isArray(args.file_ids) ? (args.file_ids as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  if (!UUID.test(id) || !ids.length) throw new Error("id (the task) and file_ids (in the new order) are required.");
+  await notPublishing(id);
+  const order = await setOrder(id, ids);
+  await sb().from("mh_activity").insert({ post_id: id, actor_key: userId, action: "creatives_reordered", detail: "via Claude" });
+  const note = await afterFileChange(id, userId, "reordered");
+  return `New order: ${order.map((x, i) => `${i + 1}. ${x}`).join(", ")}.${note}`;
+}
+
+/** Step 1 of uploading a file from the user's computer: a one-time upload link. */
+export async function startUpload(args: Record<string, unknown>) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const filename = typeof args.filename === "string" ? args.filename.trim() : "";
+  if (!UUID.test(id) || !filename) throw new Error("id (the task) and filename are required.");
+  const { data: post } = await sb().from("mh_posts").select("id").eq("id", id).maybeSingle();
+  if (!post) throw new Error("No task with that id.");
+  await notPublishing(id);
+  const path = `mh-creatives/${id}/${Date.now()}-${safeName(filename)}`;
+  const { data, error } = await sb().storage.from(BUCKET).createSignedUploadUrl(path);
+  if (error || !data) throw new Error(`Couldn't start the upload: ${error?.message || "no link"}`);
+  return {
+    upload_url: data.signedUrl, path,
+    how: `Send the file with an HTTP PUT to upload_url, the file's bytes as the body and its Content-Type header (e.g. curl -X PUT -H "Content-Type: image/png" --data-binary @file.png "<upload_url>"). Then call finish_upload with this id and path. The link works once, for about 2 hours. Up to ${MAX_MB} MB.`,
+  };
+}
+
+/** Step 2: check what arrived (type and size from storage, not from the caller) and put it on the task. */
+export async function finishUpload(args: Record<string, unknown>, userId: string) {
+  const id = typeof args.id === "string" ? args.id.trim() : "";
+  const path = typeof args.path === "string" ? args.path.trim() : "";
+  const kind = asKind(args.kind);
+  if (!UUID.test(id) || !path.startsWith(`mh-creatives/${id}/`) || path.includes("..")) throw new Error("Use the id and path that start_upload gave.");
+  const { data: post } = await sb().from("mh_posts").select("particulars").eq("id", id).maybeSingle();
+  if (!post) throw new Error("No task with that id.");
+  const dir = path.slice(0, path.lastIndexOf("/")), name = path.slice(path.lastIndexOf("/") + 1);
+  const { data: listed } = await sb().storage.from(BUCKET).list(dir, { search: name, limit: 5 });
+  const obj = (listed || []).find((o) => o.name === name);
+  if (!obj) throw new Error("The file hasn't arrived — PUT it to upload_url first.");
+  const meta = (obj.metadata || {}) as { mimetype?: string; size?: number };
+  const mime = String(meta.mimetype || "").toLowerCase(), size = Number(meta.size || 0);
+  if (!mimeAllowed(mime, kind) || size > MAX_MB * 1024 * 1024) {
+    await sb().storage.from(BUCKET).remove([path]);
+    throw new Error(size > MAX_MB * 1024 * 1024 ? `The limit is ${MAX_MB} MB.` : `${mimeRefusal(kind)} (It arrived as "${mime || "unknown"}" — send the right Content-Type header.)`);
+  }
+  const given = typeof args.filename === "string" && args.filename.trim() ? args.filename.trim() : name.replace(/^\d+-/, "");
+  return recordFile(id, String(post.particulars), path, given, mime, size, kind, userId, args.position);
 }

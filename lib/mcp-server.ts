@@ -8,7 +8,8 @@ import { fetchSbus } from "@/lib/sbus-db";
 import { CONTENT_TYPES, ALL_TYPES } from "@/lib/mh-content-types";
 import { canClaude } from "@/lib/permissions";
 import { createTask, normalizeOwner } from "@/lib/task-create";
-import { listTasks, getTask, searchTasks, updateTask, whatsDue, listRadar, schedulePost, deleteTasks, listRecycleBin, restoreTasks, listQueue, unscheduleTool, rescheduleTool, retryTool, setCollaborators, addComment, attachFromLink } from "@/lib/mcp-tools";
+import { listTasks, getTask, searchTasks, updateTask, whatsDue, listRadar, schedulePost, deleteTasks, listRecycleBin, restoreTasks, listQueue, unscheduleTool, rescheduleTool, retryTool, setCollaborators, addComment, attachFromLink, removeFile, reorderFiles, startUpload, finishUpload } from "@/lib/mcp-tools";
+import { TASK_STATUSES } from "@/lib/statuses";
 import { fetchContentTypes } from "@/lib/content-types-db";
 
 // The Claude connector, protocol and all.
@@ -87,7 +88,7 @@ const TOOLS = [
   {
     name: "get_task",
     title: "Read one task in full",
-    description: "Read a single task by id, with the full caption and content rather than the trimmed preview list_tasks returns.",
+    description: "Read a single task by id, with the full caption and content rather than the trimmed preview list_tasks returns, and its files (id, name, kind, position in the post, size, upload date).",
     inputSchema: { type: "object", properties: { id: { type: "string", description: "The task id." } }, required: ["id"], additionalProperties: false },
   },
   {
@@ -105,13 +106,13 @@ const TOOLS = [
     title: "Change a task",
     description:
       "Change an existing task. You may set status, publishing_date, due_date, priority, owner, caption, content or type. " +
-      "You may NOT change which brand it belongs to, and there is no way to delete a task — both are deliberate. " +
+      "You may NOT change which Primary Interest it belongs to (deliberate). To delete, use delete_tasks; to change its files, attach_file / remove_file / reorder_files. " +
       "Read the task first if you are not certain which one the user means, and say what you changed afterwards.",
     inputSchema: {
       type: "object",
       properties: {
         id: { type: "string" },
-        status: { type: "string" },
+        status: { type: "string", enum: [...TASK_STATUSES], description: "Exact values only, e.g. \"Output - Ready\" for a finished design." },
         publishing_date: { type: "string", description: "YYYY-MM-DD, or empty string to clear." },
         due_date: { type: "string", description: "YYYY-MM-DD, or empty string to clear." },
         reason: { type: "string", description: "Why the publishing date is moving. Required for people whose 'Ask why when a date moves' is on — ask the user for it." },
@@ -139,6 +140,7 @@ const TOOLS = [
         when: { type: "string", description: "\"now\", or \"YYYY-MM-DD HH:mm\" in India time." },
         pages: { type: "array", items: { type: "string" }, description: "Optional. Page names to post to, e.g. \"Samvaya Matrimony\". Default: the post's own page." },
         format: { type: "string", enum: ["post", "reel", "story"], description: "Optional. Default: worked out from the task." },
+        channels: { type: "array", items: { type: "string", enum: ["instagram", "facebook"] }, description: "Optional. Default: both. [\"instagram\"] or [\"facebook\"] to post to one only." },
         also_story: { type: "boolean", description: "Optional. Also share a single image/reel as a Story at the same time." },
       },
       required: ["id", "when"], additionalProperties: false,
@@ -220,7 +222,7 @@ const TOOLS = [
   {
     name: "attach_file",
     title: "Add a creative or file to a task from a link",
-    description: "Downloads a file from a link and adds it to the task, like uploading it in the dashboard. Google Drive and Dropbox share links work if shared as 'Anyone with the link'; any other direct public link works too. kind: creative (default — the image/video that gets posted; jpg, png, gif, webp, mp4, mov, pdf), reference, or attachment. Up to 100 MB. Adding a creative sends an approved task back for review, as in the dashboard. Needs Connectors → Edit tasks.",
+    description: "Downloads a file from a link and adds it to the task, like uploading it in the dashboard. Google Drive and Dropbox share links work if shared as 'Anyone with the link'; any other direct public link works too. kind: creative (default — the image/video that gets posted; jpg, png, gif, webp, mp4, mov, pdf), reference, or attachment. Up to 100 MB. The task's status doesn't change; a post already in the Scheduler queue is taken out so it can't go out with the old files — schedule it again after. To replace a creative: attach_file the new one at the same position, then remove_file the old one. Needs Connectors → Edit tasks.",
     inputSchema: {
       type: "object",
       properties: {
@@ -228,8 +230,41 @@ const TOOLS = [
         url: { type: "string", description: "Link to the file" },
         kind: { type: "string", enum: ["creative", "reference", "attachment"] },
         filename: { type: "string", description: "Optional name to save it under" },
+        position: { type: "number", description: "Optional. Where it goes among the creatives, 1 = first frame/slide. Default: last." },
       },
       required: ["id", "url"], additionalProperties: false,
+    },
+  },
+  {
+    name: "remove_file",
+    title: "Remove a file from a task",
+    description: "Moves one file (creative, reference or attachment) to the recycle bin — it can be restored from the dashboard. file_id comes from get_task. A reason is required; it shows in the task's history. The task's status doesn't change; a post already in the Scheduler queue is taken out so it can't go out with the old files. Needs Connectors → Edit tasks.",
+    inputSchema: { type: "object", properties: { file_id: { type: "string" }, reason: { type: "string" } }, required: ["file_id", "reason"], additionalProperties: false },
+  },
+  {
+    name: "reorder_files",
+    title: "Change the order of a task's creatives",
+    description: "The order is the slide/frame order everywhere: the task, Content Review, the Scheduler and the published carousel or story. Give the creatives' ids (from get_task) in the new order; any left out keep their order after them. Needs Connectors → Edit tasks.",
+    inputSchema: { type: "object", properties: { id: { type: "string", description: "Task id" }, file_ids: { type: "array", items: { type: "string" } } }, required: ["id", "file_ids"], additionalProperties: false },
+  },
+  {
+    name: "start_upload",
+    title: "Upload a file from this computer (step 1 of 2)",
+    description: "For a file on the user's computer (when you can run commands, e.g. Claude Code or Cowork). Returns a one-time upload_url: PUT the file's bytes to it with its Content-Type, then call finish_upload. For a file that's already online, use attach_file instead. Needs Connectors → Edit tasks.",
+    inputSchema: { type: "object", properties: { id: { type: "string", description: "Task id" }, filename: { type: "string" } }, required: ["id", "filename"], additionalProperties: false },
+  },
+  {
+    name: "finish_upload",
+    title: "Upload a file from this computer (step 2 of 2)",
+    description: "After the PUT to upload_url: checks the file that arrived (type and size) and adds it to the task, like attach_file. Same kind and position options.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        id: { type: "string", description: "Task id" }, path: { type: "string", description: "The path start_upload returned" },
+        kind: { type: "string", enum: ["creative", "reference", "attachment"] }, filename: { type: "string" },
+        position: { type: "number", description: "Optional. Where it goes among the creatives, 1 = first frame/slide. Default: last." },
+      },
+      required: ["id", "path"], additionalProperties: false,
     },
   },
   {
@@ -347,10 +382,12 @@ async function callTool(id: Rpc["id"], userId: string, name: string, args: Recor
     case "retry_post":       return say(id, await retryTool(args, userId));
     case "set_collaborators": return say(id, await setCollaborators(args, userId));
     case "add_comment":      return say(id, await addComment(args, userId));
-    case "attach_file": {
+    case "attach_file": case "remove_file": case "reorder_files": case "start_upload": case "finish_upload": {
       const me = await rosterById(userId);
       if (!scopes && !canClaude(me, "edit")) return say(id, "Editing tasks from Claude isn't switched on for you. Ask an admin (Team & access → Connectors → Edit tasks).", true);
-      return say(id, await attachFromLink(args, userId));
+      if (name === "start_upload") return json(id, await startUpload(args));
+      return say(id, name === "attach_file" ? await attachFromLink(args, userId) : name === "remove_file" ? await removeFile(args, userId)
+        : name === "reorder_files" ? await reorderFiles(args, userId) : await finishUpload(args, userId));
     }
     case "schedule_post": {
       const res = await schedulePost(args, userId, via);
