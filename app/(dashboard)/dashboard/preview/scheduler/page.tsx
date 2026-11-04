@@ -403,6 +403,15 @@ function Scheduler() {
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>("mobile");
   // A scheduled/published post opened in the big full-screen view popup.
   const [calItem, setCalItem] = useState<CalendarItem | null>(null);
+  // A Reel task usually carries the video AND its thumbnail picture as creatives, which
+  // read as a two-file carousel, so Reel and the thumbnail picker never showed (Praveen,
+  // 4 Nov 2026). A Reel task with one video opens as that reel, its picture as the cover.
+  function taskMedia(t: ToScheduleItem): { media: string[]; cover: string; reel: boolean } {
+    const all = (t.mediaUrls || []).filter(Boolean);
+    const vids = all.filter(isVideoUrl), pics = all.filter((u) => !isVideoUrl(u) && !isPdfUrl(u));
+    if (/reel/i.test(t.type || "") && vids.length === 1) return { media: vids, cover: pics[0] || "", reel: true };
+    return { media: all, cover: "", reel: false };
+  }
   // Open the manual composer pre-filled from an Output-Ready task.
   function scheduleFromTask(t: ToScheduleItem) {
     setSchedulingTaskId(t.id);
@@ -410,10 +419,12 @@ function Scheduler() {
     setComposePages([]);   // the social media person picks the page — never pre-ticked
     setAlsoLinkedIn(false);
     setCaption(t.caption || "");
-    setMediaUrls(t.mediaUrls && t.mediaUrls.length ? t.mediaUrls : [""]);
+    const tm = taskMedia(t);
+    setMediaUrls(tm.media.length ? tm.media : [""]);
+    setCoverUrl(tm.cover);
     // A Story task opens as a Story — with several files it would otherwise start as
     // a carousel post (3 Nov 2026).
-    draftFormat.current = /story/i.test(t.type || "") ? "story" : null;
+    draftFormat.current = /story/i.test(t.type || "") ? "story" : tm.reel ? "reel" : null;
     setShowCreateForm(true);
   }
   // Inline (no-modal) counterpart of scheduleFromTask: prefill the SAME composer
@@ -426,8 +437,10 @@ function Scheduler() {
     setComposePages([]);   // the social media person picks the page — never pre-ticked
     setAlsoLinkedIn(false);
     setCaption(t.caption || "");
-    setMediaUrls(t.mediaUrls && t.mediaUrls.length ? t.mediaUrls : [""]);
-    draftFormat.current = /story/i.test(t.type || "") ? "story" : null;   // see scheduleFromTask
+    const tm = taskMedia(t);
+    setMediaUrls(tm.media.length ? tm.media : [""]);
+    setCoverUrl(tm.cover);
+    draftFormat.current = /story/i.test(t.type || "") ? "story" : tm.reel ? "reel" : null;   // see scheduleFromTask
     setScheduleEnabled(false);
     // Ticked again if this task already has a Story waiting, so re-scheduling it
     // doesn't drop that Story unasked.
@@ -711,7 +724,7 @@ function Scheduler() {
   const linkedInOnly = (pdfUrls.length > 0 && metaMediaUrls.length === 0) || (!toInstagram && !toFacebook);
   // Exactly one video and nothing else — the only shape a reel can be.
   const singleVideoUrl = useMemo(
-    () => (metaMediaUrls.length === 1 && /\.mp4($|\?)/i.test(metaMediaUrls[0]) ? metaMediaUrls[0] : ""),
+    () => (metaMediaUrls.length === 1 && /\.(mp4|mov|m4v)($|\?)/i.test(metaMediaUrls[0]) ? metaMediaUrls[0] : ""),   // .mov too (iPhone video), 4 Nov 2026
     [metaMediaUrls],
   );
   // A story is one image or one video, so the format question is no longer
@@ -1481,6 +1494,14 @@ function Scheduler() {
                             </div>
                             <div className="text-xs text-gray-400 mt-1">{formatChoices.length ? FORMAT_NOTE[format] : FORMAT_BLOCKED}</div>
                             {storyTick}
+                            {/* The reel's cover, here too — it was only in the modal, so a reel
+                                scheduled from this list never asked for one (Praveen, 4 Nov 2026). */}
+                            {format === "reel" && singleVideoUrl && (
+                              <div className="mt-3">
+                                <label className="text-xs uppercase tracking-wide text-gray-500 font-medium">Thumbnail</label>
+                                <div className="mt-1"><ReelThumbnail videoUrl={singleVideoUrl} coverUrl={coverUrl} onCover={setCoverUrl} /></div>
+                              </div>
+                            )}
                           </div>
                           <div>
                             <label className="text-xs uppercase tracking-wide text-gray-500 font-medium">Caption</label>
