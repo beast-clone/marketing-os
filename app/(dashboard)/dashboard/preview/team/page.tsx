@@ -270,7 +270,9 @@ function TeamManager() {
               if (d.workRole && d.workRole !== sel.workRole) updates.workRole = d.workRole;
               if (d.shiftStart && d.shiftStart !== (sel.shiftStart || "09:00")) updates.shiftStart = d.shiftStart;
               if (d.editPartner !== (sel.editPartner || "")) updates.editPartner = d.editPartner;
-              if (await call("PATCH", { id: sel.id, updates })) flash(`Saved ${sel.first}'s access — it applies from their next page load.`);
+              const ok = await call("PATCH", { id: sel.id, updates });
+              if (ok) flash(`Saved ${sel.first}'s access — it applies from their next page load.`);
+              return ok;
             }}
             onAction={async (body, msg) => { if (await call("POST", body)) flash(msg); }} />
         ) : <div className="bg-white rounded-2xl border border-gray-100 px-5 py-8 text-[13px] text-[#8A92A6]">Pick a person.</div>}
@@ -306,13 +308,19 @@ function Tick({ checked, label, onChange, disabled }: { checked: boolean; label:
   );
 }
 
-function PersonEditor({ m, team, busy, viewerId, onSave, onAction }: { m: Member; team: Member[]; busy: boolean; viewerId: string; onSave: (d: Draft) => void; onAction: (body: unknown, msg: string) => void }) {
+function PersonEditor({ m, team, busy, viewerId, onSave, onAction }: { m: Member; team: Member[]; busy: boolean; viewerId: string; onSave: (d: Draft) => Promise<boolean>; onAction: (body: unknown, msg: string) => void }) {
   // The pages they can be allowed to post to: GooCampus's and every linked brand's.
   const brandPages = usePublishPages().map((p) => ({ value: p.value, label: p.label }));
   const fresh = (): Draft => ({ isAdmin: m.isAdmin, sections: { ...(m.sections || {}) }, permissions: { ...(m.permissions || {}) }, name: m.name, email: m.email, role: m.role, active: m.active, workRole: m.workRole ?? null, shiftStart: m.shiftStart || "09:00", editPartner: m.editPartner || "" });
   const [d, setD] = useState<Draft>(fresh);
   const [pw, setPw] = useState<string | null>(null);
   const dirty = JSON.stringify(d) !== JSON.stringify(fresh());
+  // After a save the page reloads the person; take what the server kept as the new
+  // starting point. The server tidies permissions (drops "off" values that are the
+  // default), so comparing against our own copy said "unsaved changes" for ever (4 Nov).
+  useEffect(() => { setD(fresh()); }, [m]);   // eslint-disable-line react-hooks/exhaustive-deps
+  const [savedAt, setSavedAt] = useState(0);
+  useEffect(() => { if (!savedAt) return; const t = setTimeout(() => setSavedAt(0), 4000); return () => clearTimeout(t); }, [savedAt]);
   const setPerm = (patch: Partial<Perm>) => setD((x) => ({ ...x, permissions: { ...x.permissions, ...patch } }));
   const mode = taskMode(d);
   const schedOn = tabOn(d, "scheduler");
@@ -472,10 +480,12 @@ function PersonEditor({ m, team, busy, viewerId, onSave, onAction }: { m: Member
       </Section>
 
       <div className="flex items-center justify-between gap-3 px-6 py-3.5 border-t border-gray-100 bg-[#FBFBFD]">
-        <span className="text-[12.5px] text-[#8A92A6]">{dirty ? "You have unsaved changes." : "Changes are not saved until you click Save."}</span>
+        {dirty ? <span className="text-[12.5px] text-[#8A92A6]">You have unsaved changes.</span>
+          : savedAt ? <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#0F6E3C]"><IconCheck size={14} stroke={2.2} />Changes saved</span>
+          : <span className="text-[12.5px] text-[#8A92A6]">Changes are not saved until you click Save.</span>}
         <div className="flex gap-2">
           <button disabled={!dirty || busy} onClick={() => setD(fresh())} className="h-9 px-4 rounded-lg border border-gray-200 text-[13px] text-[#232D42] hover:border-brand hover:text-brand disabled:opacity-40">Discard</button>
-          <button disabled={!dirty || busy} onClick={() => onSave(d)} className="h-9 px-4 rounded-lg bg-brand text-white text-[13px] font-medium hover:bg-brand-dark disabled:opacity-40">{busy ? "Saving…" : "Save changes"}</button>
+          <button disabled={!dirty || busy} onClick={async () => { if (await onSave(d)) setSavedAt(Date.now()); }} className="h-9 px-4 rounded-lg bg-brand text-white text-[13px] font-medium hover:bg-brand-dark disabled:opacity-40">{busy ? "Saving…" : "Save changes"}</button>
         </div>
       </div>
     </section>
