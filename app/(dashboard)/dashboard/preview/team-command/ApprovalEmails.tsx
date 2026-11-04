@@ -42,7 +42,7 @@ export function ApprovalEmails() {
   return (
     <div className="bg-white border border-gray-100 rounded-2xl px-5 py-4 mt-4 mb-4">
       <div className="flex items-center gap-2 text-[14px] font-medium text-[#232D42]"><IconMail size={16} className="text-brand" />Email notifications</div>
-      <p className="text-[12.5px] text-[#8A92A6] mt-1 mb-3">When someone asks to move a publish date, these addresses get an email with the task link and the reason. The person who asked is emailed the decision.{!data.saved ? " Not set yet — these are the defaults (Managers on the Team page)." : ""}</p>
+      <p className="text-[12.5px] text-[#8A92A6] mt-1 mb-3">These addresses get one email at 9 PM listing every publish date changed that day — the task, old → new date, who changed it and why. No email on a day with no changes.{!data.saved ? " Not set yet — these are the defaults (Managers on the Team page)." : ""}</p>
       <div className="flex flex-wrap gap-2 mb-3">
         {list.length === 0 && <span className="text-[12.5px] text-[#B76E00]">Nobody — no request emails will go out.</span>}
         {list.map((e) => (

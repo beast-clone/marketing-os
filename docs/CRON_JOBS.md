@@ -213,11 +213,11 @@ deciding whether both should exist.
 | GC Dashboard — GEO SEO collect answers | `1KPa0lvH0WsOIZMR` | every 10 min, 6:00–23:50 IST → `/api/cron/geo?do=collect` |
 
 
-## Daily date-change email — added 4 November 2026, NOT set up yet
+## Daily date-change email — added 4 November 2026, active
 
 | Workflow | ID | Schedule |
 | --- | --- | --- |
-| GC Dashboard — Daily date changes | — (create at deploy) | 21:00 IST, every day → `/api/cron/date-change-daily` |
+| GC Dashboard — Daily date changes | `gitA0h02Mm1rPlwP` | 21:00 IST, every day → `/api/cron/date-change-daily` (credential: GC Dashboard Cron) |
 
 The admin doesn't approve date changes any more (approval switched off for everyone,
 4 Nov) — they get one email at 9 PM listing every publish date moved that day, who moved
