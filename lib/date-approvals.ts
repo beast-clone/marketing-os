@@ -186,11 +186,12 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
   const TD = "padding:10px 12px;font-size:13px;color:#232D42;vertical-align:top;border-bottom:1px solid #F0F1F5;white-space:nowrap";   // one line per cell, except the reason (it wraps so the table fits Gmail, 4 Nov)
   const table = (head: string[], body: string) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E9ECF2;border-radius:10px;border-collapse:separate;overflow:hidden"><tr>${head.map((h) => `<th style="${TH}">${h}</th>`).join("")}</tr>${body}</table>`;
   const taskCell = (id: string, name: string, extra: string) => `<a href="${taskLink(id)}" style="color:#3A57E8;text-decoration:none;font-weight:600">${esc(name)}</a>${extra}`;
-  const moved = table(["Task", "Primary Interest", "Date change", "Moved by", "Time", "Reason"], [...byTask.entries()].map(([id, list]) => {
+  const moved = table(["Task", "Primary Interest", "Date change", "Changed by", "Time", "Reason"], [...byTask.entries()].map(([id, list]) => {
     const p = title.get(id)!;
     return list.map((m, i) => {
       const req = m.action === "date_change_approved" ? asked.get(m.post_id) : undefined;
-      const by = req ? `${esc(nameOf(req.requestedBy))} <span style="color:#8A92A6">(approved by ${esc(nameOf(m.actor_key || ""))})</span>` : esc(nameOf(m.actor_key || ""));
+      // Just who changed it — no approvals any more (the admin, 4 Nov 2026).
+      const by = esc(nameOf(req ? req.requestedBy : m.actor_key || ""));
       const reason = req ? why(req.reason) : why(m.detail);
       const first = i === 0
         ? taskCell(id, p.particulars || "(no title)", list.length > 1 ? ` <span style="font-size:12px;color:#B76E00">· moved ${list.length} times today</span>` : "")
@@ -204,7 +205,7 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
   const html = emailLayout({
     preheader: `${n} task${n === 1 ? "" : "s"} had their publish date moved today${waiting.length ? `; ${waiting.length} waiting for approval` : ""}.`,
     tag: "Today's date changes", title: n ? `${n} publish date${n === 1 ? "" : "s"} moved today` : `${waiting.length} date change${waiting.length === 1 ? "" : "s"} waiting`,
-    intro: (n ? `Every publish date changed today — who moved it, when and why.<div style="margin-top:14px">${moved}</div>` : "")
+    intro: (n ? `Every publish date changed today — who changed it, when and why.<div style="margin-top:14px">${moved}</div>` : "")
       + (waiting.length ? `<div style="margin-top:${n ? 18 : 0}px;font-size:14px;color:#232D42;font-weight:600">Waiting for approval</div><div style="margin-top:10px">${wait}</div>` : ""),
     wide: true,   // a one-line-per-row table needs the room
     rows: [],
@@ -215,7 +216,7 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
   await sendMail({
     to: opts.to || (await approverEmails()),
     subject: `Today's date changes — ${n} task${n === 1 ? "" : "s"} moved${waiting.length ? `, ${waiting.length} waiting` : ""}`,
-    text: [...byTask.entries()].map(([id, list]) => `${title.get(id)!.particulars}: ${list.map((m) => `${m.from_value || "no date"} -> ${m.to_value || "no date"} (${nameOf(m.actor_key || "")}${why(m.detail) ? `, "${why(m.detail)}"` : ""})`).join("; ")}\n${taskLink(id)}`).join("\n\n") + `\n\n${approvalsLink}`,
+    text: [...byTask.entries()].map(([id, list]) => `${title.get(id)!.particulars}: ${list.map((m) => `${m.from_value || "no date"} -> ${m.to_value || "no date"} (${nameOf((m.action === "date_change_approved" ? asked.get(m.post_id)?.requestedBy : m.actor_key) || "")}${why(m.detail) ? `, "${why(m.detail)}"` : ""})`).join("; ")}\n${taskLink(id)}`).join("\n\n") + `\n\n${approvalsLink}`,
     html,
   });
   if (!opts.to) {
