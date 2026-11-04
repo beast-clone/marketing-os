@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plan with AI — prototype</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  :root{--brand:#3A57E8;--brand-dark:#2138B0;--brand-light:#E9ECFB;--ink:#232D42;--muted:#8A92A6;--line:#EEF0F5;--canvas:#F6F7FB;--ok:#0F6E3C;--ok-bg:#E8F6EE;--warn:#B76E00;--warn-bg:#FFF4E0;--red:#C03221;--red-bg:#FDECEC}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--canvas);color:var(--ink);font-size:14px}
+  .wrap{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+  .note{background:#fff;border:1px dashed #D9DEEA;border-radius:14px;padding:12px 16px;margin-bottom:14px;font-size:12.5px;color:var(--muted);line-height:1.55}
+  .note b{color:var(--ink);font-weight:500}
+  .hero{background:linear-gradient(90deg,var(--brand),#6B83F2);border-radius:16px;color:#fff;padding:20px 22px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .hero h2{margin:0;font-size:19px;font-weight:600}.hero p{margin:3px 0 0;opacity:.85;font-size:13px}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:8px 14px;font:500 13px Inter;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.primary:hover{background:var(--brand-dark)}
+  .btn.ai{background:#fff;color:var(--brand);border-color:#fff;font-weight:600}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .bar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap}
+  select{border:1px solid var(--line);border-radius:10px;padding:8px 10px;font:13px Inter;color:var(--ink);background:#fff}
+  .week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .day{background:#fff;border:1px solid var(--line);border-radius:12px;min-height:250px;padding:8px}
+  .day h4{margin:0 0 6px;font-size:12px;font-weight:600;color:var(--muted);display:flex;justify-content:space-between}
+  .day h4 b{color:var(--ink);font-weight:600}
+  .day.today{border-color:var(--brand)}
+  .t{border-radius:8px;padding:6px 7px;margin-bottom:6px;font-size:11.5px;line-height:1.3;border-left:3px solid}
+  .t .k{display:block;font-size:10.5px;opacity:.75;margin-top:2px}
+  .t.moved{outline:2px dashed var(--brand);outline-offset:1px}
+  .t.ghost{opacity:.35;text-decoration:line-through}
+  .c12{background:#EAF2FF;border-color:#3A57E8}.csam{background:#FCEEF3;border-color:#C2185B}.cpg{background:#EEF8F1;border-color:#1AA053}
+  .cme{background:#FFF4E0;border-color:#E08A00}.caus{background:#F1ECFF;border-color:#7A4FE0}.cmp{background:#E9F7FA;border-color:#0E8EA6}.cgen{background:#F3F4F6;border-color:#8A92A6}
+  /* drawer */
+  .scrim{position:fixed;inset:0;background:rgba(35,45,66,.35);display:none;justify-content:flex-end}
+  .scrim.on{display:flex}
+  .drawer{width:100%;max-width:560px;height:100%;background:#fff;display:flex;flex-direction:column}
+  .dh{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .dh .t1{font-size:16px;font-weight:600;display:flex;gap:8px;align-items:center}
+  .db{padding:14px 18px;overflow:auto;flex:1}
+  .df{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .loading{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:60px 0;color:var(--muted);font-size:13px;text-align:center}
+  .ring{width:56px;height:56px;border-radius:50%;border:5px solid rgba(58,87,232,.12);border-top-color:var(--brand);border-right-color:var(--brand);animation:spin .9s cubic-bezier(.5,.15,.5,.85) infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .steps{font-size:12.5px;line-height:1.9}
+  .steps i{color:var(--ok)}
+  .sum{background:var(--brand-light);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+  .sum .h{font-weight:600;font-size:13.5px;margin-bottom:4px;display:flex;gap:6px;align-items:center;color:var(--brand-dark)}
+  .sum p{margin:0;font-size:12.5px;color:#3B4457;line-height:1.5}
+  .grp{margin:14px 0 6px;font-size:11.5px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+  .sug{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start}
+  .sug input{margin-top:3px;accent-color:var(--brand)}
+  .sug .tt{font-weight:500;font-size:13px}
+  .move{display:flex;align-items:center;gap:6px;font-size:12.5px;margin-top:4px}
+  .move .from{color:var(--muted);text-decoration:line-through}
+  .move .to{font-weight:600;color:var(--brand)}
+  .why{font-size:12px;color:#4A5468;margin-top:4px;line-height:1.45}
+  .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .tag{font-size:11px;border-radius:999px;padding:2px 8px;background:var(--canvas);color:#4A5468;border:1px solid var(--line)}
+  .tag.hot{background:#FFF0EB;color:#C2410C;border-color:#FED7C3}
+  .tag.ap{background:var(--warn-bg);color:var(--warn);border-color:#F6DEB0}
+  .keep{border-style:dashed;background:#FBFBFD}
+  .blocked{background:var(--red-bg);border-color:#F5C9C3}
+  .blocked .why{color:var(--red)}
+  .rules{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:14px;font-size:12px;color:#4A5468;line-height:1.6}
+  .rules b{font-weight:600;color:var(--ink)}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ok-bg);color:var(--ok);border:1px solid #BFE6CD;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:500;display:none;gap:6px;align-items:center}
+  .toast.on{display:flex}
+  @media(max-width:900px){.week{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="note"><b>Prototype.</b> The tasks are real (this week's calendar); the AI reasons are <b>examples</b> — the real ones come from Perplexity's web search at the moment you press the button. Click <b>Plan with AI</b> to see the flow.</div>
+
+  <div class="hero">
+    <div><h2>Content calendar</h2><p>Week of Mon 2 Nov – Sun 8 Nov 2026</p></div>
+    <button class="btn ai" onclick="openAI()"><i class="ti ti-sparkles"></i>Plan with AI</button>
+  </div>
+
+  <div class="bar">
+    <select><option>All Primary Interests</option><option>12thPlus.com</option><option>Samvaya Matrimony</option><option>India NEET PG Consulting</option><option>Australia-PGCP</option><option>Middle East</option></select>
+    <span style="color:var(--muted);font-size:12.5px">Tasks already scheduled or published are locked and never moved.</span>
+  </div>
+
+  <div class="week" id="week"></div>
+</div>
+
+<div class="scrim" id="scrim" onclick="if(event.target===this)closeAI()">
+  <div class="drawer">
+    <div class="dh"><div class="t1"><i class="ti ti-sparkles" style="color:var(--brand)"></i><span id="dtitle">Plan with AI</span></div><button class="btn" onclick="closeAI()"><i class="ti ti-x"></i></button></div>
+    <div class="db" id="body"></div>
+    <div class="df" id="foot" style="display:none">
+      <span style="font-size:12.5px;color:var(--muted)" id="count"></span>
+      <div style="display:flex;gap:8px"><button class="btn" onclick="closeAI()">Close</button><button class="btn primary" id="apply" onclick="apply()"><i class="ti ti-check"></i>Apply</button></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"><i class="ti ti-circle-check"></i><span id="toastText"></span></div>
+
+<script>
+const DAYS = ["Wed 4","Thu 5","Fri 6","Sat 7","Sun 8"];
+const ALL = ["Mon 2","Tue 3",...DAYS];
+const C = { "12thPlus.com":"c12", "Samvaya Matrimony":"csam", "India NEET PG Consulting":"cpg", "Middle East":"cme", "Australia-PGCP":"caus", "Mentorship Platform":"cmp", "General Content":"cgen", "10K Mentorship":"cgen" };
+let tasks = [
+  {id:1,d:"Wed 4",t:"Aus SC - Text based Reel",k:"Reel",s:"Australia-PGCP"},
+  {id:2,d:"Wed 4",t:"NEET PG - Speaking Reel",k:"Reel",s:"India NEET PG Consulting"},
+  {id:3,d:"Wed 4",t:"UAE Webinar - Carousel",k:"Carousel",s:"Middle East"},
+  {id:4,d:"Wed 4",t:"Samvaya · What's the catch with free?",k:"Carousel",s:"Samvaya Matrimony"},
+  {id:5,d:"Thu 5",t:"You can't hold an AIQ seat and wait for a state seat",k:"Reel",s:"12thPlus.com"},
+  {id:6,d:"Thu 5",t:"NEET PG Dashboard Carousel",k:"Carousel",s:"India NEET PG Consulting"},
+  {id:7,d:"Thu 5",t:"UAE Webinar - Carousel",k:"Carousel",s:"Middle East"},
+  {id:8,d:"Fri 6",t:"Round 3 AIQ MBBS closing ranks 2026 vs 2025",k:"Carousel",s:"12thPlus.com"},
+  {id:9,d:"Fri 6",t:"Aus SC - Carousel",k:"Carousel",s:"Australia-PGCP"},
+  {id:10,d:"Fri 6",t:"UAE Webinar - Carousel",k:"Carousel",s:"Middle East"},
+  {id:11,d:"Sat 7",t:"Tamil Nadu NRI quota is ₹12 lakh more than management",k:"Reel",s:"12thPlus.com"},
+  {id:12,d:"Sat 7",t:"Samvaya · Diwali question",k:"Post",s:"Samvaya Matrimony"},
+  {id:13,d:"Sat 7",t:"UAE Webinar - Carousel",k:"Carousel",s:"Middle East"},
+  {id:14,d:"Sun 8",t:"Every seat type MCC counsels, in one place",k:"Carousel",s:"12thPlus.com"},
+  {id:15,d:"Sun 8",t:"Aus SC - Carousel",k:"Carousel",s:"Australia-PGCP"},
+  {id:16,d:"Sun 8",t:"Samvaya · Happy Diwali",k:"Post",s:"Samvaya Matrimony"},
+  {id:17,d:"Sun 8",t:"Dr Anjali Podcast Cut",k:"Reel",s:"Middle East"},
+];
+const SUG = [
+  {g:"12thPlus.com", items:[
+    {id:14, to:"Fri 6", why:"MCC Round 3 seat matrix lands this week — the 'every seat type' explainer is most useful before results, not after.", tags:["trending now","timely"]},
+    {id:8,  to:"Thu 5", why:"Searches for 'Round 3 cutoff' peak the day before results; keeps it apart from the seat-types carousel.", tags:["timely","format variety"]},
+    {id:11, keep:true, why:"NRI quota fee topic is steady this week — Saturday is fine."},
+  ]},
+  {g:"Middle East", items:[
+    {id:10, to:"Sun 8", why:"Four UAE webinar carousels on four days in a row compete with each other; spacing one to Sunday after the podcast cut.", tags:["different topic","spacing"], approval:true},
+    {id:3,  keep:true, why:"First reminder — keep on Wednesday."},
+  ]},
+  {g:"Australia-PGCP", items:[
+    {id:15, to:"Sat 7", why:"Two 'Aus SC' carousels Fri and Sun; Saturday gives the Sunday slot to the podcast cut in this audience's best hour.", tags:["format variety"]},
+  ]},
+  {g:"India NEET PG Consulting", items:[
+    {id:6, keep:true, why:"NEET PG counselling dates are announced; the dashboard carousel is timely on Thursday."},
+    {blocked:true, t:"NEET PG - Carousel (Mon 9 Nov)", why:"Would be better on Sun 8, but that's the previous week — not allowed. Left on Mon 9."},
+  ]},
+  {g:"Samvaya Matrimony", items:[
+    {id:16, keep:true, why:"Diwali is Sun 8 Nov — the greeting stays on the day.", tags:["timely"]},
+  ]},
+];
+const byId = (id) => tasks.find((x) => x.id === id);
+function render(preview){
+  const w = document.getElementById("week"); w.innerHTML = "";
+  for (const d of ALL){
+    const col = document.createElement("div"); col.className = "day" + (d === "Wed 4" ? " today" : "");
+    col.innerHTML = `<h4><b>${d.split(" ")[0]}</b> ${d.split(" ")[1]} Nov${d==="Wed 4"?' · today':''}</h4>`;
+    if (d === "Mon 2" || d === "Tue 3") col.innerHTML += `<div style="font-size:11px;color:var(--muted)">Past — not moved</div>`;
+    for (const t of tasks.filter((x) => x.d === d)) col.innerHTML += `<div class="t ${C[t.s]||'cgen'}${t.moved?' moved':''}">${t.t}<span class="k">${t.k} · ${t.s}</span></div>`;
+    w.appendChild(col);
+  }
+}
+render();
+function openAI(){
+  document.getElementById("scrim").classList.add("on");
+  document.getElementById("foot").style.display = "none";
+  document.getElementById("dtitle").textContent = "Plan with AI";
+  const body = document.getElementById("body");
+  body.innerHTML = `<div class="loading"><div class="ring"></div><div><b style="color:var(--ink);font-weight:500">Reading this week's 17 tasks and checking what's timely…</b></div>
+    <div class="steps" id="st"></div></div>`;
+  const steps = ["Read each task's content and caption","Searched the web: NEET UG/PG counselling, Australia, UAE, matrimony, Diwali","Checked Content Radar news from the last 7 days","Checked which formats and hours worked on each page","Applied the rules: same week only, not before today, daily limits"];
+  let i = 0; const st = document.getElementById("st");
+  const tick = setInterval(() => { if (i < steps.length) { st.innerHTML += `<div><i class="ti ti-check"></i> ${steps[i++]}</div>`; } else { clearInterval(tick); results(); } }, 550);
+}
+function results(){
+  document.getElementById("dtitle").textContent = "AI suggestions · this week";
+  let h = `<div class="sum"><div class="h"><i class="ti ti-bulb"></i>What's timely this week</div><p>MCC Round 3 results are due this week and NEET PG counselling dates are out — counselling explainers should go before results. Diwali is Sunday. The UAE webinar has four carousels in a row; spacing them out helps each one.</p></div>`;
+  for (const g of SUG){
+    h += `<div class="grp">${g.g}</div>`;
+    for (const s of g.items){
+      if (s.blocked){ h += `<div class="sug blocked"><i class="ti ti-ban" style="color:var(--red);margin-top:2px"></i><div><div class="tt">${s.t}</div><div class="why">${s.why}</div></div></div>`; continue; }
+      const t = byId(s.id);
+      if (s.keep){ h += `<div class="sug keep"><i class="ti ti-pin" style="color:var(--muted);margin-top:2px"></i><div><div class="tt">${t.t}</div><div class="move">Stays on <b style="font-weight:600">${t.d} Nov</b></div><div class="why">${s.why}</div>${(s.tags||[]).length?`<div class="tags">${s.tags.map(x=>`<span class="tag">${x}</span>`).join("")}</div>`:""}</div></div>`; continue; }
+      h += `<label class="sug"><input type="checkbox" checked data-id="${s.id}" data-to="${s.to}" onchange="recount()"><div><div class="tt">${t.t}</div>
+        <div class="move"><span class="from">${t.d} Nov</span><i class="ti ti-arrow-right"></i><span class="to">${s.to} Nov</span></div>
+        <div class="why">${s.why}</div>
+        <div class="tags">${(s.tags||[]).map(x=>`<span class="tag ${/trend/.test(x)?'hot':''}">${x}</span>`).join("")}${s.approval?'<span class="tag ap"><i class="ti ti-clock"></i> goes to Approvals</span>':''}</div></div></label>`;
+    }
+  }
+  h += `<div class="rules"><b>Rules the dashboard enforces</b> (not left to the AI):<br>
+    · A task moves earlier or later only <b>within its own week (Mon–Sun)</b> — never into the previous or next week.<br>
+    · Never before today, and never anything already scheduled, published or waiting for approval.<br>
+    · Daily limits and gaps from the Rules page still apply.<br>
+    · If the task's owner needs admin approval for date changes, the move goes to <b>Approvals → Waiting</b> instead.</div>`;
+  document.getElementById("body").innerHTML = h;
+  document.getElementById("foot").style.display = "flex";
+  recount();
+}
+function recount(){
+  const n = document.querySelectorAll('.sug input:checked').length;
+  document.getElementById("count").textContent = `${n} change${n===1?"":"s"} selected · 3 kept · 1 not allowed`;
+  const b = document.getElementById("apply"); b.disabled = !n; b.innerHTML = `<i class="ti ti-check"></i>Apply ${n} change${n===1?"":"s"}`;
+}
+function apply(){
+  const picked = [...document.querySelectorAll('.sug input:checked')];
+  for (const p of picked){ const t = byId(+p.dataset.id); t.d = p.dataset.to; t.moved = true; }
+  closeAI(); render();
+  const tt = document.getElementById("toast"); document.getElementById("toastText").textContent = `${picked.length} dates updated · 1 sent to Approvals · each move is in the task's history`;
+  tt.classList.add("on"); setTimeout(() => tt.classList.remove("on"), 4000);
+}
+function closeAI(){ document.getElementById("scrim").classList.remove("on"); }
+</script>
+</body>
+</html>
