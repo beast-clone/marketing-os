@@ -180,27 +180,33 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
 
   const at = (iso: string) => new Date(iso).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit" });
   const why = (d: unknown) => (typeof d === "string" && d.trim() ? d.trim() : "");
-  const card = (inner: string) => `<div style="border:1px solid #E9ECF2;border-radius:10px;padding:12px 14px;margin:0 0 10px">${inner}</div>`;
-  const moved = [...byTask.entries()].map(([id, list]) => {
-    const p = title.get(id)!, first = list[0], last = list[list.length - 1];
-    const lines = list.map((m) => {
+  // A table, one row per move (Praveen, 4 Nov 2026: "more like a table, not boxes").
+  // A task moved more than once keeps its rows together, its name on the first only.
+  const TH = "padding:9px 10px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#8A92A6;font-weight:600;text-align:left;background:#F6F7FB;border-bottom:1px solid #E9ECF2";
+  const TD = "padding:10px;font-size:13px;color:#232D42;vertical-align:top;border-bottom:1px solid #F0F1F5";
+  const table = (head: string[], body: string) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E9ECF2;border-radius:10px;border-collapse:separate;overflow:hidden"><tr>${head.map((h) => `<th style="${TH}">${h}</th>`).join("")}</tr>${body}</table>`;
+  const taskCell = (id: string, name: string, extra: string) => `<a href="${taskLink(id)}" style="color:#3A57E8;text-decoration:none;font-weight:600">${esc(name)}</a>${extra}`;
+  const moved = table(["Task", "Date change", "Moved by", "Time", "Reason"], [...byTask.entries()].map(([id, list]) => {
+    const p = title.get(id)!;
+    return list.map((m, i) => {
       const req = m.action === "date_change_approved" ? asked.get(m.post_id) : undefined;
-      const by = req ? `${esc(nameOf(req.requestedBy))}, approved by ${esc(nameOf(m.actor_key || ""))}` : esc(nameOf(m.actor_key || ""));
+      const by = req ? `${esc(nameOf(req.requestedBy))}<div style="font-size:11px;color:#8A92A6">approved by ${esc(nameOf(m.actor_key || ""))}</div>` : esc(nameOf(m.actor_key || ""));
       const reason = req ? why(req.reason) : why(m.detail);
-      return `<div style="font-size:13px;color:#4A5468;margin-top:4px">${esc(m.from_value || "no date")} → <b style="color:#232D42">${esc(m.to_value || "no date")}</b> · ${by}, ${esc(at(m.created_at))}${reason ? ` · “${esc(reason)}”` : ""}</div>`;
+      const first = i === 0
+        ? taskCell(id, p.particulars || "(no title)", `${p.sbu ? `<div style="font-size:11px;color:#8A92A6">${esc(p.sbu)}</div>` : ""}${list.length > 1 ? `<div style="font-size:11px;color:#B76E00">moved ${list.length} times today</div>` : ""}`)
+        : `<span style="color:#A6ACBE">″</span>`;
+      return `<tr><td style="${TD}">${first}</td><td style="${TD};white-space:nowrap"><span style="color:#8A92A6;text-decoration:line-through">${esc(m.from_value || "no date")}</span> → <b>${esc(m.to_value || "no date")}</b></td><td style="${TD}">${by}</td><td style="${TD};white-space:nowrap;color:#4A5468">${esc(at(m.created_at))}</td><td style="${TD};color:#4A5468">${esc(reason || "—")}</td></tr>`;
     }).join("");
-    return card(`<div style="font-size:14px;font-weight:600"><a href="${taskLink(id)}" style="color:#3A57E8;text-decoration:none">${esc(p.particulars || "(no title)")}</a>${p.sbu ? ` <span style="font-size:12px;color:#8A92A6;font-weight:400">· ${esc(p.sbu)}</span>` : ""}${list.length > 1 ? ` <span style="font-size:12px;color:#8A92A6;font-weight:400">· moved ${list.length} times</span>` : ""}</div>`
-      + `<div style="margin:8px 0 2px">${datePill(first.from_value || "no date")} <span style="color:#8A92A6">&nbsp;→&nbsp;</span> ${datePill(last.to_value || "no date", true)}</div>` + lines);
-  }).join("");
-  const wait = waiting.map((r) => card(`<div style="font-size:14px;font-weight:600"><a href="${taskLink(r.postId)}" style="color:#3A57E8;text-decoration:none">${esc(r.title)}</a></div>`
-    + `<div style="margin:8px 0 4px">${datePill(fmt(r.from))} <span style="color:#8A92A6">&nbsp;→&nbsp;</span> ${datePill(fmt(r.to), true)}</div>`
-    + `<div style="font-size:13px;color:#4A5468">${esc(nameOf(r.requestedBy))} · ${esc(at(r.requestedAt))} · “${esc(r.reason?.trim() || "—")}”</div>`)).join("");
+  }).join(""));
+  const wait = table(["Task", "Asked for", "Asked by", "Time", "Reason"], waiting.map((r) =>
+    `<tr><td style="${TD}">${taskCell(r.postId, r.title, "")}</td><td style="${TD};white-space:nowrap"><span style="color:#8A92A6;text-decoration:line-through">${esc(fmt(r.from))}</span> → <b>${esc(fmt(r.to))}</b></td><td style="${TD}">${esc(nameOf(r.requestedBy))}</td><td style="${TD};white-space:nowrap;color:#4A5468">${esc(at(r.requestedAt))}</td><td style="${TD};color:#4A5468">${esc(r.reason?.trim() || "—")}</td></tr>`).join(""));
   const n = byTask.size;
   const html = emailLayout({
     preheader: `${n} task${n === 1 ? "" : "s"} had their publish date moved today${waiting.length ? `; ${waiting.length} waiting for approval` : ""}.`,
     tag: "Today's date changes", title: n ? `${n} publish date${n === 1 ? "" : "s"} moved today` : `${waiting.length} date change${waiting.length === 1 ? "" : "s"} waiting`,
-    intro: (n ? `Every publish date changed today, with who moved it and why.<div style="margin-top:14px">${moved}</div>` : "")
+    intro: (n ? `Every publish date changed today — who moved it, when and why.<div style="margin-top:14px">${moved}</div>` : "")
       + (waiting.length ? `<div style="margin-top:${n ? 18 : 0}px;font-size:14px;color:#232D42;font-weight:600">Waiting for approval</div><div style="margin-top:10px">${wait}</div>` : ""),
+    wide: true,
     rows: [],
     buttons: [{ label: "Open date changes", href: approvalsLink, primary: true }],
   });
