@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calendar — Original vs AI plan</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+  :root{--brand:#3A57E8;--brand-dark:#2138B0;--brand-light:#E9ECFB;--ink:#232D42;--muted:#8A92A6;--line:#EEF0F5;--canvas:#F6F7FB;--pill:#93B8F7;--pill-b:#7BA6F2;--ok:#0F6E3C;--ok-bg:#E8F6EE;--warn:#B76E00;--warn-bg:#FFF4E0;--red:#C03221;--red-bg:#FDECEC;--ai:#6D4AE8;--ai-bg:#EFEAFE}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--canvas);color:var(--ink);font-size:14px}
+  .wrap{max-width:1240px;margin:0 auto;padding:16px 16px 60px}
+  .proto{background:#fff;border:1px dashed #D9DEEA;border-radius:12px;padding:9px 14px;margin-bottom:12px;font-size:12.5px;color:var(--muted)}
+  .proto b{color:var(--ink);font-weight:500}
+  .card{background:#fff;border:1px solid var(--line);border-radius:16px}
+  .top{display:flex;align-items:center;gap:12px;padding:14px 18px;margin-bottom:14px;flex-wrap:wrap}
+  .top h1{font-size:19px;font-weight:600;margin:0 auto 0 0}
+  .sel{border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13.5px;min-width:180px;display:flex;justify-content:space-between;gap:10px;background:#fff}
+  .meta{font-size:12.5px;color:var(--muted);display:flex;gap:10px;align-items:center}
+  .live{color:var(--muted)} .live:before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#1AA053;margin-right:5px}
+  .btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:10px;padding:8px 14px;font:500 13px Inter;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  .btn.ai{background:var(--ai);border-color:var(--ai);color:#fff}
+  .btn.ai:hover{filter:brightness(.95)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .calhead{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap}
+  .nav{display:flex;gap:8px}
+  .nav .sq{width:40px;height:36px;border-radius:9px;background:var(--brand);color:#fff;border:0;font-size:16px}
+  .nav .today{background:var(--brand-light);color:var(--brand-dark);border:0;border-radius:9px;padding:0 14px;font:500 14px Inter}
+  .title{font-size:21px;font-weight:600}
+  .views{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .views span{padding:8px 14px;font-size:13px;color:#4A5468}
+  .views span.on{background:var(--brand);color:#fff}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr)}
+  .dow{background:#F6F7FB;font-size:11.5px;font-weight:600;letter-spacing:.06em;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+  .cell{min-height:150px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:8px 6px;position:relative}
+  .cell.out{background:#F6F7FB}
+  .cell.out .n{color:#A6ACBE}
+  .cell.today{background:#F2F4FD}
+  .n{font-size:13px;font-weight:500;margin:0 0 8px 4px;display:inline-block}
+  .cell.today .n{background:var(--brand);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-grid;place-items:center;font-size:12px}
+  .p{background:var(--pill);border:1px solid var(--pill-b);border-radius:7px;padding:5px 8px;font-size:12.5px;line-height:1.3;margin-bottom:5px;color:#1B2A4A;cursor:pointer;position:relative;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .p.ai{background:#E7E0FD;border:1.5px solid var(--ai);padding-right:8px}
+  .p.ai .badge{display:inline-flex;align-items:center;gap:3px;background:var(--ai);color:#fff;font-size:10px;font-weight:600;border-radius:5px;padding:1px 5px;margin-right:4px;vertical-align:1px}
+  .p.wait{background:#FFF4E0;border:1.5px dashed #E08A00}
+  .p.wait .badge{display:inline-flex;align-items:center;gap:3px;background:#E08A00;color:#fff;font-size:10px;font-weight:600;border-radius:5px;padding:1px 5px;margin-right:4px;vertical-align:1px}
+  .ghost{border:1.5px dashed #C9C0F5;border-radius:7px;padding:4px 8px;font-size:11px;color:#8C7FD9;margin-bottom:5px;background:repeating-linear-gradient(135deg,#fff,#fff 6px,#F7F4FF 6px,#F7F4FF 12px)}
+  .banner{display:none;align-items:center;gap:10px;background:var(--ai-bg);border:1px solid #D9CEFB;color:#3F2A9C;border-radius:12px;padding:10px 14px;margin-bottom:12px;font-size:13px;flex-wrap:wrap}
+  .banner.on{display:flex}
+  .banner b{font-weight:600}
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);padding:10px 16px;border-top:1px solid var(--line);flex-wrap:wrap}
+  .legend span:before{content:"";display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-2px}
+  .lg1:before{background:var(--pill);border:1px solid var(--pill-b)}
+  .lg2:before{background:#E7E0FD;border:1.5px solid var(--ai)}
+  .lg3:before{background:#FFF4E0;border:1.5px dashed #E08A00}
+  .lg4:before{border:1.5px dashed #C9C0F5}
+  /* drawer */
+  .scrim{position:fixed;inset:0;background:rgba(35,45,66,.35);display:none;justify-content:flex-end;z-index:20}
+  .scrim.on{display:flex}
+  .drawer{width:100%;max-width:560px;height:100%;background:#fff;display:flex;flex-direction:column}
+  .dh{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  .dh .t1{font-size:16px;font-weight:600;display:flex;gap:8px;align-items:center}
+  .db{padding:14px 18px;overflow:auto;flex:1}
+  .df{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:50px 0;color:var(--muted);font-size:13px}
+  .ring{width:56px;height:56px;border-radius:50%;border:5px solid rgba(109,74,232,.12);border-top-color:var(--ai);border-right-color:var(--ai);animation:spin .9s cubic-bezier(.5,.15,.5,.85) infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .steps{font-size:12.5px;line-height:1.9;align-self:stretch;padding:0 30px}
+  .steps i{color:var(--ok)}
+  .cost{display:flex;justify-content:space-between;font-size:12px;color:#4A5468;background:var(--canvas);border-radius:10px;padding:8px 12px;margin-bottom:12px}
+  .sum{background:var(--ai-bg);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+  .sum .h{font-weight:600;font-size:13.5px;margin-bottom:4px;color:#3F2A9C;display:flex;gap:6px;align-items:center}
+  .sum p{margin:0;font-size:12.5px;color:#3B4457;line-height:1.5}
+  .sug{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:flex-start}
+  .sug input{margin-top:3px;accent-color:var(--ai)}
+  .sug .tt{font-weight:500;font-size:13px}
+  .move{display:flex;align-items:center;gap:6px;font-size:12.5px;margin-top:4px}
+  .move .from{color:var(--muted);text-decoration:line-through}
+  .move .to{font-weight:600;color:var(--ai)}
+  .why{font-size:12px;color:#4A5468;margin-top:4px;line-height:1.45}
+  .tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px}
+  .tag{font-size:11px;border-radius:999px;padding:2px 8px;background:var(--canvas);color:#4A5468;border:1px solid var(--line)}
+  .tag.hot{background:#FFF0EB;color:#C2410C;border-color:#FED7C3}
+  .tag.ap{background:var(--warn-bg);color:var(--warn);border-color:#F6DEB0}
+  .keep{border-style:dashed;background:#FBFBFD}
+  .blocked{background:var(--red-bg);border-color:#F5C9C3}
+  .blocked .why{color:var(--red)}
+  .brief{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:#FBFBFD;padding:8px 10px}
+  .brief summary{cursor:pointer;font-size:12px;font-weight:600;color:#3F2A9C;list-style:none;display:flex;gap:5px;align-items:center}
+  .brief .b{font-size:12px;line-height:1.5;color:#3B4457;margin-top:6px}
+  .brief .b span{display:block;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .brief .src{font-size:11.5px;color:var(--muted);margin-top:6px}
+  .grp{margin:14px 0 6px;font-size:11.5px;font-weight:600;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+  .rules{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:14px;font-size:12px;color:#4A5468;line-height:1.6}
+  .rules b{font-weight:600;color:var(--ink)}
+  /* task popover */
+  .pop{position:fixed;inset:0;background:rgba(35,45,66,.35);display:none;align-items:center;justify-content:center;z-index:30;padding:16px}
+  .pop.on{display:flex}
+  .pc{background:#fff;border-radius:16px;max-width:520px;width:100%;border:1px solid var(--line)}
+  .pc .ph{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .pc .pb{padding:14px 18px}
+  .aibox{border:1px solid #D9CEFB;background:#FAF8FF;border-radius:12px;padding:10px 12px;margin-top:10px}
+  .aibox .h{display:flex;gap:6px;align-items:center;font-weight:600;font-size:13px;color:#3F2A9C}
+  .hist{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.7}
+  .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:var(--ok-bg);color:var(--ok);border:1px solid #BFE6CD;border-radius:12px;padding:10px 16px;font-size:13px;font-weight:500;display:none;gap:6px;align-items:center;z-index:40}
+  .toast.on{display:flex}
+
+  .p.s-appr{background:#C6F2C1;border-color:#9EDC97}
+  .p.s-ready{background:#16C23A;border-color:#0FA82E;color:#fff}
+  .p.s-pend{background:#3A3A3A;border-color:#2A2A2A;color:#fff}
+  .p.s-other{background:#C9CACC;border-color:#B5B6B8}
+  .srcs{display:flex;flex-direction:column;gap:4px;margin-top:6px}
+  .srcs a{font-size:11.5px;color:var(--brand);text-decoration:none;display:flex;gap:5px;align-items:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .srcs a:hover{text-decoration:underline}
+  .q{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:12px}
+  .q .qq{font-weight:600;color:#3F2A9C;display:flex;gap:6px;align-items:center}
+  .q .qf{color:#4A5468;margin-top:3px;line-height:1.45}
+  .real{display:inline-flex;gap:4px;align-items:center;background:#E8F6EE;color:#0F6E3C;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600}
+
+  .switchbar{display:none;align-items:center;gap:12px;background:#fff;border:1px solid #D9CEFB;border-radius:14px;padding:10px 14px;margin-bottom:12px;flex-wrap:wrap}
+  .switchbar.on{display:flex}
+  .seg{display:inline-flex;background:var(--canvas);border:1px solid var(--line);border-radius:11px;padding:3px}
+  .seg button{border:0;background:transparent;border-radius:8px;padding:7px 14px;font:500 13px Inter;color:#4A5468;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 0 0 1px var(--line)}
+  .seg button#sAI.on{background:var(--ai);color:#fff}
+  .seg .cnt{background:rgba(255,255,255,.25);border-radius:999px;padding:0 7px;font-size:11.5px}
+  .seg button#sAI:not(.on) .cnt{background:var(--ai-bg);color:var(--ai)}
+  .hint{font-size:12.5px;color:var(--muted)}
+  .viewtag .vt{font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--canvas);color:#4A5468;vertical-align:4px;margin-left:8px}
+  .viewtag .vt.ai{background:var(--ai-bg);color:var(--ai)}
+  .cell.aiview{background:#FCFBFF}
+  .p.dim{opacity:.45}
+  .ghost{cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .p.blockedp{outline:2px solid #F0A79D;outline-offset:1px}
+  .bbadge{display:inline-flex;align-items:center;gap:3px;background:var(--red);color:#fff;font-size:10px;font-weight:600;border-radius:5px;padding:1px 5px;margin-right:4px;vertical-align:1px}
+  .lgA:before{background:#C6F2C1;border:1px solid #9EDC97}
+  .lgR:before{background:#16C23A}
+  .lgP:before{background:#3A3A3A}
+  .lgb:before{border:2px solid #F0A79D}
+  .lgd:before{background:#C9CACC;opacity:.5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="proto"><b>Prototype v4</b> — the calendar never changes on its own. Press <b>Plan with AI</b>, then use the <b>Original / AI plan</b> switch to compare. The AI part is the real Perplexity run on GooCampus's tasks (4 Nov); nothing is saved.</div>
+
+  <div class="card top">
+    <h1>Calendar</h1>
+    <div class="sel">GooCampus <i class="ti ti-chevron-down"></i></div>
+    <div class="sel">10 of 25 Primary Interests <i class="ti ti-chevron-down"></i></div>
+    <div class="sel">All statuses <i class="ti ti-chevron-down"></i></div>
+    <div class="meta"><span id="inview"></span><span class="live">Live</span></div>
+    <button class="btn ai" id="runBtn" onclick="openAI()"><i class="ti ti-sparkles"></i>Plan with AI</button>
+  </div>
+
+  <div class="switchbar" id="switchbar">
+    <div class="seg"><button id="sOrig" class="on" onclick="setView('orig')"><i class="ti ti-calendar"></i>Original</button><button id="sAI" onclick="setView('ai')"><i class="ti ti-sparkles"></i>AI plan <span class="cnt" id="cnt"></span></button></div>
+    <span class="hint" id="hint"></span>
+    <span style="margin-left:auto;display:flex;gap:8px"><button class="btn" onclick="openAI(true)"><i class="ti ti-list-details"></i>Why &amp; sources</button><button class="btn ai" id="applyAll" onclick="applyAll()"><i class="ti ti-check"></i>Apply AI plan</button><button class="btn" onclick="discard()"><i class="ti ti-x"></i>Discard</button></span>
+  </div>
+
+  <div class="card">
+    <div class="calhead">
+      <div class="nav"><button class="sq">‹</button><button class="sq">›</button><button class="today">Today</button></div>
+      <div class="title">November 2026 <span class="viewtag" id="viewtag"></span></div>
+      <div class="views"><span class="on">Month</span><span>Week</span><span>Day</span><span>List</span></div>
+    </div>
+    <div class="grid" id="grid"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="if(event.target===this)closeAI()">
+  <div class="drawer">
+    <div class="dh"><div class="t1"><i class="ti ti-sparkles" style="color:var(--ai)"></i><span id="dtitle">Plan with AI</span></div><button class="btn" onclick="closeAI()"><i class="ti ti-x"></i></button></div>
+    <div class="db" id="body"></div>
+    <div class="df" id="foot" style="display:none"><span style="font-size:12.5px;color:var(--muted)">Nothing changes until you apply.</span><button class="btn ai" onclick="closeAI();setView('ai')"><i class="ti ti-calendar-search"></i>See it on the calendar</button></div>
+  </div>
+</div>
+<div class="pop" id="pop" onclick="if(event.target===this)closePop()"><div class="pc" id="pc"></div></div>
+<div class="toast" id="toast"><i class="ti ti-circle-check"></i><span id="toastText"></span></div>
+
+<script>
+const RUN = {"tasks": [{"id": "0b5a8622-e06e-47bd-8a48-4eab197fa533", "title": "Aus SC - Text based Reel", "type": "Reel - Original", "primary_interest": "Australia-PGCP", "date": "2026-11-04", "content": "### - Use the same reference to create the text based reel script ## **Screen 1: Want to Become a Doctor in Australia?** **Here’s the real cost you’ll need in 2026!** ### **Screen 2: EPIC / MyIntealth Verification** *check attachment 1* **EPIC Verification (Now MyIntealth)** Total: **USD 230 (≈ ₹21,000)** Divided as: 1️⃣ MyIntealth Account — USD 100 2️⃣ Document Verification — USD 100 3️⃣ EPIC Pro", "status": "Content - Approved"}, {"id": "db2ffec0-ccd1-4470-84e9-3e20874ddb23", "title": "NEET PG - Speaking Reel", "type": "Reel - Original", "primary_interest": "India NEET PG Consulting", "date": "2026-11-04", "content": "Does your NEET PG rank has a chance in 2026? If you are going through MCC Round 2, or waiting for your state counselling allotment and filling choices for your domicile state, you are probably asking yourself: do I have a chance in this state, in this round, or in the rounds ahead? Don’t worry. That is exactly why we built the NEET PG Doctor Dashboard. Here you can see past year cutoff analysis, a", "status": "Content - Approved"}, {"id": "915f29e5-2b86-4cd5-9e70-35339ded7481", "title": "UAE Webinar - Carousel", "type": "Carousel", "primary_interest": "Middle East", "date": "2026-11-04", "content": "**Slide 1:** Want to Practice as a Doctor in the UAE? Get the ground reality of UAE licensing pathway before you start >> **Slide 2: Am I Even Eligible?** - I have only 1 year of experience after internship. Can I apply? - Does my internship count as experience? - I have an MD/MS. Can I apply as a Specialist straight away? - I have a gap in my clinical practice. Can I still apply? **Slide 3: FMGs ", "status": "Output - Ready"}, {"id": "05574ffc-7c8b-4c8c-a008-e28afc0378a0", "title": "Maharashtra NEET PG Cut Off 2025 (CET Cell State Counselling): Opening & Closing Ranks - YouTube Long-Form", "type": "YouTube Long-Form", "primary_interest": "India NEET PG Consulting", "date": "2026-11-05", "content": "Script (Nandu C's Notion): Host: Nikhil (collaborator). Format: Manya's reviewed state cut-off style (same as the Karnataka video). The Notion page has the full script with red on-screen notes, 23 screenshots/tables, title + 2 alternates, description, hashtags, thumbnail text and the fact-check register. Fact-check: 78 claims audited, verdict KEEP. Intro updated on 3 Nov 2026 with live values: the", "status": "Content - Approved"}, {"id": "18d14118-19fa-4a94-9c5c-27f0242c964d", "title": "NEET PG Dashboard Carousel", "type": "Carousel", "primary_interest": "India NEET PG Consulting", "date": "2026-11-05", "content": "Showing all the details from the dashboard - what are the features that are available news and updates, cutoff prediction etc and direct them to the dashboard - screenshots from the dashboard", "status": "Content - Pending"}, {"id": "1d5b65a8-7d16-4553-85ee-98e551f0f8a9", "title": "UAE Webinar - Carousel", "type": "Carousel", "primary_interest": "Middle East", "date": "2026-11-05", "content": "**Slide 1:** Earn Up to ₹23 Lakhs/Month as a Doctor in Dubai! Know more about the Pay Scale, Key Factors, Benefits, Work Life & more >> **Slide 2: Salary Overview for Doctors in Dubai** - General Practitioners (GPs): ≈ ₹3 lakhs - ₹6 lakhs/month - Specialists: ≈ ₹6 lakhs – ₹10 lakhs/month - Consultants: ≈ ₹16.5 lakhs – ₹23.6 lakhs +/month **Slide 3: Key Factors Influencing Pay** - High-demand speci", "status": "Output - Ready"}, {"id": "68c9d040-dc65-4d8c-b739-fe6e0819afa6", "title": "Aus Ebook - Speaking Reel", "type": "Reel - Original", "primary_interest": "Australia-PGCP", "date": "2026-11-05", "content": "## [** **- Use the second hook from this reference reel you are walking away and text is coming behind you** **Text to appear in the hook screen -** **Australia is calling you!!** Is Australia your dream destination to work as a doctor… but the whole pathway feels confusing or honestly just too overwhelming? You’re not alone — almost every IMG feels this way when they start. And that’s exactly why", "status": "Content - Approved"}, {"id": "0eda860a-17a4-48a2-b741-d84f3a8d23da", "title": "NEET PG - Carousel", "type": "Carousel", "primary_interest": "India NEET PG Consulting", "date": "2026-11-06", "content": "**SLIDE 1 (Cover)** **Puducherry NEET PG 2026 Counselling (CENTAC)** **Seats, Eligibility, Fees, Rounds & Penalties >>** SLIDE 2: Colleges & Seats (Check the attachment) SLIDE 3: Types of Seats (Check the attachment) **In Round 3, unfilled MQT seats are converted to All India Management Quota.** SLIDE 4: Eligibility (Check the attachment) SLIDE 5: Registration Fee by Round (Check the attachment) S", "status": "Content - Approved"}, {"id": "7510bccb-1ada-4db7-97d4-f80560896cba", "title": "UAE Webinar - Carousel", "type": "Carousel", "primary_interest": "Middle East", "date": "2026-11-06", "content": "**Slide 1:** Already Have One of These Qualifications? You May Be Exempt from the UAE DHA Licensing Exam >> **Slide 2:** What Is This Exemption? Applicants demonstrating valid examination pass records of the DHA’s recognised international examinations are exempted from the DHA licensure examination for General Practitioner registration. If you have cleared any of the qualifications listed below — ", "status": "Content - Approved"}, {"id": "cf034e74-3ab8-4788-bfe5-0fe833900f40", "title": "Aus SC - Carousel", "type": "Carousel", "primary_interest": "Australia-PGCP", "date": "2026-11-06", "content": "### [** **- Use this reference to create the carousel** **Slide 1** *Top half:* Most IMG doctors who fail the Australia AMC pathway aren't failing because of their knowledge. *Bottom half:* They're failing because nobody gave them a honest picture of what this pathway actually looks like from start to finish. **Slide 2** *Top half:* The AMC exam is not the hardest part of moving to Australia. *Bot", "status": "Content - Approved"}, {"id": "9ab349ad-6f5f-4e1e-8eec-332a7417ad5e", "title": "Tamil Nadu NEET PG Cut Off 2025 (Selection Committee State Counselling): Opening & Closing Ranks - YouTube Long-Form", "type": "YouTube Long-Form", "primary_interest": "India NEET PG Consulting", "date": "2026-11-07", "content": "Script (Nandu C's Notion): Host: Nikhil (collaborator). Format: Manya's reviewed state cut-off style (same as the Karnataka video). The Notion page has the full script with red on-screen notes, 24 screenshots/tables, title + 2 alternates, description, hashtags, thumbnail text and the fact-check register. Ranks are Tamil Nadu state ranks (GRANK on the Selection Committee's lists), not All India Ran", "status": "Content - Approved"}, {"id": "7df6eac6-7bbd-4623-b1b8-16cb729dd47a", "title": "NEET PG - Speaking Reel", "type": "Reel - Original", "primary_interest": "India NEET PG Consulting", "date": "2026-11-07", "content": "What are the quotas which are available for non qualified doctors Private quota, management quota, NRI quota, Institutional quota and also the approximate fee range for these quotas and pushing them to the dashboard to explore their seat chances and fee range for each specialty for every state", "status": "Content - Pending"}, {"id": "54b34935-28d5-4bb4-bcb7-9c7da8ea2ed0", "title": "UAE Webinar - Carousel", "type": "Carousel", "primary_interest": "Middle East", "date": "2026-11-07", "content": "**Slide 1:** Most Doctors Focus on Clearing the UAE Licensing Exam But Do You Know How to Strategise Your Job Search? Swipe >> **Slide 2: Reaching Out to Hospitals & Recruiters** - Do you know how to reach out to hospital recruiters? - Should you apply directly or through a recruiter? - What should your first message say? - How do you follow up after applying? **Slide 3: Your CV** - Do you know ho", "status": "Content - Approved"}, {"id": "fca8d23e-cb7a-4742-a741-61d682471eab", "title": "NZ Ebook - Carousel", "type": "Carousel", "primary_interest": "General Content", "date": "2026-11-07", "content": "**Slide 1** How Much Does It Actually Cost for IMGs to Practise Medicine in New Zealand? Swipe to find out >> **Slide 2** **Step 1: English Language Test** Before anything else — you need to clear your English language requirement. ### ***(Check the attachment)*** **Slide 3** **Step 2: EPIC Primary Source Verification** Mandatory for all MCNZ pathways — without this, your application will not be p", "status": "Content - Approved"}, {"id": "721efccd-7000-466f-8589-b8f60afd7fb8", "title": "Dr Anjali Podcast Cut", "type": "Reel - Original", "primary_interest": "Middle East", "date": "2026-11-08", "content": "", "status": "Content - Pending"}, {"id": "21248f19-2410-49f3-a72f-edf454610807", "title": "Aus SC - Carousel", "type": "Carousel", "primary_interest": "Australia-PGCP", "date": "2026-11-08", "content": " - use the same content and also add the names of few more doctors who have cleared AMC clinical and who got a job AMC MCQ Cleared", "status": "Content - Pending"}, {"id": "539c1903-a6ce-4eda-a266-f100d5ec224d", "title": "10K - Carousel", "type": "Carousel", "primary_interest": "10K Mentorship", "date": "2026-11-08", "content": "**Slide 1** You might be choosing the wrong country for your medical PG. The reality might be entirely different from what you think >> --- **Slide 2** Licensing rules for every pathway are changing, and fast. Exam structures, visa policies, and registration processes are being updated across countries more often than most doctors realise. What was true last year might not be true anymore. --- **S", "status": "Output - Ready"}, {"id": "644a3760-6fdc-41a6-9ab1-90d203f6736f", "title": "AMC ebook - Carousel", "type": "Carousel", "primary_interest": "Australia-PGCP", "date": "2026-11-09", "content": "**Slide 1:** Key Takeaways From the Complete Australia AMC Pathway Blueprint Every IMG Needs to Know Swipe >> **Slide 2: There Are 3 Pathways to Practice in Australia — Not One** ● Standard Pathway — AMC MCQ + Clinical, 18 to 24 months, ● Competent Authority Pathway — for PLAB, USMLE, MCCQE holders, with required experience, no AMC exams needed ● Specialist Pathway — for specialists with 4+ years ", "status": "Output - Ready"}, {"id": "7a63c13a-ad57-46a2-8835-7e62f0429a02", "title": "NEET PG - Carousel", "type": "Carousel", "primary_interest": "India NEET PG Consulting", "date": "2026-11-09", "content": "caution deposit, bonds, stipends, penalties etc of all the states - appearing together in one single carousel bonds together security deposit together etc like that", "status": "Content - Pending"}, {"id": "54e8f572-befd-45b7-a846-d52293f7c1af", "title": "Andhra Pradesh NEET PG Cut Off 2025 (NTRUHS State Counselling): Opening & Closing Ranks - YouTube Long-Form", "type": "YouTube Long-Form", "primary_interest": "India NEET PG Consulting", "date": "2026-11-09", "content": "Script (Nandu C's Notion): Host: Nikhil (collaborator). Format: Manya's reviewed state cut-off style (same as the Karnataka video). The Notion page has the full script with red on-screen notes, 21 screenshots/tables, title + 2 alternates, description, hashtags, thumbnail text and the fact-check register. Ranks are NEET PG 2025 All India Ranks, as printed in the \"NEET RANK\" column of Dr. NTR UHS's ", "status": "Content - Approved"}, {"id": "3370ec4f-4f46-40a0-84bf-a693e77d4e5c", "title": "10K - Speaking Reel", "type": "Reel - Original", "primary_interest": "10K Mentorship", "date": "2026-11-11", "content": "### [*** ***-- Use the same reference to create the reel following the same speaking and editing style*** Hi, I’m here to say something you probably don’t want to hear, but you need to. If you’re still “researching” your medical PG pathway for the last 8 months… you’re not researching. You’re avoiding a decision. Number one. Stop collecting exams like Pokémon cards. PLAB. AMC. USMLE. MCCQE. NZREX ", "status": "Content - Approved"}, {"id": "2ef84012-06e5-407c-a8f0-5bc0e362c182", "title": "Aus Ebook - Carousel", "type": "Carousel", "primary_interest": "Australia-PGCP", "date": "2026-11-12", "content": " - use the same content", "status": "Content - Pending"}, {"id": "0e11637c-44dc-4ef3-9da0-0affbc9fc728", "title": "MTE 2026 - Carousel", "type": "Carousel", "primary_interest": "General Content", "date": "2026-11-13", "content": "If you clear one exam which other countries you would be eligible for? Especially PLAB/ AMC/USMLE so you will not just be eligible for one country you will be eligibel for multiple countrue sdepoending on the experience requirements so get clarity on all the options the direct route to that specfu couyntry, alternate route to other countries sp if you are ready to begin your journey and not just r", "status": "Content - Pending"}, {"id": "d995222a-373a-46bc-87f7-5c0fbef6049b", "title": "Newsletter - Carousel", "type": "Carousel", "primary_interest": "General Content", "date": "2026-11-13", "content": "Licensing exam format for all the countries (Exam type, how many parts, how many questions or stations and pass marks required) PLAB 2/AMC Clinical/NAC OSCE/ - pass marks and exam type how many stations", "status": "Content - Pending"}], "plan": {"summary": "NEET PG is the most time-sensitive theme: MCC Round 2 registration is scheduled for 6–11 November 2026, choice filling for 7–12 November, and the result for 14 November; state Round 2 is scheduled for 14–23 November.[1][6][9] Australia, UAE, New Zealand and PLAB evergreen pathway posts can largely remain scheduled, but claims about fees, exemptions and current rules should be rechecked before publishing.", "searches": [{"query": "NEET PG 2026 MCC counselling Round 2 state counselling November 2026", "finding": "MCC reported on 3 November 2026 that newly approved Round 2 seats were received and the schedule would be rescheduled from 7 November onward; published schedules place AIQ registration on 6–11 November and the result on 14 November.[1][6]"}, {"query": "AMC AHPRA MyIntealth fees 2026 Australia IMG", "finding": "The Medical Board of Australia’s 2 November 2026 update confirms that ECFMG charges fees for MyIntealth and EPIC primary-source verification.[3]"}, {"query": "DHA UAE doctor licensing exam exemption 2026 New Zealand PLAB 2026", "finding": "No directly relevant official UAE, New Zealand or PLAB update was returned in the available results, so exemption, cost and exam-format claims need separate official-page verification before publication."}], "moves": [{"id": "db2ffec0-ccd1-4470-84e9-3e20874ddb23", "to": "2026-11-06", "why": "It will publish on the opening day of MCC Round 2 registration rather than before the registration window begins.", "brief": {"about": "NEET PG rank-chance analysis promoting the Doctor Dashboard for MCC and state counselling decisions.", "now": "MCC Round 2 registration is scheduled for 6–11 November 2026, with choice filling from 7–12 November and the result on 14 November.[6][9]", "date": "6 November is the first active day when candidates need rank, cutoff and choice-filling guidance.", "effect": "Higher practical relevance and stronger dashboard conversion during live counselling."}, "sources": ["https://mcc.nic.in/PG-Medical-Counselling/", "https://www.pw.live/neet-pg/exams/neet-pg-counselling-round-2-2026"]}, {"id": "18d14118-19fa-4a94-9c5c-27f0242c964d", "to": "2026-11-07", "why": "The dashboard feature post will land when MCC choice filling starts.", "brief": {"about": "Dashboard carousel showing updates, cutoff prediction and seat-chance tools.", "now": "MCC choice filling is scheduled from 7–12 November 2026, during the same period as Round 2 registration.[6][9]", "date": "7 November aligns the product demonstration with the start of the main decision-making window.", "effect": "Makes the dashboard immediately useful for candidates building choices."}, "sources": ["https://www.pw.live/neet-pg/exams/neet-pg-counselling-round-2-2026", "https://manabadi.co.in/entrance-exams/neet-pg-counselling-2026/"]}, {"id": "7df6eac6-7bbd-4623-b1b8-16cb729dd47a", "to": "2026-11-08", "why": "Quota and fee guidance is more useful after registration opens and while candidates prepare choices.", "brief": {"about": "Speaking reel explaining private, management, NRI and institutional quotas and fee ranges.", "now": "MCC Round 2 registration runs 6–11 November and choice filling runs 7–12 November 2026; the seat-allotment result is scheduled for 14 November.[6][9]", "date": "8 November keeps the post inside the active choice-filling period without moving it into a later week.", "effect": "Improves timing for candidates comparing realistic quota and fee options."}, "sources": ["https://www.pw.live/neet-pg/exams/neet-pg-counselling-round-2-2026", "https://manabadi.co.in/entrance-exams/neet-pg-counselling-2026/"]}, {"id": "0eda860a-17a4-48a2-b741-d84f3a8d23da", "to": "2026-11-07", "why": "Puducherry counselling guidance should appear as candidates begin the broader Round 2 choice process.", "brief": {"about": "Puducherry NEET PG 2026 CENTAC carousel covering seats, eligibility, fees, rounds and penalties.", "now": "State Round 2 counselling is scheduled for 14–23 November 2026, while MCC choice filling begins on 7 November.[2][6]", "date": "7 November provides an early planning prompt before the state Round 2 window opens.", "effect": "Gives Puducherry applicants more time to check eligibility, fees and penalties."}, "sources": ["https://future-mbbs.com/blog/news-updates/state-neet-pg-counselling-round-2-2026/", "https://manabadi.co.in/entrance-exams/neet-pg-counselling-2026/"]}, {"id": "9ab349ad-6f5f-4e1e-8eec-332a7417ad5e", "to": "2026-11-14", "why": "Tamil Nadu cutoff content will be most timely on the scheduled MCC Round 2 result date.", "brief": {"about": "Tamil Nadu NEET PG cutoff long-form video using previous-year opening and closing ranks.", "now": "The MCC Round 2 seat-allotment result is scheduled for 14 November 2026, followed by AIQ joining from 16–23 November.[6][9]", "date": "14 November captures peak search interest when candidates receive or assess Round 2 outcomes.", "effect": "Improves relevance for cutoff comparison and next-step counselling decisions."}, "sources": ["https://mcc.nic.in/PG-Medical-Counselling/", "https://www.pw.live/neet-pg/exams/neet-pg-counselling-round-2-2026"]}], "keep": [{"id": "0b5a8622-e06e-47bd-8a48-4eab197fa533", "why": "Australia pathway cost content is evergreen and the available official Australian update confirms MyIntealth and EPIC verification fees are part of the process.[3]"}, {"id": "05574ffc-7c8b-4c8c-a008-e28afc0378a0", "why": "Maharashtra cutoff analysis is useful as a reference post and does not depend on a single live counselling deadline."}, {"id": "7510bccb-1ada-4db7-97d4-f80560896cba", "why": "The UAE DHA exemption topic is a targeted licensing explainer; no verified date-specific trigger in the available results justifies moving it."}, {"id": "fca8d23e-cb7a-4742-a741-61d682471eab", "why": "New Zealand IMG cost content is evergreen and no current date-specific New Zealand update was found in the available results."}, {"id": "3370ec4f-4f46-40a0-84bf-a693e77d4e5c", "why": "The 10K decision-focused reel is evergreen mentorship content and has no clear event-linked publication date."}]}, "citations": ["https://mcc.nic.in/PG-Medical-Counselling/", "https://future-mbbs.com/blog/news-updates/state-neet-pg-counselling-round-2-2026/", "https://www.medicalboard.gov.au/Registration/International-Medical-Graduates/Expedited-specialist-pathway", "https://news.careers360.com//neet-pg-counselling-2026-dates-out-live-mcc-registration-choice-filling-link-seat-allotment-state-wise-rank-list-cutoff-updates", "https://www.sartha.in/blogs/neet-pg-counselling-2026-state-schedule", "https://www.manabadi.co.in/entrance-exams/neet-pg-counselling-2026/", "https://indianexpress.com/article/education/neet-pg-2026-counselling-nbems-revised-first-year-fee-rules-seat-upgradation-float-freeze-10937116/?ref=education_hp", "https://brollyexamprep.com/entrance-exams/medical/neet-pg/", "https://www.pw.live/neet-pg/exams/neet-pg-counselling-round-2-2026", "https://www.kollegeapply.com/exams/neet-pg"], "usage": {"prompt": 3713, "completion": 1612, "total": 5325, "cost": 0.01222}};
+const T = RUN.tasks.map((t) => ({ ...t, d: +t.date.slice(8, 10) }));
+const P = RUN.plan;
+const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
+const clean = (s) => String(s || "").replace(/\[\d+\]/g, "");
+const weekOf = (d) => (d <= 1 ? 0 : d <= 8 ? 1 : d <= 15 ? 2 : 3);
+const SUG = P.moves.map((m) => { const t = T.find((x) => x.id === m.id); const to = +m.to.slice(8, 10); return { ...m, task: t, toD: to, ok: t && weekOf(to) === weekOf(t.d) && to >= 4, on: true }; }).filter((m) => m.task);
+const cls = (s) => (s === "Content - Approved" ? "s-appr" : s === "Output - Ready" ? "s-ready" : s === "Content - Pending" ? "s-pend" : "s-other");
+let planned = false, view = "orig";
+document.getElementById("inview").textContent = T.length + " tasks in view";
+
+const moves = () => SUG.filter((s) => s.ok && s.on);
+function render(){
+  const g = document.getElementById("grid"); g.innerHTML = "";
+  for (const d of ["MON","TUE","WED","THU","FRI","SAT","SUN"]) g.innerHTML += `<div class="dow">${d}</div>`;
+  const days = [26,27,28,29,30,31].map((n)=>({n,out:true})).concat(Array.from({length:22},(_,i)=>({n:i+1})));
+  const ai = view === "ai";
+  for (const day of days){
+    let h = `<div class="cell${day.out?' out':''}${day.n===4&&!day.out?' today':''}${ai&&!day.out?' aiview':''}"><span class="n">${day.n}</span>`;
+    if (!day.out){
+      for (const t of T){
+        const m = moves().find((s) => s.task.id === t.id);
+        const b = SUG.find((s) => s.task.id === t.id && !s.ok);
+        const here = ai && m ? m.toD : t.d;
+        if (ai && m && t.d === day.n) { h += `<div class="ghost" onclick="openTask('${t.id}')"><i class="ti ti-arrow-move-right"></i> ${t.title.slice(0,34)}… → ${m.toD} Nov</div>`; continue; }
+        if (here !== day.n) continue;
+        if (ai && m) h += `<div class="p ai" onclick="openTask('${t.id}')"><span class="badge"><i class="ti ti-sparkles"></i>AI · was ${t.d} Nov</span>${t.title}</div>`;
+        else if (ai && b) h += `<div class="p ${cls(t.status)} blockedp" onclick="openTask('${t.id}')"><span class="bbadge"><i class="ti ti-ban"></i>AI wanted ${b.toD} Nov — not allowed</span>${t.title}</div>`;
+        else h += `<div class="p ${cls(t.status)}${ai?' dim':''}" onclick="openTask('${t.id}')">${t.title}</div>`;
+      }
+    }
+    g.innerHTML += h + `</div>`;
+  }
+  document.getElementById("viewtag").innerHTML = ai ? `<span class="vt ai"><i class="ti ti-sparkles"></i>AI plan — not applied</span>` : planned ? `<span class="vt">Original</span>` : "";
+  document.getElementById("legend").innerHTML = ai
+    ? `<span class="lg2">Moved by AI (new day)</span><span class="lg4">Where it was</span><span class="lgb">AI wanted to move it — not allowed</span><span class="lgd">Unchanged</span>`
+    : `<span class="lgA">Content - Approved</span><span class="lgR">Output - Ready</span><span class="lgP">Content - Pending</span>`;
+}
+function setView(v){
+  view = v;
+  document.getElementById("sOrig").classList.toggle("on", v === "orig");
+  document.getElementById("sAI").classList.toggle("on", v === "ai");
+  document.getElementById("hint").textContent = v === "ai" ? `Showing the AI's version · ${moves().length} tasks on a different day` : "Showing your calendar as it is";
+  render();
+}
+render();
+
+function openAI(review){
+  document.getElementById("scrim").classList.add("on");
+  if (review && planned) return results();
+  document.getElementById("foot").style.display = "none";
+  document.getElementById("dtitle").textContent = "Plan with AI";
+  document.getElementById("body").innerHTML = `<div class="loading"><div class="ring"></div><b style="color:var(--ink);font-weight:500">Reading ${T.length} GooCampus tasks for 4–15 Nov and searching the web…</b><div class="steps" id="st"></div></div>`;
+  const steps = P.searches.map((s)=>"Searched: “"+s.query+"”").concat(["Applied the rules: same week only, not before today"]);
+  let i = 0; const st = document.getElementById("st");
+  const tick = setInterval(() => { if (i < steps.length) st.innerHTML += `<div><i class="ti ti-check"></i> ${steps[i++]}</div>`; else { clearInterval(tick); planned = true; document.getElementById("switchbar").classList.add("on"); document.getElementById("cnt").textContent = moves().length; results(); } }, 550);
+}
+function results(){
+  document.getElementById("dtitle").textContent = "AI plan · why & sources";
+  const good = SUG.filter((s)=>s.ok), bad = SUG.filter((s)=>!s.ok);
+  let h = `<div class="cost"><span><span class="real"><i class="ti ti-world-search"></i>Real web search</span> · this run <b>$${RUN.usage.cost.toFixed(4)}</b></span><span>${RUN.citations.length} sources</span></div>
+    <div class="sum"><div class="h"><i class="ti ti-bulb"></i>What's timely</div><p>${clean(P.summary)}</p></div>
+    <div class="grp">What it searched — and found</div>` + P.searches.map((s)=>`<div class="q"><div class="qq"><i class="ti ti-search"></i>${s.query}</div><div class="qf">${clean(s.finding)}</div></div>`).join("") +
+    `<div class="grp">Moves in the AI plan (${good.length}) — untick to leave one out</div>`;
+  for (const s of good) h += `<label class="sug"><input type="checkbox" ${s.on?"checked":""} onchange="toggle('${s.task.id}', this.checked)"><div style="flex:1;min-width:0"><div class="tt">${s.task.title}</div>
+      <div class="move"><span class="from">${s.task.d} Nov</span><i class="ti ti-arrow-right"></i><span class="to">${s.toD} Nov</span></div><div class="why">${clean(s.why)}</div>
+      <div class="srcs">${(s.sources||[]).map((u)=>`<a href="${u}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>${host(u)}</a>`).join("")}</div></div></label>`;
+  if (bad.length) h += `<div class="grp">Not allowed</div>` + bad.map((s)=>`<div class="sug blocked"><i class="ti ti-ban" style="color:var(--red);margin-top:2px"></i><div><div class="tt">${s.task.title}</div><div class="why">AI wanted ${s.task.d} → ${s.toD} Nov, which is next week — stays on ${s.task.d} Nov.</div></div></div>`).join("");
+  document.getElementById("body").innerHTML = h; document.getElementById("foot").style.display = "flex";
+}
+function toggle(id, on){ SUG.find((s)=>s.task.id===id).on = on; document.getElementById("cnt").textContent = moves().length; setView(view); }
+function openTask(id){
+  const t = T.find((x)=>x.id===id); const m = moves().find((s)=>s.task.id===id); const b = SUG.find((s)=>s.task.id===id && !s.ok);
+  let h = `<div class="ph"><div><div style="font-size:16px;font-weight:600">${t.title}</div><div style="font-size:12.5px;color:var(--muted);margin-top:3px">${t.primary_interest} · ${t.type} · ${t.status} · on the calendar: ${t.d} Nov</div></div><button class="btn" onclick="closePop()"><i class="ti ti-x"></i></button></div><div class="pb">`;
+  if (m) h += `<div class="aibox"><div class="h"><i class="ti ti-sparkles"></i>AI plan: ${t.d} Nov → ${m.toD} Nov (not applied yet)</div>
+      <div class="brief" style="border:0;background:transparent;padding:0;margin-top:4px">
+      <div class="b"><span>The post</span>${clean(m.brief.about)}</div><div class="b"><span>What's happening</span>${clean(m.brief.now)}</div>
+      <div class="b"><span>Why ${m.toD} Nov</span>${clean(m.brief.date)}</div>
+      <div class="b"><span>Sources</span><div class="srcs">${(m.sources||[]).map((u)=>`<a href="${u}" target="_blank" rel="noopener"><i class="ti ti-external-link"></i>${host(u)}</a>`).join("")}</div></div></div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn ai" onclick="applyOne('${id}')"><i class="ti ti-check"></i>Apply just this move</button><button class="btn" onclick="toggle('${id}',false);closePop()">Leave it out</button></div></div>`;
+  else if (b) h += `<div class="aibox" style="border-color:#F5C9C3;background:var(--red-bg)"><div class="h" style="color:var(--red)"><i class="ti ti-ban"></i>AI wanted ${b.toD} Nov — not allowed (next week)</div><div style="font-size:12.5px;margin-top:4px">${clean(b.why)}</div></div>`;
+  else h += `<div style="font-size:13px;color:#4A5468">The usual task detail opens here. The AI didn't move this one.</div>`;
+  document.getElementById("pc").innerHTML = h + `</div>`; document.getElementById("pop").classList.add("on");
+}
+function applyOne(id){ const m = moves().find((s)=>s.task.id===id); const t = T.find((x)=>x.id===id); const from = t.d; t.d = m.toD; m.on = false; m.ok = false; m.applied = true; closePop(); document.getElementById("cnt").textContent = moves().length; setView(view); toast(`Applied: ${from} → ${t.d} Nov · saved in the task's history as "AI plan"`); }
+function applyAll(){ const n = moves().length; if (!n) return; for (const m of moves()) { m.task.d = m.toD; m.applied = true; m.ok = false; } finish(`${n} tasks moved · each one's history says "AI plan, applied by Praveen"`); }
+function discard(){ finish("AI plan discarded · the calendar is unchanged"); }
+function finish(msg){ planned = false; document.getElementById("switchbar").classList.remove("on"); setView("orig"); toast(msg); }
+function closeAI(){ document.getElementById("scrim").classList.remove("on"); }
+function closePop(){ document.getElementById("pop").classList.remove("on"); }
+function toast(msg){ const t = document.getElementById("toast"); document.getElementById("toastText").textContent = msg; t.classList.add("on"); setTimeout(()=>t.classList.remove("on"), 3800); }
+</script>
+</body>
+</html>
