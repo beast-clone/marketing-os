@@ -183,7 +183,7 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
   // A table, one row per move (Praveen, 4 Nov 2026: "more like a table, not boxes").
   // A task moved more than once keeps its rows together, its name on the first only.
   const TH = "padding:9px 12px;white-space:nowrap;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#8A92A6;font-weight:600;text-align:left;background:#F6F7FB;border-bottom:1px solid #E9ECF2";
-  const TD = "padding:10px 12px;font-size:13px;color:#232D42;vertical-align:top;border-bottom:1px solid #F0F1F5;white-space:nowrap";   // every cell on one line (4 Nov)
+  const TD = "padding:10px 12px;font-size:13px;color:#232D42;vertical-align:top;border-bottom:1px solid #F0F1F5;white-space:nowrap";   // one line per cell, except the reason (it wraps so the table fits Gmail, 4 Nov)
   const table = (head: string[], body: string) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E9ECF2;border-radius:10px;border-collapse:separate;overflow:hidden"><tr>${head.map((h) => `<th style="${TH}">${h}</th>`).join("")}</tr>${body}</table>`;
   const taskCell = (id: string, name: string, extra: string) => `<a href="${taskLink(id)}" style="color:#3A57E8;text-decoration:none;font-weight:600">${esc(name)}</a>${extra}`;
   const moved = table(["Task", "Primary Interest", "Date change", "Moved by", "Time", "Reason"], [...byTask.entries()].map(([id, list]) => {
@@ -195,11 +195,11 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
       const first = i === 0
         ? taskCell(id, p.particulars || "(no title)", list.length > 1 ? ` <span style="font-size:12px;color:#B76E00">· moved ${list.length} times today</span>` : "")
         : `<span style="color:#A6ACBE">″</span>`;
-      return `<tr><td style="${TD}">${first}</td><td style="${TD};color:#4A5468">${i === 0 ? esc(p.sbu || "—") : ""}</td><td style="${TD}"><span style="color:#8A92A6;text-decoration:line-through">${esc(m.from_value || "no date")}</span> → <b>${esc(m.to_value || "no date")}</b></td><td style="${TD}">${by}</td><td style="${TD};color:#4A5468">${esc(at(m.created_at))}</td><td style="${TD};color:#4A5468">${esc(reason || "—")}</td></tr>`;
+      return `<tr><td style="${TD}">${first}</td><td style="${TD};color:#4A5468">${i === 0 ? esc(p.sbu || "—") : ""}</td><td style="${TD}"><span style="color:#8A92A6;text-decoration:line-through">${esc(m.from_value || "no date")}</span> → <b>${esc(m.to_value || "no date")}</b></td><td style="${TD}">${by}</td><td style="${TD};color:#4A5468">${esc(at(m.created_at))}</td><td style="${TD};color:#4A5468;white-space:normal;min-width:200px">${esc(reason || "—")}</td></tr>`;
     }).join("");
   }).join(""));
   const wait = table(["Task", "Asked for", "Asked by", "Time", "Reason"], waiting.map((r) =>
-    `<tr><td style="${TD}">${taskCell(r.postId, r.title, "")}</td><td style="${TD};white-space:nowrap"><span style="color:#8A92A6;text-decoration:line-through">${esc(fmt(r.from))}</span> → <b>${esc(fmt(r.to))}</b></td><td style="${TD}">${esc(nameOf(r.requestedBy))}</td><td style="${TD};white-space:nowrap;color:#4A5468">${esc(at(r.requestedAt))}</td><td style="${TD};color:#4A5468">${esc(r.reason?.trim() || "—")}</td></tr>`).join(""));
+    `<tr><td style="${TD}">${taskCell(r.postId, r.title, "")}</td><td style="${TD};white-space:nowrap"><span style="color:#8A92A6;text-decoration:line-through">${esc(fmt(r.from))}</span> → <b>${esc(fmt(r.to))}</b></td><td style="${TD}">${esc(nameOf(r.requestedBy))}</td><td style="${TD};white-space:nowrap;color:#4A5468">${esc(at(r.requestedAt))}</td><td style="${TD};color:#4A5468;white-space:normal;min-width:200px">${esc(r.reason?.trim() || "—")}</td></tr>`).join(""));
   const n = byTask.size;
   const html = emailLayout({
     preheader: `${n} task${n === 1 ? "" : "s"} had their publish date moved today${waiting.length ? `; ${waiting.length} waiting for approval` : ""}.`,
