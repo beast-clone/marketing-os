@@ -182,20 +182,20 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
   const why = (d: unknown) => (typeof d === "string" && d.trim() ? d.trim() : "");
   // A table, one row per move (Praveen, 4 Nov 2026: "more like a table, not boxes").
   // A task moved more than once keeps its rows together, its name on the first only.
-  const TH = "padding:9px 10px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#8A92A6;font-weight:600;text-align:left;background:#F6F7FB;border-bottom:1px solid #E9ECF2";
-  const TD = "padding:10px;font-size:13px;color:#232D42;vertical-align:top;border-bottom:1px solid #F0F1F5";
+  const TH = "padding:9px 12px;white-space:nowrap;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:#8A92A6;font-weight:600;text-align:left;background:#F6F7FB;border-bottom:1px solid #E9ECF2";
+  const TD = "padding:10px 12px;font-size:13px;color:#232D42;vertical-align:top;border-bottom:1px solid #F0F1F5;white-space:nowrap";   // every cell on one line (4 Nov)
   const table = (head: string[], body: string) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #E9ECF2;border-radius:10px;border-collapse:separate;overflow:hidden"><tr>${head.map((h) => `<th style="${TH}">${h}</th>`).join("")}</tr>${body}</table>`;
   const taskCell = (id: string, name: string, extra: string) => `<a href="${taskLink(id)}" style="color:#3A57E8;text-decoration:none;font-weight:600">${esc(name)}</a>${extra}`;
-  const moved = table(["Task", "Date change", "Moved by", "Time", "Reason"], [...byTask.entries()].map(([id, list]) => {
+  const moved = table(["Task", "Primary Interest", "Date change", "Moved by", "Time", "Reason"], [...byTask.entries()].map(([id, list]) => {
     const p = title.get(id)!;
     return list.map((m, i) => {
       const req = m.action === "date_change_approved" ? asked.get(m.post_id) : undefined;
-      const by = req ? `${esc(nameOf(req.requestedBy))}<div style="font-size:11px;color:#8A92A6">approved by ${esc(nameOf(m.actor_key || ""))}</div>` : esc(nameOf(m.actor_key || ""));
+      const by = req ? `${esc(nameOf(req.requestedBy))} <span style="color:#8A92A6">(approved by ${esc(nameOf(m.actor_key || ""))})</span>` : esc(nameOf(m.actor_key || ""));
       const reason = req ? why(req.reason) : why(m.detail);
       const first = i === 0
-        ? taskCell(id, p.particulars || "(no title)", `${p.sbu ? `<div style="font-size:11px;color:#8A92A6">${esc(p.sbu)}</div>` : ""}${list.length > 1 ? `<div style="font-size:11px;color:#B76E00">moved ${list.length} times today</div>` : ""}`)
+        ? taskCell(id, p.particulars || "(no title)", list.length > 1 ? ` <span style="font-size:12px;color:#B76E00">· moved ${list.length} times today</span>` : "")
         : `<span style="color:#A6ACBE">″</span>`;
-      return `<tr><td style="${TD}">${first}</td><td style="${TD};white-space:nowrap"><span style="color:#8A92A6;text-decoration:line-through">${esc(m.from_value || "no date")}</span> → <b>${esc(m.to_value || "no date")}</b></td><td style="${TD}">${by}</td><td style="${TD};white-space:nowrap;color:#4A5468">${esc(at(m.created_at))}</td><td style="${TD};color:#4A5468">${esc(reason || "—")}</td></tr>`;
+      return `<tr><td style="${TD}">${first}</td><td style="${TD};color:#4A5468">${i === 0 ? esc(p.sbu || "—") : ""}</td><td style="${TD}"><span style="color:#8A92A6;text-decoration:line-through">${esc(m.from_value || "no date")}</span> → <b>${esc(m.to_value || "no date")}</b></td><td style="${TD}">${by}</td><td style="${TD};color:#4A5468">${esc(at(m.created_at))}</td><td style="${TD};color:#4A5468">${esc(reason || "—")}</td></tr>`;
     }).join("");
   }).join(""));
   const wait = table(["Task", "Asked for", "Asked by", "Time", "Reason"], waiting.map((r) =>
@@ -206,7 +206,7 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
     tag: "Today's date changes", title: n ? `${n} publish date${n === 1 ? "" : "s"} moved today` : `${waiting.length} date change${waiting.length === 1 ? "" : "s"} waiting`,
     intro: (n ? `Every publish date changed today — who moved it, when and why.<div style="margin-top:14px">${moved}</div>` : "")
       + (waiting.length ? `<div style="margin-top:${n ? 18 : 0}px;font-size:14px;color:#232D42;font-weight:600">Waiting for approval</div><div style="margin-top:10px">${wait}</div>` : ""),
-    wide: true,
+    wide: true,   // a one-line-per-row table needs the room
     rows: [],
     buttons: [{ label: "Open date changes", href: approvalsLink, primary: true }],
   });

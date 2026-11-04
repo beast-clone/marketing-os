@@ -19,7 +19,7 @@ export function emailLayout(o: {
   preheader: string; tag: string; title: string; tone?: Tone; intro: string;
   rows: [string, string][]; quote?: { label: string; text: string };
   buttons: { label: string; href: string; primary?: boolean }[];
-  wide?: boolean;   // 760px instead of 560px — for an email that is mostly a table
+  wide?: boolean;   // 1100px instead of 560px — for an email that is mostly a table
 }): string {
   const t = TONE[o.tone || "brand"];
   const rows = o.rows.map(([k, v], i) => `<tr><td style="padding:11px 0;${i ? "border-top:1px solid #F0F1F5;" : ""}width:130px;vertical-align:top;font-size:13px;color:#8A92A6">${esc(k)}</td><td style="padding:11px 0;${i ? "border-top:1px solid #F0F1F5;" : ""}font-size:14px;color:#232D42">${v}</td></tr>`).join("");
@@ -30,7 +30,7 @@ export function emailLayout(o: {
   return `<!doctype html><html><body style="margin:0;padding:0;background:#F6F7FB">
 <div style="display:none;max-height:0;overflow:hidden;opacity:0">${esc(o.preheader)}</div>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F6F7FB;font-family:${FONT}"><tr><td align="center" style="padding:28px 12px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${o.wide ? 760 : 560}px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:${o.wide ? 1100 : 560}px">
 <tr><td style="background:#FFFFFF;border:1px solid #E9ECF2;border-radius:14px;overflow:hidden">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
 <tr><td style="background:${t.bg};padding:18px 20px 18px 28px;border-radius:13px 13px 0 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="vertical-align:middle">
