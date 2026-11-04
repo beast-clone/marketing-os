@@ -211,3 +211,17 @@ deciding whether both should exist.
 | --- | --- | --- |
 | GC Dashboard — GEO SEO weekly check | `IvdWsPVGfeg22nBM` | Mondays 09:00 IST → `/api/cron/geo?do=weekly` |
 | GC Dashboard — GEO SEO collect answers | `1KPa0lvH0WsOIZMR` | every 10 min, 6:00–23:50 IST → `/api/cron/geo?do=collect` |
+
+
+## Date-change round-up — added 4 November 2026, NOT set up yet
+
+| Workflow | ID | Schedule |
+| --- | --- | --- |
+| GC Dashboard — Date-change round-up | — (create at deploy) | 12:30 and 16:00 IST, every day → `/api/cron/date-change-roundup` |
+
+One email to the approvers (Approvals → Email notifications) listing every date-change
+request still waiting that hasn't been emailed yet. Urgent requests (the post's date is
+today or tomorrow) are emailed the moment they're asked, so they're never held for this.
+Copy the Daily Comment Digest workflow (same `x-cron-secret` header). At the first
+deploy, mark the requests already waiting as emailed (`payload.emailedAt`) — the old
+code emailed each one as it came in, so the first round-up mustn't send them again.

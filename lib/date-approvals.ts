@@ -13,6 +13,7 @@ import { sendMail, hasEmail } from "@/lib/email";
 import { emailLayout, esc, datePill } from "@/lib/email-layout";
 import { postSlack } from "@/lib/slack";
 import { fetchRoster } from "@/lib/team-db";
+import { todayIST } from "@/lib/date";
 
 type SB = NonNullable<ReturnType<typeof getSupabase>>;
 
@@ -36,7 +37,20 @@ export type DateChangeRequest = {
   resolvedBy?: string;
   resolvedAt?: string;
   resolvedNote?: string;   // the approver's note/reason on approve or reject
+  emailedAt?: string;      // when the approvers were emailed about it (straight away if urgent, else the round-up)
+  earlier?: EarlierAsk[];  // the same task's earlier requests this one replaced, oldest first
 };
+type EarlierAsk = { from: string | null; to: string | null; reason?: string; requestedBy: string; requestedAt: string };
+
+// Emails to approvers (Praveen, 4 Nov 2026): one round-up at 12:30 PM and 4 PM IST
+// (sendDateChangeRoundup, run by n8n), not one email per request. A request is
+// URGENT — emailed the moment it's asked, at any hour — when the post's current or
+// new date is today or tomorrow, so it can't miss its date waiting for a round-up.
+function isUrgent(from: string | null, to: string | null): boolean {
+  const today = todayIST();
+  const tomorrow = new Date(Date.parse(`${today}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+  return [from, to].some((d) => !!d && (String(d).slice(0, 10) === today || String(d).slice(0, 10) === tomorrow));
+}
 
 const KEY = (postId: string) => `datechg:${postId}`;
 // The Approvals history (Praveen, 30 Oct: "how many tasks have I approved"). KEY holds
@@ -80,7 +94,14 @@ export async function requestDateChange(sb: SB, r: { postId: string; title: stri
     creator = (data?.[0]?.actor_key as string) || undefined;
   } catch { /* leave undefined */ }
 
-  const payload: DateChangeRequest = { ...r, creator, requestedAt: new Date().toISOString(), status: "pending" };
+  // Asked again before a decision: keep what was asked before, so the approver sees
+  // the whole story once instead of one email per change.
+  const prev = await getDateChange(sb, r.postId);
+  const earlier = prev?.status === "pending"
+    ? [...(prev.earlier || []), { from: prev.from, to: prev.to, reason: prev.reason, requestedBy: prev.requestedBy, requestedAt: prev.requestedAt }].slice(-10)
+    : undefined;
+  const urgent = isUrgent(r.from, r.to);
+  const payload: DateChangeRequest = { ...r, creator, requestedAt: new Date().toISOString(), status: "pending", ...(earlier ? { earlier } : {}), ...(urgent ? { emailedAt: new Date().toISOString() } : {}) };
   await sb.from("discover_cache").upsert(
     { cache_key: KEY(r.postId), source: "mh_date_change_request", last_fetched: new Date().toISOString(), payload },
     { onConflict: "cache_key" },
@@ -107,16 +128,16 @@ export async function requestDateChange(sb: SB, r: { postId: string; title: stri
   try {
     await sb.from("mh_activity").insert({ post_id: r.postId, actor_key: r.requestedBy, action: "date_change_requested", from_value: fmt(r.from), to_value: fmt(r.to), detail: reason });
   } catch { /* activity is best-effort */ }
-  // 3) email
-  if (await hasEmail()) {
+  // 3) email — urgent ones now; the rest wait for the 12:30 PM / 4 PM round-up
+  if (urgent && (await hasEmail())) {
     try {
       await sendMail({
         to: await approverEmails(),
-        subject: `Approve publish-date change — “${r.title}”`,
+        subject: `Urgent: approve publish-date change — “${r.title}”`,
         text: `${who} requested to move the publish date of “${r.title}”.\n\nTask: ${r.title} (${r.type || "—"})\nAssigned to: ${nameOf(r.owner || "")}\nCreated: ${fmtDT(r.createdAt)}${creator ? ` by ${nameOf(creator)}` : ""}\nMove date: ${fmt(r.from)} -> ${fmt(r.to)}\nRequested by: ${who}\nReason: ${reason}\n\nOpen the task: ${link}\nApprove or reject: ${approvalsLink}`,
         html: emailLayout({
           preheader: `${who} wants to move “${r.title}” to ${fmt(r.to)}.`,
-          tag: "Needs your approval", title: "Publish-date change request",
+          tag: "Urgent · needs your approval", title: "Publish-date change request",
           intro: `<b style="color:#232D42">${esc(who)}</b> asked to move a publish date. Approve or reject it in Approvals.`,
           rows: [
             ["Task", `<a href="${link}" style="color:#3A57E8;text-decoration:none;font-weight:600">${esc(r.title)}</a>${r.type ? ` <span style="color:#8A92A6">· ${esc(r.type)}</span>` : ""}`],
@@ -132,6 +153,56 @@ export async function requestDateChange(sb: SB, r: { postId: string; title: stri
     } catch { /* email is best-effort */ }
   }
   return payload;
+}
+
+// The 12:30 PM / 4 PM round-up: every request still waiting that hasn't been emailed
+// yet, one row per task (a task asked about several times shows its latest ask, with
+// the earlier ones under it). Nothing waiting → no email. `to` overrides the
+// recipients (for a test); `dryRun` builds it without sending or marking anything.
+export async function sendDateChangeRoundup(sb: SB, opts: { to?: string; dryRun?: boolean; items?: DateChangeRequest[] } = {}): Promise<{ sent: boolean; count: number; html?: string }> {
+  const waiting = opts.items || (await listPendingDateChanges(sb)).filter((r) => !r.emailedAt);
+  if (!waiting.length) return { sent: false, count: 0 };
+  await fetchRoster();
+  const rows = waiting
+    .map((r) => ({ r, urgent: isUrgent(r.from, r.to) }))
+    .sort((a, b) => Number(b.urgent) - Number(a.urgent) || String(a.r.to || a.r.from).localeCompare(String(b.r.to || b.r.from)));
+  const at = (iso: string) => new Date(iso).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const block = rows.map(({ r, urgent }) => {
+    const link = taskLink(r.postId);
+    const earlier = (r.earlier || []).map((e) => `<div style="font-size:12px;color:#8A92A6;margin-top:3px">Earlier: ${esc(fmt(e.from))} → ${esc(fmt(e.to))} · ${esc(nameOf(e.requestedBy))}, ${esc(at(e.requestedAt))}${e.reason ? ` · “${esc(e.reason)}”` : ""}</div>`).join("");
+    return `<div style="border:1px solid #E9ECF2;border-radius:10px;padding:12px 14px;margin:0 0 10px">`
+      + `<div style="font-size:14px;font-weight:600"><a href="${link}" style="color:#3A57E8;text-decoration:none">${esc(r.title)}</a>`
+      + (urgent ? ` <span style="display:inline-block;background:#FDECEA;color:#C03221;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:600;vertical-align:middle">Urgent</span>` : "")
+      + (r.earlier?.length ? ` <span style="font-size:12px;color:#8A92A6;font-weight:400">· asked ${r.earlier.length + 1} times</span>` : "") + `</div>`
+      + `<div style="margin:8px 0 6px">${datePill(fmt(r.from))} <span style="color:#8A92A6">&nbsp;→&nbsp;</span> ${datePill(fmt(r.to), true)}</div>`
+      + `<div style="font-size:13px;color:#4A5468">${esc(nameOf(r.requestedBy))} · ${esc(at(r.requestedAt))}${r.type ? ` · ${esc(r.type)}` : ""}</div>`
+      + `<div style="font-size:13px;color:#232D42;margin-top:4px">Reason: ${esc(r.reason?.trim() || "—")}</div>`
+      + earlier + `</div>`;
+  }).join("");
+  const n = rows.length, nu = rows.filter((x) => x.urgent).length;
+  const html = emailLayout({
+    preheader: `${n} publish-date change${n === 1 ? "" : "s"} waiting for your approval${nu ? ` — ${nu} urgent` : ""}.`,
+    tag: "Needs your approval", title: `${n} date change${n === 1 ? "" : "s"} to approve`,
+    intro: `These are waiting on the Approvals page${nu ? ` — <b style="color:#C03221">${nu} urgent</b> first` : ""}.<div style="margin-top:14px">${block}</div>`,
+    rows: [],
+    buttons: [{ label: "Open Approvals", href: approvalsLink, primary: true }],
+  });
+  if (opts.dryRun) return { sent: false, count: n, html };
+  if (!(await hasEmail())) return { sent: false, count: n };
+  await sendMail({
+    to: opts.to || (await approverEmails()),
+    subject: `${nu ? "Urgent · " : ""}${n} publish-date change${n === 1 ? "" : "s"} to approve`,
+    text: rows.map(({ r, urgent }) => `${urgent ? "[URGENT] " : ""}${r.title}: ${fmt(r.from)} -> ${fmt(r.to)} (${nameOf(r.requestedBy)}) — ${r.reason || "—"}\n${taskLink(r.postId)}`).join("\n\n") + `\n\nApprove or reject: ${approvalsLink}`,
+    html,
+  });
+  if (!opts.to && !opts.items) {
+    const now = new Date().toISOString();
+    for (const { r } of rows) {
+      await sb.from("discover_cache").update({ payload: { ...r, emailedAt: now } })
+        .eq("cache_key", KEY(r.postId)).eq("payload->>requestedAt", r.requestedAt);
+    }
+  }
+  return { sent: true, count: n };
 }
 
 // The date was changed directly after a request was parked (the person's approval
