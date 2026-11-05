@@ -116,3 +116,56 @@ export async function leadForNumber(contact: string): Promise<WaLead | null> {
     return null;
   }
 }
+
+// ── Replies nobody has answered ─────────────────────────────────────────────
+
+export type Waiting = {
+  contact: string;
+  name: string | null;
+  body: string;
+  /** Meta's id for the newest unread message — the dedupe key for announcements. */
+  newestId: string;
+  newestAt: number;
+  oldestAt: number;
+  count: number;
+  assignedTo: string | null;
+};
+
+/**
+ * Chats with an incoming message nobody has opened for longer than `graceMs`.
+ *
+ * The grace period cuts both ways: long enough that a reply somebody is typing
+ * right now isn't announced to the whole team, short enough to still matter —
+ * a free reply is only allowed for 24 hours after the person writes, so one
+ * missed overnight costs an approved template to reopen.
+ */
+export async function waitingReplies(graceMs = 10 * 60_000): Promise<Waiting[]> {
+  const db = getSupabase();
+  if (!db) return [];
+  const { data, error } = await db.from("wa_messages")
+    .select("id, wa_message_id, contact, contact_name, body, created_at")
+    .eq("direction", "in").is("read_at", null)
+    .order("created_at", { ascending: false }).limit(500);
+  if (error) throw error;
+
+  const by = new Map<string, Waiting>();
+  for (const m of data ?? []) {
+    const t = Date.parse(m.created_at);
+    const w = by.get(m.contact);
+    if (!w) {
+      by.set(m.contact, {
+        contact: m.contact, name: m.contact_name, body: m.body || "(attachment)",
+        // Rows arrive newest-first, so the first one seen for a contact is the newest.
+        newestId: m.wa_message_id || m.id, newestAt: t, oldestAt: t, count: 1, assignedTo: null,
+      });
+    } else { w.oldestAt = Math.min(w.oldestAt, t); w.count++; }
+  }
+
+  const now = Date.now();
+  const waited = [...by.values()].filter((w) => now - w.oldestAt >= graceMs);
+  if (waited.length === 0) return [];
+
+  const metas = await contactMetaMap(waited.map((w) => w.contact));
+  for (const w of waited) w.assignedTo = metas.get(w.contact)?.assigned_to ?? null;
+  return waited;
+}

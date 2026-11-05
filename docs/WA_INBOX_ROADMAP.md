@@ -12,9 +12,11 @@ filters / open-closed-spam, #8 the Sales Hub lead beside the chat, and #2 on the
 
 Three honest caveats on that list:
 
-- **#4 is half done.** The Slack nudge is built (`/api/cron/wa-unread`); the *dashboard bell* side
-  of "dashboard bell / Slack" is not. `lib/notifications.ts` already exists, so it is a small job,
-  but it is still outstanding.
+- **#4 is done** (bell added after the first write-up said otherwise). One job,
+  `/api/cron/wa-unread`, now tells both Slack and the dashboard bell — the same shape as a
+  Watcher announcing a new notice. An assigned chat notifies only the person holding it; an
+  unassigned one notifies everybody who can open the inbox. Category **whatsapp**, never an
+  action item, so it cannot pin forever waiting for something to mark it done.
 - **#6 was built differently from this plan.** Rather than wait for wording from Praveen, a reply
   is saved from whatever you have just typed, so the list fills from real use. If specific approved
   wording is wanted instead, that is a separate pass.

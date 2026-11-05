@@ -232,8 +232,10 @@ on) is listed too. Quiet day → no email. Copy the Daily Comment Digest workflo
 | --- | --- | --- |
 | GC Dashboard — WhatsApp unread | `eKKVCM63C205yrCo` | every 15 min, 9:00–21:00 IST → `/api/cron/wa-unread` (header `x-cron-secret`, credential: GC Dashboard Cron) — **created 5 Nov, left INACTIVE until the endpoint is deployed** |
 
-Posts one Slack message when a WhatsApp reply has gone unanswered for more than
-10 minutes. Worth interrupting someone over, because a free reply is only allowed
+Posts one Slack message AND writes a dashboard-bell notification when a WhatsApp
+reply has gone unanswered for more than 10 minutes. An assigned chat notifies only
+the person holding it; an unassigned one notifies everybody with Sales access. The
+bell item is category `whatsapp` and never an action item — it is news, not a task
 for 24 hours after the person writes — one left overnight costs an approved
 template to reopen the conversation.
 
