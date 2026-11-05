@@ -6,8 +6,8 @@ import { LoadingBlock } from "@/components/LoadingBlock";
 import {
   IconBrandWhatsapp, IconSearch, IconSend, IconCheck, IconChecks, IconAlertTriangle, IconClock, IconMessageCircle,
   IconInfoCircle, IconTemplate, IconUserCheck, IconShieldCheck, IconCoinRupee, IconGauge,
-  IconUser, IconTag, IconNote, IconPlus, IconX, IconExternalLink, IconChevronDown, IconArchive, IconBan, IconInbox,
-  IconPaperclip, IconTrash, IconLockOpen,
+  IconUser, IconTag, IconNote, IconPlus, IconX, IconExternalLink, IconChevronDown, IconArchive, IconBan,
+  IconPaperclip, IconTrash, IconLockOpen, IconFilter,
 } from "@tabler/icons-react";
 
 // WhatsApp Inbox — the official number +91 74116 54951 (the one the eBook and lead
@@ -466,14 +466,34 @@ function ContactPanel({ cur, meta, lead, leadLoading, team, save, saving, onBloc
   );
 }
 
-type FilterKey = "all" | "unread" | "needsReply" | "mine" | "unassigned";
-const FILTERS: { key: FilterKey; label: string; icon: typeof IconInbox }[] = [
-  { key: "all", label: "All", icon: IconInbox },
-  { key: "unread", label: "Unread", icon: IconMessageCircle },
-  { key: "needsReply", label: "Window open", icon: IconClock },
-  { key: "mine", label: "Mine", icon: IconUser },
-  { key: "unassigned", label: "Unassigned", icon: IconUserCheck },
+// The three worth a permanent tap. Everything else lives behind the funnel:
+// eight controls at one weight meant none of them could be skipped by eye.
+type FilterKey = "all" | "unread" | "mine";
+const SEGMENTS: { key: FilterKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
+  { key: "mine", label: "Mine" },
 ];
+
+// Meta's verified name for +91 74116 54951, shown above the number so the
+// column says whose inbox this is before it says how to reach it.
+const ACCOUNT_NAME = "GooCampus Edu Solutions";
+
+function FunnelGroup({ label }: { label: string }) {
+  return <div className="mb-1.5 mt-3 text-[10.5px] font-semibold uppercase tracking-wide text-[#8A92A6] first:mt-0">{label}</div>;
+}
+
+function FunnelOption({ on, onClick, text }: { on: boolean; onClick: () => void; text: string }) {
+  return (
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-2 py-1 text-left text-[12.5px] text-[#232D42]">
+      <span className={"grid h-[15px] w-[15px] shrink-0 place-items-center rounded border " + (
+        on ? "border-brand bg-brand text-white" : "border-[#D6D9E3]")}>
+        {on && <IconCheck size={10} />}
+      </span>
+      <span className="truncate">{text}</span>
+    </button>
+  );
+}
 
 function Inbox() {
   const [convs, setConvs] = useState<Conv[] | null>(null);
@@ -483,9 +503,13 @@ function Inbox() {
   const [err, setErr] = useState("");
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
-  const [labelFilter, setLabelFilter] = useState("");
+  // Several labels at once, because the funnel shows them as tick boxes.
+  const [labels, setLabels] = useState<string[]>([]);
+  const [winOpen, setWinOpen] = useState(false);
+  const [unassigned, setUnassigned] = useState(false);
   const [showDone, setShowDone] = useState(false);
   const [showNoReply, setShowNoReply] = useState(false);
+  const [funnel, setFunnel] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[] | null>(null);
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -566,15 +590,27 @@ function Inbox() {
       // handful of real conversations. Hidden by default, one click away.
       if (!showNoReply && !c.lastInAt) return false;
       if (filter === "unread" && !c.unread) return false;
-      if (filter === "needsReply" && !c.open) return false;
       if (filter === "mine" && c.assignedTo !== me) return false;
-      if (filter === "unassigned" && c.assignedTo) return false;
-      if (labelFilter && !c.labels.includes(labelFilter)) return false;
+      if (winOpen && !c.open) return false;
+      if (unassigned && c.assignedTo) return false;
+      // Every chosen label must be on the chat, not just one of them.
+      if (labels.length && !labels.every((l) => c.labels.includes(l))) return false;
       if (!s) return true;
       return (c.name || "").toLowerCase().includes(s) || c.contact.includes(s.replace(/\D/g, "") || "~") || c.last.toLowerCase().includes(s);
     });
-  }, [convs, q, filter, labelFilter, showDone, showNoReply, me]);
+  }, [convs, q, filter, labels, winOpen, unassigned, showDone, showNoReply, me]);
   const cur = convs?.find((c) => c.contact === sel) || null;
+  const totalUnread = convs?.reduce((s, c) => s + c.unread, 0) ?? 0;
+  // How many hidden filters are on — the funnel turns brand-coloured for these,
+  // so a filter can never be left on without something saying so.
+  const extras = (winOpen ? 1 : 0) + (unassigned ? 1 : 0) + labels.length + (showDone ? 1 : 0) + (showNoReply ? 1 : 0);
+  const active: { label: string; clear: () => void }[] = [
+    ...(winOpen ? [{ label: "Window open", clear: () => setWinOpen(false) }] : []),
+    ...(unassigned ? [{ label: "Unassigned", clear: () => setUnassigned(false) }] : []),
+    ...labels.map((l) => ({ label: l, clear: () => setLabels((x) => x.filter((y) => y !== l)) })),
+    ...(showDone ? [{ label: "Closed and spam", clear: () => setShowDone(false) }] : []),
+    ...(showNoReply ? [{ label: "No reply", clear: () => setShowNoReply(false) }] : []),
+  ];
   const nameOf = (id: string | null) => team.find((m) => m.id === id)?.name || id;
 
   /** Stop them reaching the number, or let them back in. */
@@ -634,49 +670,77 @@ function Inbox() {
     <div className="flex h-[calc(100vh-230px)] min-h-[520px] overflow-hidden rounded-2xl border border-gray-100 bg-white">
       {/* Conversations */}
       <aside className="flex w-[330px] shrink-0 flex-col border-r border-gray-100">
-        <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-3">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-light text-brand"><IconBrandWhatsapp size={18} /></span>
+        {/* Who this inbox belongs to: the name, then how to reach it. */}
+        <div className="flex items-center gap-2.5 px-4 py-3.5">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-brand-light text-brand"><IconBrandWhatsapp size={19} /></span>
           <div className="min-w-0">
-            <div className="text-sm font-medium text-[#232D42]">+91 74116 54951</div>
-            <div className="text-xs text-[#8A92A6]">{list.length} shown · {convs?.reduce((s, c) => s + c.unread, 0) ?? 0} unread</div>
+            <div className="truncate text-[13.5px] font-semibold leading-tight text-[#232D42]">{ACCOUNT_NAME}</div>
+            <div className="mt-0.5 text-[11.5px] text-[#8A92A6]">+91 74116 54951</div>
           </div>
+          {totalUnread > 0 && (
+            <span className="ml-auto grid h-[18px] min-w-[18px] shrink-0 place-items-center rounded-full bg-brand px-1 text-[10px] font-medium text-white">{totalUnread}</span>
+          )}
         </div>
 
-        <div className="space-y-2 px-3 py-2">
-          <label className="flex items-center gap-2 rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-sm">
-            <IconSearch size={15} className="text-[#8A92A6]" />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name, number or message" className="w-full bg-transparent text-[#232D42] outline-none placeholder:text-[#8A92A6]" />
+        <div className="flex flex-col gap-2.5 px-4 pb-3">
+          <label className="flex items-center gap-2 rounded-[10px] border border-gray-100 bg-[#F6F7FB] px-2.5 py-2 text-[13px]">
+            <IconSearch size={15} className="shrink-0 text-[#8A92A6]" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search"
+              className="w-full bg-transparent text-[#232D42] outline-none placeholder:text-[#8A92A6]" />
           </label>
-          <div className="flex flex-wrap gap-1">
-            {FILTERS.map((f) => (
-              <button key={f.key} type="button" onClick={() => setFilter(f.key)}
-                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                  filter === f.key ? "bg-brand text-white" : "bg-[#F6F7FB] text-[#8A92A6] hover:text-[#232D42]"}`}>
-                <f.icon size={12} />{f.label}
-              </button>
-            ))}
-          </div>
-          {(allLabels.length > 0 || labelFilter) && (
-            <div className="flex flex-wrap gap-1">
-              {allLabels.map((l) => (
-                <button key={l} type="button" onClick={() => setLabelFilter(labelFilter === l ? "" : l)}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium ${
-                    labelFilter === l ? "bg-brand-light text-brand ring-1 ring-brand" : "bg-[#F6F7FB] text-[#8A92A6] hover:text-[#232D42]"}`}>
-                  <IconTag size={11} />{l}
+
+          <div className="flex items-center gap-2">
+            {/* The three used all day. A segment, not chips — it reads as one choice. */}
+            <div className="flex flex-1 gap-0.5 rounded-[10px] bg-[#F6F7FB] p-[3px]">
+              {SEGMENTS.map((sgm) => (
+                <button key={sgm.key} type="button" onClick={() => setFilter(sgm.key)}
+                  className={"flex-1 rounded-lg px-2 py-1.5 text-xs font-medium transition " + (
+                    filter === sgm.key ? "bg-white text-[#232D42]" : "text-[#8A92A6] hover:text-[#232D42]")}>
+                  {sgm.label}
                 </button>
               ))}
             </div>
-          )}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-            <button type="button" onClick={() => setShowDone((v) => !v)}
-              className="flex items-center gap-1 text-[11px] font-medium text-[#8A92A6] hover:text-brand">
-              <IconArchive size={12} />{showDone ? "Hide closed and spam" : "Show closed and spam"}
-            </button>
-            <button type="button" onClick={() => setShowNoReply((v) => !v)}
-              className="flex items-center gap-1 text-[11px] font-medium text-[#8A92A6] hover:text-brand">
-              <IconSend size={12} />{showNoReply ? "Hide chats with no reply" : "Show chats with no reply"}
-            </button>
+            <div className="relative">
+              <button type="button" onClick={() => setFunnel((f) => !f)} aria-label="More filters"
+                className={"grid h-[34px] w-[34px] place-items-center rounded-[10px] border transition " + (
+                  extras > 0 || funnel ? "border-brand bg-brand-light text-brand" : "border-gray-100 text-[#8A92A6] hover:text-[#232D42]")}>
+                <IconFilter size={15} />
+              </button>
+              {funnel && (<>
+                {/* A backdrop, so clicking anywhere else puts it away. */}
+                <button type="button" aria-label="Close filters" onClick={() => setFunnel(false)} className="fixed inset-0 z-10 cursor-default" />
+                <div className="absolute right-0 top-10 z-20 w-[232px] rounded-xl border border-gray-100 bg-white p-3 shadow-[0_8px_28px_rgba(35,45,66,0.12)]">
+                  <FunnelGroup label="Show only" />
+                  <FunnelOption on={winOpen} onClick={() => setWinOpen((v) => !v)} text="Window still open" />
+                  <FunnelOption on={unassigned} onClick={() => setUnassigned((v) => !v)} text="Nobody has taken it" />
+                  {allLabels.length > 0 && <FunnelGroup label="Labels" />}
+                  {allLabels.map((l) => (
+                    <FunnelOption key={l} on={labels.includes(l)} text={l}
+                      onClick={() => setLabels((x) => (x.includes(l) ? x.filter((y) => y !== l) : [...x, l]))} />
+                  ))}
+                  {/* Worded as what they do. As bare text links these two were easy
+                      to miss, and easier to leave switched on by accident. */}
+                  <FunnelGroup label="Also include" />
+                  <FunnelOption on={showDone} onClick={() => setShowDone((v) => !v)} text="Closed and spam" />
+                  <FunnelOption on={showNoReply} onClick={() => setShowNoReply((v) => !v)} text="Chats with no reply" />
+                </div>
+              </>)}
+            </div>
           </div>
+        </div>
+
+        {/* One line doing two jobs: how many, and what you are filtered to. */}
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-gray-100 px-4 py-2">
+          <span className="text-[11px] text-[#8A92A6]">
+            {list.length} {list.length === 1 ? "chat" : "chats"}
+            {totalUnread > 0 && <> · <span className="font-medium text-brand">{totalUnread} unread</span></>}
+          </span>
+          {active.map((a) => (
+            <button key={a.label} type="button" onClick={a.clear}
+              className="inline-flex items-center gap-1 rounded-full bg-brand-light px-2 py-0.5 text-[10.5px] font-medium text-brand">
+              {a.label}<IconX size={10} />
+            </button>
+          ))}
         </div>
 
         <div className="flex-1 overflow-y-auto">

@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WhatsApp Inbox — left column</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --brand: #3A57E8;
+    --brand-light: #E9ECFB;
+    --ink: #232D42;
+    --muted: #8A92A6;
+    --canvas: #F6F7FB;
+    --line: #F1F2F6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 40px 32px 64px;
+    font-family: Inter, -apple-system, "Segoe UI", sans-serif;
+    background: var(--canvas); color: var(--ink);
+  }
+  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
+  .lede { font-size: 13px; color: var(--muted); margin: 0 0 28px; max-width: 760px; line-height: 1.6; }
+  .row { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .col { width: 340px; }
+  .tag {
+    display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+  }
+  .note { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 10px 2px 0; }
+  .panel { background: #fff; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+
+  /* ── shared bits ─────────────────────────────────────────── */
+  .search {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--canvas); border: 1px solid var(--line);
+    border-radius: 10px; padding: 9px 11px; font-size: 13px; color: var(--muted);
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 999px; padding: 5px 11px; font-size: 11.5px; font-weight: 500;
+    background: var(--canvas); color: var(--muted); border: 1px solid transparent; cursor: default;
+  }
+  .chip.on { background: var(--brand); color: #fff; }
+  .chip.ring { background: var(--brand-light); color: var(--brand); border-color: var(--brand); }
+  .seg {
+    display: flex; background: var(--canvas); border-radius: 10px; padding: 3px; gap: 2px;
+  }
+  .seg > span {
+    flex: 1; text-align: center; font-size: 12px; font-weight: 500; color: var(--muted);
+    padding: 6px 4px; border-radius: 8px;
+  }
+  .seg > span.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(35,45,66,.08); }
+  .icon-btn {
+    width: 34px; height: 34px; display: grid; place-items: center; flex: 0 0 34px;
+    border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: #fff;
+  }
+  .icon-btn.on { border-color: var(--brand); color: var(--brand); background: var(--brand-light); }
+
+  /* conversation rows, same in every version */
+  .conv { display: flex; gap: 11px; padding: 12px 16px; border-top: 1px solid #FAFAFC; }
+  .av {
+    width: 36px; height: 36px; flex: 0 0 36px; border-radius: 999px;
+    background: var(--brand-light); color: var(--brand);
+    display: grid; place-items: center; font-size: 11px; font-weight: 600;
+  }
+  .conv .nm { font-size: 13px; font-weight: 500; }
+  .conv .nm.unread { font-weight: 600; }
+  .conv .last { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+  .conv .meta { display: flex; gap: 5px; margin-top: 6px; }
+  .mini { font-size: 10px; font-weight: 500; background: var(--canvas); color: var(--muted); border-radius: 999px; padding: 2px 7px; }
+  .mini.brand { background: var(--brand-light); color: var(--brand); }
+  .time { font-size: 10.5px; color: var(--muted); margin-left: auto; white-space: nowrap; }
+  .dot { background: var(--brand); color: #fff; border-radius: 999px; min-width: 17px; height: 17px;
+         font-size: 10px; display: grid; place-items: center; padding: 0 5px; margin-left: auto; }
+
+  /* ── the account header, redesigned ──────────────────────── */
+  .acct { display: flex; align-items: center; gap: 11px; padding: 16px; }
+  .acct .mark {
+    width: 38px; height: 38px; border-radius: 11px; background: #25D366; color: #fff;
+    display: grid; place-items: center; flex: 0 0 38px;
+  }
+  .acct .name { font-size: 13.5px; font-weight: 600; line-height: 1.25; }
+  .acct .num { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  .bar { display: flex; align-items: center; justify-content: space-between;
+         padding: 8px 16px; border-top: 1px solid var(--line); }
+  .count { font-size: 11px; color: var(--muted); }
+
+  /* popover */
+  .pop { position: relative; }
+  .pop-body {
+    position: absolute; right: 0; top: 40px; width: 232px; z-index: 5;
+    background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px;
+    box-shadow: 0 8px 28px rgba(35,45,66,.12);
+  }
+  .pop-body h4 { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase;
+                 color: var(--muted); margin: 0 0 7px; font-weight: 600; }
+  .pop-body h4 + h4 { margin-top: 14px; }
+  .opt { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 5px 0; }
+  .box { width: 15px; height: 15px; border: 1.5px solid #D6D9E3; border-radius: 4px; flex: 0 0 15px; }
+  .box.on { background: var(--brand); border-color: var(--brand); position: relative; }
+  .box.on::after { content: "✓"; color: #fff; font-size: 10px; position: absolute; inset: 0;
+                   display: grid; place-items: center; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+
+<h1>WhatsApp Inbox — the left column</h1>
+<p class="lede">
+  Everything in that column today is stacked at the same weight: the number, a count, search, five
+  filter chips, a label chip, and two text toggles. Nothing groups, so nothing can be skipped by eye.
+  Both options below keep <strong>every one of those controls</strong> — they move the rarely-used ones
+  behind one button so the column breathes. The business name sits above the number, as asked.
+</p>
+
+<div class="row">
+
+  <!-- ─────────── NOW ─────────── -->
+  <div class="col">
+    <span class="tag">Now</span>
+    <div class="panel">
+      <div style="display:flex;align-items:center;gap:8px;padding:12px 16px">
+        <div class="mark" style="width:32px;height:32px;border-radius:9px;background:var(--brand-light);color:var(--brand);display:grid;place-items:center">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 21l1.9-5.1A9 9 0 1 1 8.1 19.1L3 21"/></svg>
+        </div>
+        <div>
+          <div style="font-size:13px;font-weight:500">+91 74116 54951</div>
+          <div style="font-size:11px;color:var(--muted)">3 shown · 1 unread</div>
+        </div>
+      </div>
+      <div style="padding:8px 12px 10px;display:flex;flex-direction:column;gap:8px">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          Search name, number or message
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          <span class="chip on">All</span><span class="chip">Unread</span><span class="chip">Window open</span>
+          <span class="chip">Mine</span><span class="chip">Unassigned</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px"><span class="chip">eBook</span></div>
+        <div style="font-size:11px;color:var(--muted)">Show closed and spam</div>
+        <div style="font-size:11px;color:var(--muted)">Show chats with no reply</div>
+      </div>
+      <div class="conv"><span class="av">NV</span><div style="flex:1;min-width:0"><div style="display:flex"><span class="nm unread">Neeta v</span><span class="time">8:23 pm</span></div><div class="last">Hi</div></div></div>
+      <div class="conv"><span class="av">MH</span><div style="flex:1;min-width:0"><div style="display:flex"><span class="nm">Mughal Health Care…</span><span class="time">7:56 pm</span></div><div class="last">Jo mujhe sapoot kre fanicial</div></div></div>
+    </div>
+    <p class="note">Eight controls, one weight, six stacked blocks before the first chat.</p>
+  </div>
+
+  <!-- ─────────── OPTION A ─────────── -->
+  <div class="col">
+    <span class="tag">Option A — segmented + one filter button</span>
+    <div class="panel">
+      <div class="acct">
+        <span class="mark">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 21l1.9-5.1A9 9 0 1 1 8.1 19.1L3 21"/></svg>
+        </span>
+        <div>
+          <div class="name">GooCampus Edu Solutions</div>
+          <div class="num">+91 74116 54951</div>
+        </div>
+      </div>
+
+      <div style="padding:0 16px 12px;display:flex;flex-direction:column;gap:10px">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          Search
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="seg" style="flex:1">
+            <span class="on">All</span><span>Unread</span><span>Mine</span>
+          </div>
+          <div class="pop">
+            <div class="icon-btn on">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="bar">
+        <span class="count">3 chats · <strong style="color:var(--brand)">1 unread</strong></span>
+        <span class="chip ring" style="font-size:10.5px;padding:3px 9px">eBook ✕</span>
+      </div>
+
+      <div class="conv"><span class="av">NV</span><div style="flex:1;min-width:0"><div style="display:flex"><span class="nm unread">Neeta v</span><span class="time">8:23 pm</span></div><div class="last">Hi</div><div class="meta"><span class="mini">Unassigned</span></div></div><span class="dot">1</span></div>
+      <div class="conv"><span class="av">MH</span><div style="flex:1;min-width:0"><div style="display:flex"><span class="nm">Mughal Health Care…</span><span class="time">7:56 pm</span></div><div class="last">Jo mujhe sapoot kre fanicial</div><div class="meta"><span class="mini">Praveen</span><span class="mini brand">eBook</span></div></div></div>
+      <div class="conv"><span class="av">PL</span><div style="flex:1;min-width:0"><div style="display:flex"><span class="nm">Praveen L</span><span class="time">5:40 pm</span></div><div class="last">You: hello</div><div class="meta"><span class="mini">Praveen</span></div></div></div>
+    </div>
+    <p class="note">
+      Three everyday filters stay visible. The funnel holds the rest and turns blue when any is on.
+      The count line doubles as “what am I filtered to”, with one tap to clear.
+    </p>
+  </div>
+
+  <!-- ─────────── OPTION A, funnel open ─────────── -->
+  <div class="col">
+    <span class="tag">Option A — the funnel, open</span>
+    <div class="panel" style="padding-bottom:4px">
+      <div class="acct">
+        <span class="mark">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 21l1.9-5.1A9 9 0 1 1 8.1 19.1L3 21"/></svg>
+        </span>
+        <div>
+          <div class="name">GooCampus Edu Solutions</div>
+          <div class="num">+91 74116 54951</div>
+        </div>
+      </div>
+      <div style="padding:0 16px 12px;display:flex;flex-direction:column;gap:10px">
+        <div class="search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          Search
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="seg" style="flex:1"><span class="on">All</span><span>Unread</span><span>Mine</span></div>
+          <div class="pop">
+            <div class="icon-btn on">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+            </div>
+            <div class="pop-body">
+              <h4>Show only</h4>
+              <div class="opt"><span class="box"></span> Window still open</div>
+              <div class="opt"><span class="box"></span> Nobody has taken it</div>
+              <h4>Labels</h4>
+              <div class="opt"><span class="box on"></span> eBook</div>
+              <div class="opt"><span class="box"></span> Fees</div>
+              <h4>Also include</h4>
+              <div class="opt"><span class="box"></span> Closed and spam</div>
+              <div class="opt"><span class="box"></span> Chats with no reply</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="height:190px"></div>
+    </div>
+    <p class="note">
+      “Also include” is worded as what it does. Those two were text links before, easy to miss and
+      easy to leave on by accident.
+    </p>
+  </div>
+
+  <!-- ─────────── OPTION B ─────────── -->
+  <div class="col">
+    <span class="tag">Option B — one dropdown, chips only when on</span>
+    <div class="panel">
+      <div class="acct">
+        <span class="mark">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M3 21l1.9-5.1A9 9 0 1 1 8.1 19.1L3 21"/></svg>
+        </span>
+        <div>
+          <div class="name">GooCampus Edu Solutions</div>
+          <div class="num">+91 74116 54951</div>
+        </div>
+        <span class="dot" style="margin-left:auto">1</span>
+      </div>
+
+      <div style="padding:0 16px 12px;display:flex;gap:8px">
+        <div class="search" style="flex:1">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          Search
+        </div>
+        <div class="icon-btn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>
+        </div>
+      </div>
+
+      <div class="bar" style="gap:6px;flex-wrap:wrap;justify-content:flex-start">
+        <span class="chip ring" style="font-size:10.5px;padding:3px 9px">Unread ✕</span>
+        <span class="chip ring" style="font-size:10.5px;padding:3px 9px">eBook ✕</span>
+        <span class="count" style="margin-left:auto">3 chats</span>
+      </div>
+
+      <div class="conv"><span class="av">NV</span><div style="flex:1;min-width:0"><div style="display:flex"><span class="nm unread">Neeta v</span><span class="time">8:23 pm</span></div><div class="last">Hi</div><div class="meta"><span class="mini">Unassigned</span></div></div><span class="dot">1</span></div>
+      <div class="conv"><span class="av">MH</span><div style="flex:1;min-width:0"><div style="display:flex"><span class="nm">Mughal Health Care…</span><span class="time">7:56 pm</span></div><div class="last">Jo mujhe sapoot kre fanicial</div><div class="meta"><span class="mini">Praveen</span><span class="mini brand">eBook</span></div></div></div>
+      <div class="conv"><span class="av">PL</span><div style="flex:1;min-width:0"><div style="display:flex"><span class="nm">Praveen L</span><span class="time">5:40 pm</span></div><div class="last">You: hello</div><div class="meta"><span class="mini">Praveen</span></div></div></div>
+    </div>
+    <p class="note">
+      Quietest of the three: two rows before the first chat. Every filter lives in the funnel, and the
+      chip row appears only when something is on. Costs one click to reach Unread.
+    </p>
+  </div>
+
+</div>
+
+<p class="lede" style="margin-top:32px">
+  <strong>My pick: A.</strong> Unread is the one filter used all day and it stays one tap away, while
+  the six rarely-touched controls stop competing for attention. B is tidier but hides a daily action.
+  Either way the column goes from six blocks to three, and the business name sits above the number.
+</p>
+
+</body>
+</html>
