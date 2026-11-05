@@ -123,25 +123,40 @@ function Brands() {
     const im = await post("/api/brands", "DELETE", { id: b.id, impact: true });
     if (!im.ok) { showToast({ who: "Couldn't check the brand", body: im.error, av: "!" }); return; }
     const { connected, scheduled, interests } = im.j as { connected: boolean; scheduled: number; interests: string[] };
+    // Each line matches what DELETE /api/brands actually does (and doesn't do).
     const goes = [
-      connected && "Its Instagram / Facebook connection",
-      "Its numbers on every tab, the brand picker and the Scheduler's pages",
+      `${b.name} from the brand list, the brand picker on every tab and the Scheduler's pages`,
+      connected && "Its saved Instagram / Facebook sign-in — to use it again you'd connect it again",
       "Its logo",
-      scheduled > 0 && `${scheduled} post${scheduled === 1 ? "" : "s"} scheduled or drafted for it — they won't go out`,
-      interests.length > 0 && `${interests.join(", ")} default page — goes back to GooCampus Main`,
+      scheduled > 0 && `${scheduled} post${scheduled === 1 ? "" : "s"} scheduled or drafted for it won't go out — they stay on the board with no page to post to`,
+      interests.length > 0 && `${interests.join(", ")} will post to GooCampus Main by default instead`,
     ].filter(Boolean) as string[];
-    const body = <>
-      <span className="block">{b.name} will be removed from the entire dashboard.</span>
-      <span className="block mt-3 rounded-lg border border-[#F5C6C1] bg-[#FDF2F1] px-3 py-2.5">
-        <span className="block text-[12px] font-medium uppercase tracking-wide text-[#C0392B]">What gets deleted</span>
-        {goes.map((g) => <span key={g} className="block text-[13px] text-[#232D42] mt-1.5">• {g}</span>)}
+    const stays = [
+      "The Instagram and Facebook accounts themselves — their posts, followers, messages and ads",
+      "Posts already published on Instagram or Facebook",
+      "Every task and post on the board (Marketing Hub, Plan board, Content calendar)",
+      "Saved story history — it shows again if you add a brand with the same name",
+      "Its tester access in the Meta app (remove it there if you want)",
+      "Every other brand",
+    ];
+    const box = (title: string, items: string[], tone: "red" | "grey") => (
+      <span className={`block mt-3 rounded-lg border px-3 py-2.5 ${tone === "red" ? "border-[#F5C6C1] bg-[#FDF2F1]" : "border-gray-100 bg-[#F6F7FB]"}`}>
+        <span className={`block text-[12px] font-medium uppercase tracking-wide ${tone === "red" ? "text-[#C0392B]" : "text-[#4A5468]"}`}>{title}</span>
+        {items.map((g) => <span key={g} className="block text-[13px] text-[#232D42] mt-1.5">• {g}</span>)}
       </span>
-      <span className="block mt-2.5 text-[12.5px] text-[#4A5468]">Your Instagram and Facebook accounts are not affected — their posts and followers stay as they are. This only removes the brand from this dashboard; you can add it back any time.</span>
+    );
+    const body = <>
+      <span className="block">{b.name} will be removed from this dashboard. Nothing is deleted on Instagram or Facebook.</span>
+      {box("What gets deleted", goes, "red")}
+      {box("What stays", stays, "grey")}
+      <span className="block mt-2.5 text-[12.5px] text-[#4A5468]">You can add the brand back any time and connect it again.</span>
     </>;
     if (!(await confirmDialog({ title: `Delete ${b.name}?`, body, action: "Delete this brand", danger: true, confirmText: b.name }))) return;
     const r = await post("/api/brands", "DELETE", { id: b.id });
     if (!r.ok) { showToast({ who: "Couldn't remove the brand", body: r.error, av: "!" }); return; }
     showToast({ who: "Brand deleted", body: `${b.name} and its connections are gone from the dashboard.`, av: "✓" });
+    // Off the list now — the full reload waits on the logos rebuild, a few seconds.
+    setBrands((list) => list && list.filter((x) => x.id !== b.id));
     setSel(""); void reloadWithLogos();
   };
   const pick = () => {

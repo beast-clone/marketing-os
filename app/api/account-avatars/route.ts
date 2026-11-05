@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
 import { getConfiguredAccounts, fetchBasic } from "@/lib/instagram";
 import { getSupabase } from "@/lib/supabase";
-import { readRegistry } from "@/lib/brand-accounts";
+import { readRegistry, warmBrandAccounts } from "@/lib/brand-accounts";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,8 @@ async function uploadedLogos(db: ReturnType<typeof getSupabase>): Promise<Avatar
 // every tab would be empty for it.
 async function addedBrands() {
   // A brand connected with "Connect Instagram only" has no Facebook page (5 Nov).
+  // The linked-brand list lives in memory; load it first, or a fresh server sees none.
+  await warmBrandAccounts();
   const live = new Map(getConfiguredAccounts().map((a) => [a.id, a]));
   return (await readRegistry()).added.filter((b) => live.has(b.id))
     .map((b) => ({ ...b, handle: live.get(b.id)?.handle || b.handle, platforms: live.get(b.id)?.pageId ? ["instagram", "facebook"] : ["instagram"] }));

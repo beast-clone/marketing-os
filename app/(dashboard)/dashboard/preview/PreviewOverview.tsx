@@ -286,7 +286,13 @@ type PlatformKey = (typeof PLATFORMS)[number]["key"];
 type RangeKey = "7d" | "30d" | "60d" | "90d" | "1y" | "custom";
 
 export function PreviewOverview({ person = "" }: { person?: string }) {
-  const [accountId, setAccountId] = useState<string>(DEFAULT_ACCOUNT_ID);
+  const [accountId, setAccountIdRaw] = useState<string>(DEFAULT_ACCOUNT_ID);
+  // The brand is remembered the same way every other tab remembers it
+  // (PreviewDashboardShell, "gc-dash:accountId"), so a pick here carries over and back.
+  const setAccountId = (id: string) => {
+    setAccountIdRaw(id);
+    try { localStorage.setItem("gc-dash:accountId", id); } catch { /* private mode */ }
+  };
   const [brandOpen, setBrandOpen] = useState(false);
   // Each brand's own profile picture for the switcher. The picker covers all four
   // platforms, so an Instagram glyph on it was simply the wrong badge — GooCampus
@@ -306,6 +312,11 @@ export function PreviewOverview({ person = "" }: { person?: string }) {
         if (!alive) return;
         if (j?.avatars) setBrandLogos(j.avatars as Record<string, string>);
         if (Array.isArray(j?.brands)) setAddedBrands(j.brands as IGAccount[]);
+        // Restore the remembered brand once we know every brand that exists.
+        try {
+          const saved = localStorage.getItem("gc-dash:accountId");
+          if (saved && [...SWITCHABLE_ACCOUNTS, ...((j?.brands as IGAccount[]) || [])].some((a) => a.id === saved)) setAccountIdRaw(saved);
+        } catch { /* private mode */ }
       })
       .catch(() => { /* initials instead — the picker still works */ });
     return () => { alive = false; };
