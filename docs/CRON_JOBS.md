@@ -230,7 +230,7 @@ on) is listed too. Quiet day → no email. Copy the Daily Comment Digest workflo
 
 | Workflow | ID | Schedule |
 | --- | --- | --- |
-| *(to create)* GC Dashboard — WhatsApp unread | — | every 15 min, 9:00–21:00 IST → `/api/cron/wa-unread` (header `x-cron-secret`, credential: GC Dashboard Cron) |
+| GC Dashboard — WhatsApp unread | `eKKVCM63C205yrCo` | every 15 min, 9:00–21:00 IST → `/api/cron/wa-unread` (header `x-cron-secret`, credential: GC Dashboard Cron) — **created 5 Nov, left INACTIVE until the endpoint is deployed** |
 
 Posts one Slack message when a WhatsApp reply has gone unanswered for more than
 10 minutes. Worth interrupting someone over, because a free reply is only allowed

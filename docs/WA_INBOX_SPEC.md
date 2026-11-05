@@ -65,3 +65,25 @@ Source: Meta developer docs, checked 5 Nov 2026 — pricing, messaging limits, o
 - **Chats on Interakt's number** — that is a different WhatsApp number on Interakt; we can't read it here.
 - **Know if someone blocked us** — WhatsApp never tells the sender.
 - Samvaya users who reply to this number also appear here (agreed: show all).
+
+## n8n workflows (5 Nov 2026)
+
+| Workflow | ID | What it does |
+| --- | --- | --- |
+| WA Inbox — receive | `UfMw48Bkdx0gNIWd` | Meta webhook → `wa_ingest()` → `wa_messages` |
+| WA Inbox — send reply | `XgwtmPExHM4LveCV` | free-text reply within the 24h window |
+| WA Inbox — templates | `SzQZkodBWSN33f3t` | lists approved templates and sends one (published) |
+| GC Dashboard — WhatsApp unread | `eKKVCM63C205yrCo` | 15-min Slack nudge (INACTIVE until deployed) |
+
+All three webhooks share the header `x-wa-inbox-secret`, credential **WA Inbox send secret**.
+
+**WhatsApp Business Account id: `193332033867367`** ("GooCampus Edu Solutions Pvt Ltd.", owned by
+GooCampus Edu Solutions Private Limited). Meta gives no way to find it from a phone number — the
+number returns only its own details — so it is configuration: `WA_BUSINESS_ACCOUNT_ID`.
+
+That account currently has **one** approved template, `test_campaign`: a MARKETING blast about an
+August event, image header, no variables. It sends, but it is not something to reopen a conversation
+with. A short utility template that invites a reply is what Open Conversation actually needs.
+
+The phone number also reports `code_verification_status: EXPIRED` — worth re-verifying in WhatsApp
+Manager before it bites.
