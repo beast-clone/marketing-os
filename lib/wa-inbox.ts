@@ -169,3 +169,32 @@ export async function waitingReplies(graceMs = 10 * 60_000): Promise<Waiting[]> 
   for (const w of waited) w.assignedTo = metas.get(w.contact)?.assigned_to ?? null;
   return waited;
 }
+
+// ── Attachments ─────────────────────────────────────────────────────────────
+
+export type WaMedia = { id: string; mime: string; filename: string | null; caption: string | null };
+
+/**
+ * The attachment inside a stored WhatsApp message, or null for plain text.
+ *
+ * `wa_messages.raw` is Meta's own message object, which the receive workflow
+ * already saves whole — so nothing extra had to be collected for this. A media
+ * message carries the file under a key named after its type:
+ *   { type: "image",    image:    { id, mime_type, caption? } }
+ *   { type: "document", document: { id, mime_type, filename } }
+ * and the same for audio, video, sticker and voice notes.
+ */
+export function mediaOf(raw: unknown): WaMedia | null {
+  const m = raw as { type?: string; [k: string]: unknown } | null;
+  if (!m || typeof m !== "object" || !m.type || m.type === "text") return null;
+  const part = m[m.type] as { id?: string; mime_type?: string; filename?: string; caption?: string } | undefined;
+  if (!part?.id) return null;
+  return {
+    id: part.id,
+    // Fall back to something a browser will at least download rather than
+    // render as text, if Meta ever omits the type.
+    mime: part.mime_type || "application/octet-stream",
+    filename: part.filename || null,
+    caption: part.caption || null,
+  };
+}

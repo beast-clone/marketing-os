@@ -7,6 +7,7 @@ import {
   IconBrandWhatsapp, IconSearch, IconSend, IconCheck, IconChecks, IconAlertTriangle, IconClock, IconMessageCircle,
   IconInfoCircle, IconTemplate, IconUserCheck, IconShieldCheck, IconCoinRupee, IconGauge,
   IconUser, IconTag, IconNote, IconPlus, IconX, IconExternalLink, IconChevronDown, IconArchive, IconBan, IconInbox,
+  IconPaperclip,
 } from "@tabler/icons-react";
 
 // WhatsApp Inbox — the official number +91 74116 54951 (the one the eBook and lead
@@ -23,7 +24,11 @@ type Conv = {
   unread: number; lastInAt: string | null; open: boolean;
   assignedTo: string | null; labels: string[]; chatStatus: "open" | "closed" | "spam"; hasNote: boolean;
 };
-type Msg = { id: string; direction: "in" | "out"; kind: string; body: string | null; status: string | null; error: string | null; sent_by: string | null; created_at: string };
+type Msg = {
+  id: string; direction: "in" | "out"; kind: string; body: string | null; status: string | null;
+  error: string | null; sent_by: string | null; created_at: string;
+  media?: { mime: string; filename: string | null; caption: string | null };
+};
 type Meta = { contact: string; display_name: string | null; assigned_to: string | null; labels: string[]; note: string | null; status: "open" | "closed" | "spam" };
 type Lead = { name: string; phone: string | null; email: string | null; counsellor: string | null; source: string | null; leadStatus: string | null; url: string };
 type Member = { id: string; name: string };
@@ -38,6 +43,43 @@ const when = (iso: string) => {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 };
 const hoursLeft = (lastInAt: string | null) => lastInAt ? Math.max(0, Math.ceil((Date.parse(lastInAt) + 864e5 - Date.now()) / 36e5)) : 0;
+
+/**
+ * What somebody sent us. A picture is shown; anything else is offered as a file.
+ *
+ * Both go through /api/wa-inbox/media, which sits behind the session guard and
+ * keeps its own copy — Meta throws attachments away after about 30 days, so a
+ * link straight to WhatsApp would rot.
+ */
+function Attachment({ m }: { m: Msg }) {
+  const [failed, setFailed] = useState(false);
+  if (!m.media) return null;
+  const src = "/api/wa-inbox/media?message=" + m.id;
+  const isImage = m.media.mime.startsWith("image/");
+  const name = m.media.filename || (m.kind + " file");
+
+  if (isImage && !failed) {
+    return (
+      <a href={src} target="_blank" rel="noreferrer" className="mt-0.5 block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={m.media.caption || "Photo they sent"} onError={() => setFailed(true)}
+          className="max-h-[260px] w-auto max-w-full rounded-lg border border-black/5" />
+      </a>
+    );
+  }
+  return (
+    <a href={src} target="_blank" rel="noreferrer"
+      className={"mt-0.5 flex items-center gap-2 rounded-lg px-2.5 py-2 " + (m.direction === "out" ? "bg-white/15" : "bg-[#F6F7FB]")}>
+      <IconPaperclip size={15} className={m.direction === "out" ? "text-white/80" : "text-brand"} />
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-medium">{name}</span>
+        <span className={"block text-[10.5px] " + (m.direction === "out" ? "text-white/70" : "text-[#8A92A6]")}>
+          {failed ? "Couldn’t load it — open in WhatsApp" : "Open"}
+        </span>
+      </span>
+    </a>
+  );
+}
 
 function Tick({ m }: { m: Msg }) {
   if (m.direction !== "out") return null;
@@ -585,8 +627,15 @@ function Inbox() {
             {!msgs ? <LoadingBlock label="Loading chat…" /> : msgs.map((m) => (
               <div key={m.id} className={`flex ${m.direction === "out" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[78%] rounded-xl px-3 py-2 text-sm ${m.direction === "out" ? "bg-brand text-white" : "border border-gray-100 bg-white text-[#232D42]"}`}>
-                  {m.kind !== "text" && <div className={`mb-0.5 text-[11px] uppercase tracking-wide ${m.direction === "out" ? "text-white/70" : "text-[#8A92A6]"}`}>{m.kind}</div>}
-                  <div className="whitespace-pre-wrap break-words">{m.body || (m.kind === "text" ? "" : `(${m.kind} — open WhatsApp to view)`)}</div>
+                  {m.kind !== "text" && !m.media && <div className={`mb-0.5 text-[11px] uppercase tracking-wide ${m.direction === "out" ? "text-white/70" : "text-[#8A92A6]"}`}>{m.kind}</div>}
+                  <Attachment m={m} />
+                  {/* The caption sits under the picture, the way WhatsApp shows it. */}
+                  {(m.body || m.media?.caption) && (
+                    <div className="whitespace-pre-wrap break-words">{m.body || m.media?.caption}</div>
+                  )}
+                  {!m.body && !m.media && m.kind !== "text" && (
+                    <div className="whitespace-pre-wrap break-words">({m.kind} — open WhatsApp to view)</div>
+                  )}
                   <div className={`mt-1 flex items-center justify-end gap-1 text-[10.5px] ${m.direction === "out" ? "text-white/70" : "text-[#8A92A6]"}`}>
                     {m.direction === "out" && m.sent_by ? <span>{m.sent_by} ·</span> : null}
                     {when(m.created_at)} <Tick m={m} />

@@ -87,3 +87,26 @@ with. A short utility template that invites a reply is what Open Conversation ac
 
 The phone number also reports `code_verification_status: EXPIRED` — worth re-verifying in WhatsApp
 Manager before it bites.
+
+## Attachments (5 Nov 2026)
+
+Incoming photos, PDFs and voice notes are readable in the dashboard. Nothing had to change in the
+receive workflow: it already stores Metas whole message object in `wa_messages.raw`, and a media
+message carries its file id there (`raw.image.id`, `raw.document.id`, and so on).
+
+Fetching: `/api/wa-inbox/media?message=<id>` asks **WA Inbox — templates and media**
+(`SzQZkodBWSN33f3t`, action `media`) for the bytes, because the WhatsApp token lives in n8n. n8n
+asks Meta for the one-time URL, downloads it and returns it as binary — no base64 round trip.
+
+**Kept in a PRIVATE bucket, `wa-media`.** This is mark sheets, certificates and ID photos belonging
+to other people. Every other bucket in this project is public-read, and none of them would do. The
+route is behind the Sales section guard, so an `img src` works for the team and for nobody else.
+
+Kept rather than linked because **Meta deletes attachments after about 30 days** — a link straight
+to WhatsApp would rot. The first person to open one fetches it; everybody after reads the copy.
+
+Limit 25 MB. WhatsApp allows documents far larger, but those come back through a webhook response;
+anything bigger says so and points at WhatsApp.
+
+**Not built: sending files back.** That needs an upload to Meta and a place to put the file first,
+and is a separate job from reading what arrives.

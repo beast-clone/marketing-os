@@ -4,7 +4,7 @@ import { getSessionUserId } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
 import { fetchRoster } from "@/lib/team-db";
-import { contactMetaMap, knownLabels, EMPTY_META } from "@/lib/wa-inbox";
+import { contactMetaMap, knownLabels, EMPTY_META, mediaOf } from "@/lib/wa-inbox";
 
 // WhatsApp Inbox for the official number +91 74116 54951.
 // Incoming messages land in `wa_messages` through n8n "WA Inbox — receive" (see
@@ -25,12 +25,21 @@ export async function GET(req: Request) {
   try {
     if (contact) {
       const { data, error } = await db.from("wa_messages")
-        .select("id, direction, kind, body, status, error, sent_by, created_at")
+        .select("id, direction, kind, body, status, error, sent_by, created_at, raw")
         .eq("contact", contact).order("created_at", { ascending: true }).limit(500);
       if (error) throw error;
       await db.from("wa_messages").update({ read_at: new Date().toISOString() })
         .eq("contact", contact).eq("direction", "in").is("read_at", null);
-      return NextResponse.json({ messages: data ?? [] });
+      // Say WHAT is attached, never the raw Meta object: it carries ids of
+      // theirs that the browser has no use for. The bytes themselves come from
+      // /api/wa-inbox/media, which is behind the same session guard.
+      const messages = (data ?? []).map(({ raw, ...m }) => {
+        const media = mediaOf(raw);
+        return media
+          ? { ...m, media: { mime: media.mime, filename: media.filename, caption: media.caption } }
+          : m;
+      });
+      return NextResponse.json({ messages });
     }
 
     const { data, error } = await db.from("wa_messages")
