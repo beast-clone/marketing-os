@@ -18,6 +18,9 @@ export type DialogOpts = {
   required?: boolean;
   /** prompt only: a label above the box. */
   label?: string;
+  /** confirm only: the action stays locked until this exact text is typed, like
+   *  GitHub's "type the repository name to delete it" (Remove brand, 5 Nov). */
+  confirmText?: string;
 };
 type Pending = DialogOpts & { resolve: (v: boolean | string | null) => void };
 
@@ -45,6 +48,7 @@ export function DialogHost() {
   const cur = items[0];
   useEffect(() => { setValue(cur?.defaultValue ?? ""); }, [cur]);
   if (!cur) return null;
+  const typed = !cur.confirmText || value.trim() === cur.confirmText;
   const done = (ok: boolean) => {
     cur.resolve(cur.kind === "prompt" ? (ok ? value : null) : cur.kind === "notice" ? true : ok);
     setItems((xs) => xs.slice(1));
@@ -59,6 +63,14 @@ export function DialogHost() {
           <div className="min-w-0 flex-1">
             <h2 className="text-[16px] font-medium text-[#232D42] break-words">{cur.title}</h2>
             {cur.body && <div className="text-[14px] text-[#8A92A6] mt-1 break-words">{cur.body}</div>}
+            {cur.kind === "confirm" && cur.confirmText && (
+              <>
+                <div className="mt-4 text-[13px] text-[#4A5468]">Type <b className="font-medium text-[#232D42] select-all">{cur.confirmText}</b> to confirm.</div>
+                <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder={cur.confirmText} autoComplete="off" spellCheck={false}
+                  onKeyDown={(e) => { if (e.key === "Enter" && typed) done(true); }}
+                  className="mt-2 w-full h-9 px-2.5 rounded border border-gray-200 text-[14px] text-[#232D42] outline-none focus:border-[#C0392B]" />
+              </>
+            )}
             {cur.kind === "prompt" && (
               <>{cur.label && <div className="mt-3 -mb-1.5 text-[12px] text-[#8A92A6]">{cur.label}</div>}
               <input autoFocus value={value} onChange={(e) => setValue(e.target.value)} placeholder={cur.placeholder}
@@ -69,7 +81,7 @@ export function DialogHost() {
         </div>
         <div className="flex items-center justify-end gap-2 px-5 py-4 mt-4 border-t border-gray-100">
           {cur.kind !== "notice" && <button onClick={() => done(false)} className="h-9 px-3 rounded text-[14px] font-medium text-gray-600 hover:text-gray-900">{cur.cancel || "Cancel"}</button>}
-          <button autoFocus={cur.kind !== "prompt"} onClick={() => done(true)} disabled={cur.kind === "prompt" && cur.required && !value.trim()}
+          <button autoFocus={cur.kind !== "prompt" && !cur.confirmText} onClick={() => done(true)} disabled={(cur.kind === "prompt" && cur.required && !value.trim()) || !typed}
             className={`h-9 px-4 rounded text-[14px] font-medium text-white hover:brightness-110 disabled:opacity-45 disabled:cursor-not-allowed ${cur.danger && cur.kind !== "notice" ? "bg-[#C0392B]" : "bg-brand"}`}>
             {cur.action || (cur.kind === "notice" ? "OK" : cur.kind === "prompt" ? "Save" : "Confirm")}
           </button>
