@@ -73,6 +73,9 @@ function Brands() {
     }).catch((e) => setErr((e as Error).message));
   }, []);
   useEffect(() => { load(); }, [load]);
+  // Connecting or deleting a brand drops the saved profile pictures; rebuild them before
+  // redrawing, or the list shows initials until the next visit (5 Nov).
+  const reloadWithLogos = useCallback(async () => { await fetch("/api/account-avatars", { cache: "no-store" }).catch(() => null); load(); }, [load]);
   // Back from Connect Instagram only (/api/auth/instagram/callback): say what happened.
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
@@ -82,7 +85,8 @@ function Brands() {
       ? { who: "Instagram connected", body: `${q.get("why") || "The account"} — its numbers show across the dashboard.`, av: "✓" }
       : { who: "Couldn't connect Instagram", body: q.get("why") || "Try again.", av: "!" });
     window.history.replaceState(null, "", window.location.pathname);
-  }, []);
+    if (ig === "connected") void reloadWithLogos();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const b = brands?.find((x) => x.id === sel);
   const saveLogo = async (logo: string | null) => {
@@ -138,7 +142,7 @@ function Brands() {
     const r = await post("/api/brands", "DELETE", { id: b.id });
     if (!r.ok) { showToast({ who: "Couldn't remove the brand", body: r.error, av: "!" }); return; }
     showToast({ who: "Brand deleted", body: `${b.name} and its connections are gone from the dashboard.`, av: "✓" });
-    setSel(""); load();
+    setSel(""); void reloadWithLogos();
   };
   const pick = () => {
     const i = document.createElement("input"); i.type = "file"; i.accept = "image/png,image/jpeg,image/webp";
@@ -207,7 +211,7 @@ function Brands() {
           <Note>A tab stays greyed out for this brand until that account is connected, so one brand&apos;s numbers never show inside another&apos;s.</Note>
         </div>
       )}
-      {picking && b && <PagePicker brand={b} onClose={() => setPicking(false)} onDone={() => { setPicking(false); load(); }} />}
+      {picking && b && <PagePicker brand={b} onClose={() => setPicking(false)} onDone={() => { setPicking(false); void reloadWithLogos(); }} />}
     </div>
   );
 }
