@@ -42,21 +42,22 @@ export async function GET(req: Request) {
       return NextResponse.json({ messages });
     }
 
-    const { data, error } = await db.from("wa_messages")
-      .select("contact, contact_name, direction, kind, body, read_at, created_at")
-      .order("created_at", { ascending: false }).limit(3000);
+    // One row per chat, grouped in the database (view wa_conversations).
+    //
+    // This used to read 3,000 message rows and group them in JavaScript, on every
+    // poll, every fifteen seconds, to show a list of a handful of chats — and it
+    // grew with the message history rather than the number of conversations.
+    const { data, error } = await db.from("wa_conversations")
+      .select("contact, contact_name, last_at, last_body, last_direction, unread, last_in_at")
+      .order("last_at", { ascending: false }).limit(300);
     if (error) throw error;
     type Conv = { contact: string; name: string | null; last: string; lastAt: string; lastDir: string; unread: number; lastInAt: string | null; open: boolean };
-    const by = new Map<string, Conv>();
-    for (const m of data ?? []) {
-      let c = by.get(m.contact);
-      if (!c) by.set(m.contact, c = { contact: m.contact, name: null, last: m.body || `[${m.kind}]`, lastAt: m.created_at, lastDir: m.direction, unread: 0, lastInAt: null, open: false });
-      if (!c.name && m.contact_name) c.name = m.contact_name;
-      if (m.direction === "in") {
-        if (!c.lastInAt) c.lastInAt = m.created_at;
-        if (!m.read_at) c.unread++;
-      }
-    }
+    const by = new Map<string, Conv>(
+      (data ?? []).map((r) => [r.contact, {
+        contact: r.contact, name: r.contact_name, last: r.last_body ?? "", lastAt: r.last_at,
+        lastDir: r.last_direction, unread: Number(r.unread) || 0, lastInAt: r.last_in_at, open: false,
+      }]),
+    );
 
     // Who is handling each chat, and what it is about. One query for the whole
     // list; the Sales Hub lead is NOT fetched here — that is an Airtable call per
