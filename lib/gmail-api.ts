@@ -1,5 +1,6 @@
 import { getIntegrationToken, saveIntegrationToken } from "@/lib/integration-tokens";
 import { getSupabase } from "@/lib/supabase";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 // Sending mail as a GooCampus Google account, through the Gmail API rather than
 // SMTP. This exists because the dashboard already has a Google OAuth client (the
@@ -49,7 +50,7 @@ async function accessToken(): Promise<string> {
   if (access && Date.now() < access.until) return access.token;
   const refresh = await getIntegrationToken("gmail");
   if (!refresh) throw new Error("Gmail is not connected.");
-  const r = await fetch("https://oauth2.googleapis.com/token", {
+  const r = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, refresh_token: refresh, grant_type: "refresh_token" }),
@@ -70,7 +71,7 @@ async function accessToken(): Promise<string> {
 // Exchange the one-time code from the consent screen for a lasting refresh token,
 // and remember which address agreed to it.
 export async function saveGmailGrant(code: string, redirectUri: string): Promise<string> {
-  const r = await fetch("https://oauth2.googleapis.com/token", {
+  const r = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ code, client_id: CLIENT_ID, client_secret: CLIENT_SECRET, redirect_uri: redirectUri, grant_type: "authorization_code" }),
@@ -197,7 +198,7 @@ export async function sendViaGmail(msg: { to: string; subject: string; text?: st
   const from = msg.fromName ? `${header(msg.fromName)} <${addr}>` : addr;
   const raw = Buffer.from(rfc822({ from, to: msg.to, subject: msg.subject, text: msg.text, html: msg.html }), "utf8")
     .toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const r = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
+  const r = await fetchWithTimeout("https://gmail.googleapis.com/gmail/v1/users/me/messages/send", {
     method: "POST",
     headers: { Authorization: `Bearer ${await accessToken()}`, "Content-Type": "application/json" },
     body: JSON.stringify({ raw }),

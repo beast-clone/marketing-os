@@ -8,6 +8,7 @@
 
 import { googleAccessToken, SERVICE_ACCOUNT_EMAIL } from "@/lib/google-jwt";
 import { SheetError } from "@/lib/sheets";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 const SCOPE = "https://www.googleapis.com/auth/drive.metadata.readonly";
 
@@ -21,7 +22,7 @@ export async function listSpreadsheets(): Promise<DriveSheet[]> {
     `&fields=files(id,name,modifiedTime,capabilities(canEdit))&pageSize=100&orderBy=modifiedTime desc` +
     `&supportsAllDrives=true&includeItemsFromAllDrives=true`;
 
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
   const body = await res.json().catch(() => ({}));
 
   if (!res.ok) {

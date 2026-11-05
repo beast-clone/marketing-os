@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 // Cross-post fan-out for the Scheduler.
 //
 // Given a source Post Scheduler row and a list of "Publish To Page" values, this:
@@ -19,7 +20,7 @@ function token(): string {
 }
 
 async function airtableFetch(input: string, init: RequestInit) {
-  const r = await fetch(input, {
+  const r = await fetchWithTimeout(input, {
     ...init,
     headers: {
       ...(init.headers || {}),

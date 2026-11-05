@@ -12,6 +12,7 @@
 // ₹1 test payments are left out.
 import { getSupabase } from "@/lib/supabase";
 import { MTABS } from "@/lib/materials";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 type Payment = {
   id: string; amount: number; status: string; method?: string; created_at: number;
@@ -86,7 +87,7 @@ function ebookOf(p: Payment, added: string[]): string | null {
 
 const rzpAuth = () => Buffer.from(`${process.env.RAZORPAY_KEY_ID}:${process.env.RAZORPAY_KEY_SECRET}`).toString("base64");
 async function rzpGet<T>(path: string): Promise<T> {
-  const r = await fetch(`https://api.razorpay.com${path}`, { headers: { Authorization: `Basic ${rzpAuth()}` }, cache: "no-store" });
+  const r = await fetchWithTimeout(`https://api.razorpay.com${path}`, { headers: { Authorization: `Basic ${rzpAuth()}` }, cache: "no-store" });
   const j = await r.json().catch(() => null) as (T & { error?: { description?: string } }) | null;
   if (!r.ok || !j) throw new Error(j?.error?.description || `Razorpay answered ${r.status}`);
   return j;
@@ -130,7 +131,7 @@ async function fetchPayments(since: number): Promise<Payment[]> {
   const auth = rzpAuth();
   const out: Payment[] = [];
   for (let skip = 0; skip < 20000; skip += 100) {
-    const r = await fetch(`https://api.razorpay.com/v1/payments?count=100&skip=${skip}&from=${since}`, { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" });
+    const r = await fetchWithTimeout(`https://api.razorpay.com/v1/payments?count=100&skip=${skip}&from=${since}`, { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" });
     const j = await r.json().catch(() => null) as { items?: Payment[]; error?: { description?: string } } | null;
     if (!r.ok || !j?.items) throw new Error(j?.error?.description || `Razorpay answered ${r.status}`);
     out.push(...j.items);

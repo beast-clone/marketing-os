@@ -10,6 +10,7 @@
 // updates (syncTelegramChats), not from a directory.
 import { getSupabase } from "@/lib/supabase";
 import { getIntegrationToken } from "@/lib/integration-tokens";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 const TOKEN = async () => ((await getIntegrationToken("telegram")) || "").trim();
 export const hasTelegram = async () => !!(await TOKEN());
@@ -18,7 +19,7 @@ async function call<T>(method: string, body?: Record<string, unknown>, withToken
   // withToken lets a token be tried before it is saved, so a bad paste is rejected
   // at the point of pasting rather than silently at the next notice.
   const token = withToken ?? (await TOKEN());
-  const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+  const r = await fetchWithTimeout(`https://api.telegram.org/bot${token}/${method}`, {
     method: body ? "POST" : "GET",
     headers: body ? { "Content-Type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,

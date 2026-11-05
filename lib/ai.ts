@@ -6,6 +6,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/auth";
 import { createLimiter } from "@/lib/concurrency";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 // Every Perplexity model — Sonar and the Claude ones — bills to one key and one
 // rate budget, so they share a single limiter. On 2026-09-27 four "playbook"
@@ -242,7 +243,7 @@ async function askPerplexityAsyncInner(
     await new Promise((r) => setTimeout(r, pollMs));
     let j: { status?: string; error_message?: string; response?: { choices?: { message?: { content?: string } }[]; citations?: string[]; search_results?: { url: string }[]; usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number; cost?: { total_cost?: number } } } };
     try {
-      const res = await fetch(`https://api.perplexity.ai/async/chat/completions/${id}`, { headers: auth });
+      const res = await fetchWithTimeout(`https://api.perplexity.ai/async/chat/completions/${id}`, { headers: auth });
       if (!res.ok) continue; // transient — keep polling
       j = await res.json();
     } catch { continue; } // network blip — keep polling

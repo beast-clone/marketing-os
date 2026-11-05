@@ -3,6 +3,7 @@
 // second Google API (Search Console) doesn't touch the working GA4 path.
 // Credentials: GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY in .env.local.
 import crypto from "crypto";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 const CLIENT_EMAIL = process.env.GA4_CLIENT_EMAIL || "";
 const PRIVATE_KEY = (process.env.GA4_PRIVATE_KEY || "").replace(/\\n/g, "\n");
@@ -32,7 +33,7 @@ export async function googleAccessToken(scope: string): Promise<string> {
   signer.end();
   const jwt = `${header}.${claim}.${b64url(signer.sign(PRIVATE_KEY))}`;
 
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),

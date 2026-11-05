@@ -4,6 +4,7 @@
 // Powers the Content Radar SEO lanes: winning keywords (rank ≤10) + striking-
 // distance gaps (rank 11–20, the page-2 opportunities worth pushing up).
 import { googleAccessToken, hasGoogleServiceAccount, SERVICE_ACCOUNT_EMAIL } from "./google-jwt";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 // The property we want data for. If GSC_SITE_URL is set we trust it; otherwise
 // we auto-discover the right property (domain vs URL-prefix) from whatever the
@@ -60,7 +61,7 @@ type SiteEntry = { siteUrl: string; permissionLevel: string };
 // basis for auto-discovery below.
 export async function listGscSites(): Promise<SiteEntry[]> {
   const token = await googleAccessToken(SCOPE);
-  const res = await fetch("https://searchconsole.googleapis.com/webmasters/v3/sites", {
+  const res = await fetchWithTimeout("https://searchconsole.googleapis.com/webmasters/v3/sites", {
     headers: { Authorization: `Bearer ${token}` },
   });
   const json = await res.json();
@@ -94,7 +95,7 @@ const r1 = (n: number) => Math.round(n * 10) / 10;
 async function gscQuery(from: string, to: string, dimensions: string[], rowLimit = 500): Promise<RawRow[]> {
   const siteUrl = await resolveSiteUrl();
   const token = await googleAccessToken(SCOPE);
-  const res = await fetch(
+  const res = await fetchWithTimeout(
     `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`,
     {
       method: "POST",
@@ -112,7 +113,7 @@ async function gscQuery(from: string, to: string, dimensions: string[], rowLimit
 export async function searchConsoleQueriesContaining(term: string, from: string, to: string, limit = 50): Promise<SeoKeyword[]> {
   const siteUrl = await resolveSiteUrl();
   const token = await googleAccessToken(SCOPE);
-  const res = await fetch(`https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
+  const res = await fetchWithTimeout(`https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(siteUrl)}/searchAnalytics/query`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({

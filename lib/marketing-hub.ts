@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 // Read-only client for the GooCampus Marketing Hub Airtable base.
 //
 // Base: appLdJFTrothBLDc0
@@ -49,7 +50,7 @@ export async function airtableList<T = Record<string, unknown>>(
     });
     if (offset) qs.set("offset", offset);
 
-    const r = await fetch(`https://api.airtable.com/v0/${MARKETING_HUB_BASE}/${tableId}?${qs}`, {
+    const r = await fetchWithTimeout(`https://api.airtable.com/v0/${MARKETING_HUB_BASE}/${tableId}?${qs}`, {
       headers: { Authorization: `Bearer ${token()}` },
       cache: "no-store",
     });

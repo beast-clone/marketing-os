@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 // Linking and unlinking the WhatsApp account behind Community Broadcast.
 //
 // The dashboard cannot talk to WAHA. WAHA publishes no port and sits on the VPS's
@@ -49,7 +50,7 @@ async function relay<T>(action: string, extra: Record<string, unknown> = {}, hoo
 
   let res: Response;
   try {
-    res = await fetch(hook, {
+    res = await fetchWithTimeout(hook, {
       method: "POST",
       headers: { "content-type": "application/json", "x-cron-secret": secret },
       body: JSON.stringify({ action, ...extra }),

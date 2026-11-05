@@ -1,4 +1,5 @@
 import { linkedinToken } from "@/lib/linkedin";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 // Shared LinkedIn org-page publishing — used by the immediate publish route AND the
 // scheduled-publish cron worker. Requires an access token with `w_organization_social`.
@@ -30,7 +31,7 @@ export function orgUrnFor(page: string): string | null {
 
 // Register + upload an image, returning its urn:li:image:... for use in a post.
 async function uploadImage(token: string, orgUrn: string, imageUrl: string): Promise<string> {
-  const initRes = await fetch(`${REST}/images?action=initializeUpload`, {
+  const initRes = await fetchWithTimeout(`${REST}/images?action=initializeUpload`, {
     method: "POST",
     headers: jsonHeaders(token),
     body: JSON.stringify({ initializeUploadRequest: { owner: orgUrn } }),
@@ -41,11 +42,11 @@ async function uploadImage(token: string, orgUrn: string, imageUrl: string): Pro
   const imageUrn: string = init.value?.image;
   if (!uploadUrl || !imageUrn) throw new Error("image init returned no uploadUrl/urn");
 
-  const src = await fetch(imageUrl);
+  const src = await fetchWithTimeout(imageUrl);
   if (!src.ok) throw new Error(`could not fetch source image (${src.status})`);
   const bytes = Buffer.from(await src.arrayBuffer());
 
-  const up = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: bytes });
+  const up = await fetchWithTimeout(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: bytes });
   if (!up.ok) throw new Error(`image upload failed (${up.status})`);
   return imageUrn;
 }
@@ -59,7 +60,7 @@ export const isPdfUrl = (u?: string | null) => !!u && /\.pdf(\?|#|$)/i.test(u);
 // order they were exported and the reader swipes through them. Documents use a
 // different endpoint from images and the post body needs a title.
 async function uploadDocument(token: string, orgUrn: string, pdfUrl: string): Promise<string> {
-  const initRes = await fetch(`${REST}/documents?action=initializeUpload`, {
+  const initRes = await fetchWithTimeout(`${REST}/documents?action=initializeUpload`, {
     method: "POST",
     headers: jsonHeaders(token),
     body: JSON.stringify({ initializeUploadRequest: { owner: orgUrn } }),
@@ -70,11 +71,11 @@ async function uploadDocument(token: string, orgUrn: string, pdfUrl: string): Pr
   const documentUrn: string = init.value?.document;
   if (!uploadUrl || !documentUrn) throw new Error("document init returned no uploadUrl/urn");
 
-  const src = await fetch(pdfUrl);
+  const src = await fetchWithTimeout(pdfUrl);
   if (!src.ok) throw new Error(`could not fetch source PDF (${src.status})`);
   const bytes = Buffer.from(await src.arrayBuffer());
 
-  const up = await fetch(uploadUrl, { method: "PUT", headers: { Authorization: `Bearer ${token}` }, body: bytes });
+  const up = await fetchWithTimeout(uploadUrl, { method: "PUT", headers: { Authorization: `Bearer ${token}` }, body: bytes });
   if (!up.ok) throw new Error(`document upload failed (${up.status})`);
   return documentUrn;
 }
@@ -114,7 +115,7 @@ export async function publishToOrg(token: string, orgUrn: string, text: string, 
       body.content = { media: { id: imageUrn } };
     }
   }
-  const r = await fetch(`${REST}/posts`, { method: "POST", headers: jsonHeaders(token), body: JSON.stringify(body) });
+  const r = await fetchWithTimeout(`${REST}/posts`, { method: "POST", headers: jsonHeaders(token), body: JSON.stringify(body) });
   if (!r.ok) throw new Error(`post ${r.status}: ${(await r.text()).slice(0, 250)}`);
   return r.headers.get("x-restli-id") || r.headers.get("x-linkedin-id") || "";
 }

@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 // DataForSEO, for GEO SEO (28 Oct). Login + API password from DATAFORSEO_LOGIN /
 // DATAFORSEO_PASSWORD (the API password, not the website sign-in).
 //
@@ -15,7 +16,7 @@ export function hasDataForSeo(): boolean {
 async function call(method: "GET" | "POST", path: string, body?: unknown, timeoutMs = 50_000): Promise<DfsTask[]> {
   if (!hasDataForSeo()) throw new Error("DataForSEO isn't connected (DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD).");
   const auth = Buffer.from(`${process.env.DATAFORSEO_LOGIN}:${process.env.DATAFORSEO_PASSWORD}`).toString("base64");
-  const res = await fetch(BASE + path, {
+  const res = await fetchWithTimeout(BASE + path, {
     method, cache: "no-store", signal: AbortSignal.timeout(timeoutMs),
     headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),

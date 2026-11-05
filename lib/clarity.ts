@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 // Microsoft Clarity Data Export API — goocampusevents.com (project x258m54ioh).
 // Returns aggregate behavior metrics for the LAST 1–3 DAYS ONLY (API limit), and
 // is capped at 10 calls/project/day — so callers MUST cache aggressively.
@@ -25,7 +26,7 @@ type Info = Record<string, string | number>;
 type Metric = { metricName: string; information: Info[] };
 
 export async function buildClarity(numOfDays: 1 | 2 | 3 = 3) {
-  const res = await fetch(`https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=${numOfDays}`, {
+  const res = await fetchWithTimeout(`https://www.clarity.ms/export-data/api/v1/project-live-insights?numOfDays=${numOfDays}`, {
     headers: { Authorization: `Bearer ${TOKEN}` },
   });
   if (!res.ok) throw new Error(`Clarity API ${res.status}: ${(await res.text()).slice(0, 200)}`);

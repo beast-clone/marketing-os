@@ -19,6 +19,7 @@
 import { getSupabase } from "@/lib/supabase";
 import { getAccount, fetchCompetitor } from "@/lib/instagram";
 import { safeFetch } from "@/lib/ssrf";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 type SB = NonNullable<ReturnType<typeof getSupabase>>;
 export type WatchEvent = { handle: string; name: string; kind: "blog" | "event" | "page" | "youtube" | "instagram"; title: string; url: string; publishedAt?: string | null; section?: string | null };
@@ -351,7 +352,7 @@ export async function runCompetitorWatch(opts: {
     if (c.youtube_channel && ytKey && /^UC/.test(c.youtube_channel)) {
       try {
         const uploads = "UU" + c.youtube_channel.slice(2);
-        const r = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=15&playlistId=${uploads}&key=${ytKey}`, { signal: AbortSignal.timeout(12_000), cache: "no-store" });
+        const r = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&maxResults=15&playlistId=${uploads}&key=${ytKey}`, { signal: AbortSignal.timeout(12_000), cache: "no-store" });
         const j = r.ok ? await r.json() : { items: [] };
         const vids = new Map<string, { title: string; published: string | null }>();
         for (const it of (j.items || []) as { snippet?: { title?: string }; contentDetails?: { videoId?: string; videoPublishedAt?: string } }[]) {

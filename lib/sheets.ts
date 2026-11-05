@@ -6,6 +6,7 @@
 // Leads are never copied anywhere. These functions are the whole storage layer.
 
 import { googleAccessToken, SERVICE_ACCOUNT_EMAIL } from "@/lib/google-jwt";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 const API = "https://sheets.googleapis.com/v4/spreadsheets";
 const SCOPE = "https://www.googleapis.com/auth/spreadsheets";
@@ -29,7 +30,7 @@ export class SheetError extends Error {
 
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await googleAccessToken(SCOPE);
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetchWithTimeout(`${API}${path}`, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", ...(init?.headers || {}) },
   });

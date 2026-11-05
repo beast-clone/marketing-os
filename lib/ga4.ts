@@ -4,6 +4,7 @@
 // Credentials in .env.local: GA4_PROPERTY_ID / GA4_CLIENT_EMAIL / GA4_PRIVATE_KEY.
 // The service account (ig-dashboard-ga-reader@…) has Viewer on the property.
 import crypto from "crypto";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 const PROPERTY = process.env.GA4_PROPERTY_ID || "";
 const CLIENT_EMAIL = process.env.GA4_CLIENT_EMAIL || "";
@@ -34,7 +35,7 @@ async function getAccessToken(): Promise<string> {
   signer.update(`${header}.${claim}`);
   signer.end();
   const jwt = `${header}.${claim}.${b64url(signer.sign(PRIVATE_KEY))}`;
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: jwt }),
@@ -70,7 +71,7 @@ async function batchRun(from: string, to: string, specs: ReportSpec[]): Promise<
       keepEmptyRows: false,
     })),
   };
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:batchRunReports`, {
+  const res = await fetchWithTimeout(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:batchRunReports`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -172,7 +173,7 @@ export async function buildGA4Traffic(from: string, to: string) {
 // ── realtime (last 30 min) — separate API, kept fresh (not on the 10-min cache) ──
 async function runRealtime(dim: string, limit = 10): Promise<GaRow[]> {
   const token = await getAccessToken();
-  const res = await fetch(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runRealtimeReport`, {
+  const res = await fetchWithTimeout(`https://analyticsdata.googleapis.com/v1beta/properties/${PROPERTY}:runRealtimeReport`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({ dimensions: [{ name: dim }], metrics: [{ name: "activeUsers" }], limit: String(limit) }),

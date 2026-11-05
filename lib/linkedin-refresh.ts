@@ -14,6 +14,7 @@
 
 import { getIntegrationToken, saveIntegrationToken } from "@/lib/integration-tokens";
 import { getSupabase } from "@/lib/supabase";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 // Renew this far ahead of expiry. Comfortably longer than any cron gap, so the
 // token is replaced well before anything can 401.
@@ -53,7 +54,7 @@ export async function ensureFreshLinkedInToken(force = false): Promise<RefreshOu
   const refreshToken = await getIntegrationToken("linkedin_refresh");
   if (!refreshToken) return { ok: false, error: "no LinkedIn refresh token stored" };
 
-  const res = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+  const res = await fetchWithTimeout("https://www.linkedin.com/oauth/v2/accessToken", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({

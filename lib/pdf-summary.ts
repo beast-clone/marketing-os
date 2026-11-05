@@ -16,6 +16,7 @@
 import path from "node:path";
 import { hasAI, recordUsage } from "@/lib/ai";
 import { safeFetch } from "@/lib/ssrf";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -85,7 +86,7 @@ async function readPdf(data: Uint8Array): Promise<{ text?: string; image?: strin
 
 async function ask(content: unknown): Promise<string> {
   const t0 = Date.now();
-  const r = await fetch("https://api.perplexity.ai/chat/completions", {
+  const r = await fetchWithTimeout("https://api.perplexity.ai/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${KEY()}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: "sonar", disable_search: true, max_tokens: 160, temperature: 0.1, messages: [{ role: "user", content }] }),

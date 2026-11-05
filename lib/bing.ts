@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 // Bing Webmaster Tools API — goocampusevents.com search performance.
 // Account-level API key (BING_WEBMASTER_API_KEY) + verified site (BING_SITE_URL),
 // both in .env.local. JSON endpoints return a WCF-style { "d": [...] } envelope.
@@ -15,7 +16,7 @@ export function hasBingAuth(): boolean {
 type Row = Record<string, unknown>;
 async function call(method: string): Promise<Row[]> {
   const url = `${BASE}/${method}?apikey=${KEY}&siteUrl=${encodeURIComponent(SITE)}`;
-  const res = await fetch(url);
+  const res = await fetchWithTimeout(url);
   if (!res.ok) throw new Error(`Bing ${method} ${res.status}: ${(await res.text()).slice(0, 150)}`);
   const j = (await res.json()) as { d?: Row[] };
   return Array.isArray(j?.d) ? j.d : [];

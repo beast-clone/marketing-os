@@ -3,6 +3,7 @@ import { freshPublishState, NOT_PUBLISHING } from "@/lib/scheduler-lock";
 import { logQueueAction, istTime } from "@/lib/publish-history";
 import { trashTasks } from "@/lib/task-trash";
 import { loadPublishPages } from "@/lib/publish-pages-server";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 // Putting a post into the publish queue (mh_posts) — shared by the Scheduler page
 // (/api/scheduler/enqueue) and the Claude connector's schedule_post, so both follow
@@ -162,7 +163,7 @@ export async function enqueuePost(sb: Sb, b: EnqueueBody, actor: string): Promis
   // → neither will take it. Sizes come from the files themselves (HEAD), so every
   // screen and old draft is held to it.
   const sizeOf = async (u: string) => {
-    const r = await fetch(u, { method: "HEAD", cache: "no-store", signal: AbortSignal.timeout(8000) }).catch(() => null);
+    const r = await fetchWithTimeout(u, { method: "HEAD", cache: "no-store", signal: AbortSignal.timeout(8000) }).catch(() => null);
     return Number(r?.headers.get("content-length") || 0);
   };
   const vidSizes = await Promise.all(vids.map(sizeOf));

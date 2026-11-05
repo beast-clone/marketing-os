@@ -5,6 +5,7 @@
 import { CHANNELS } from "@/lib/youtube-channels";
 import { saveIntegrationToken } from "@/lib/integration-tokens";
 import { createHmac, timingSafeEqual } from "crypto";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 export const YT_SCOPES = "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly";
 
@@ -22,14 +23,14 @@ export function youtubeRedirect(reqUrl: string): string {
 export async function saveYouTubeGrant(code: string, redirectUri: string, channelKey: string): Promise<string> {
   const ch = CHANNELS[channelKey];
   if (!ch) throw new Error("Unknown channel");
-  const r = await fetch("https://oauth2.googleapis.com/token", {
+  const r = await fetchWithTimeout("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ code, client_id: process.env.YOUTUBE_CLIENT_ID || "", client_secret: process.env.YOUTUBE_CLIENT_SECRET || "", redirect_uri: redirectUri, grant_type: "authorization_code" }),
   });
   const j = await r.json().catch(() => ({}));
   if (!r.ok || !j.refresh_token) throw new Error(j.error_description || j.error || "Google didn't return a lasting permission — try again.");
-  const me = await fetch("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", { headers: { Authorization: `Bearer ${j.access_token}` } }).then((x) => x.json()).catch(() => ({}));
+  const me = await fetchWithTimeout("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", { headers: { Authorization: `Bearer ${j.access_token}` } }).then((x) => x.json()).catch(() => ({}));
   const got = (me.items || [])[0] as { id?: string; snippet?: { title?: string } } | undefined;
   if (ch.channelId && got?.id !== ch.channelId) {
     throw new Error(`That permission is for "${got?.snippet?.title || "another channel"}". Pick ${ch.name} on Google's channel list and try again.`);

@@ -1,4 +1,5 @@
 import { cachedShared } from "@/lib/api-cache";
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
 // What people are saying about us on Google Maps.
 //
@@ -64,7 +65,7 @@ function key(): string | null {
 async function serper(url: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
   const k = key();
   if (!k) throw new Error("SERPER_API_KEY is not set");
-  const r = await fetch(url, {
+  const r = await fetchWithTimeout(url, {
     method: "POST",
     headers: { "X-API-KEY": k, "Content-Type": "application/json" },
     body: JSON.stringify(body),

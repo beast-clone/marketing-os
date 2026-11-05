@@ -1,3 +1,4 @@
+import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 // Slack notifications via the "GooCampus Marketing OS" app's Incoming Webhook.
 // The webhook posts to one channel (currently #creative_marketing); set
 // SLACK_WEBHOOK_URL in the env. Best-effort — never blocks the caller.
@@ -12,7 +13,7 @@ export function hasSlack(): boolean {
 export async function postSlack(text: string): Promise<void> {
   if (!WEBHOOK) return;
   try {
-    await fetch(WEBHOOK, {
+    await fetchWithTimeout(WEBHOOK, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
