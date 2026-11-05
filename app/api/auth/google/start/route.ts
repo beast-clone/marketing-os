@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
+import { publicOrigin } from "@/lib/public-origin";
 
 // GET /api/auth/google/start
 // Kicks off "Sign in with your GooCampus Google account". If the Google OAuth
@@ -15,10 +16,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: Request) {
-  // Use the configured public origin, not req.url — on Netlify the function sees the
-  // immutable deploy-permalink host, which would make redirect_uri not match the one
-  // registered in Google (redirect_uri_mismatch). APP_URL is the stable prod origin.
-  const origin = (process.env.APP_URL || new URL(req.url).origin).replace(/\/$/, "");
+  // The address the person opened (lib/public-origin): the live site or a preview link
+  // comes back to itself; never the deploy-permalink host, which Google would reject.
+  const origin = publicOrigin(req);
   const clientId = process.env.GOOGLE_LOGIN_CLIENT_ID;
 
   if (!clientId) {

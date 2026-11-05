@@ -13,6 +13,7 @@
 import { saveIntegrationToken } from "@/lib/integration-tokens";
 import { META_PAGE_PREFIX, warmBrandAccounts, type PageNote } from "@/lib/brand-accounts";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
+import { publicOrigin } from "@/lib/public-origin";
 
 export const IG_LOGIN_SCOPES = [
   "instagram_business_basic",
@@ -24,16 +25,7 @@ export const IG_LOGIN_SCOPES = [
 export const igLoginReady = () => !!(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET);
 
 export function instagramRedirect(req: Request): string {
-  const here = new URL(req.url);
-  // The address the browser actually used. On Netlify req.url can carry the deploy's
-  // permalink host, which Instagram would reject, so the forwarded host wins.
-  const host = req.headers.get("x-forwarded-host") || here.host;
-  // Localhost and *.netlify.app (the live site, or a preview link used to test) come back
-  // to themselves; a custom domain in front uses APP_URL.
-  const origin = /^(localhost|127\.0\.0\.1)(:|$)/.test(host) ? here.origin
-    : host.endsWith(".netlify.app") ? `https://${host}`
-    : (process.env.APP_URL || here.origin);
-  return `${origin.replace(/\/$/, "")}/api/auth/instagram/callback`;
+  return `${publicOrigin(req)}/api/auth/instagram/callback`;
 }
 
 async function json(r: Response) {
