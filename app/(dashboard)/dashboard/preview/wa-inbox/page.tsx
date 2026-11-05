@@ -106,6 +106,67 @@ const fillIn = (body: string, vars: string[]) =>
   vars.reduce((s, v, i) => s.split(`{{${i + 1}}}`).join(v || `{{${i + 1}}}`), body);
 
 /**
+ * Write a template and send it to Meta for approval, without leaving the inbox.
+ *
+ * Approval is Meta's, and takes minutes to a day, so this cannot be a write-it-
+ * and-send-it flow: it submits, and the template joins the list above once Meta
+ * says yes. Meta also re-categorises anything that reads like an advert, so what
+ * comes back is reported rather than what was asked for.
+ */
+function NewTemplate({ onDone, onCancel }: { onDone: (msg: string) => void; onCancel: () => void }) {
+  const [name, setName] = useState("");
+  const [body, setBody] = useState("");
+  const [footer, setFooter] = useState("");
+  const [example, setExample] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  // Meta refuses a template whose blanks have no example values, so ask for
+  // exactly as many as the text actually uses.
+  const vars = Math.max(0, ...[...body.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])));
+  useEffect(() => { setExample((e) => Array.from({ length: vars }, (_, i) => e[i] || "")); }, [vars]);
+
+  async function submit() {
+    setBusy(true); setErr("");
+    const r = await fetch("/api/wa-inbox/templates/new", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, category: "UTILITY", body, footer, example }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) onDone(`Sent to Meta as "${j.name}" — ${j.category}, ${j.status}. It can be used once Meta approves it.`);
+    else setErr(j.error || "Couldn't submit it");
+    setBusy(false);
+  }
+
+  return (
+    <div className="space-y-2">
+      <button type="button" onClick={onCancel} className="text-[11px] font-medium text-brand hover:underline">← back to the list</button>
+      {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>}
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="A name, e.g. enquiry_followup"
+        className="w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand" />
+      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} maxLength={1024}
+        placeholder="The message. Use {{1}}, {{2}} where a name or subject goes."
+        className="w-full resize-none rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-2 text-xs text-[#232D42] outline-none focus:border-brand" />
+      {Array.from({ length: vars }).map((_, i) => (
+        <input key={i} value={example[i] || ""} onChange={(e) => setExample((x) => x.map((v, j) => (j === i ? e.target.value : v)))}
+          placeholder={`An example for {{${i + 1}}} — Meta needs one`}
+          className="w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand" />
+      ))}
+      <input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={60} placeholder="A small footer line (optional)"
+        className="w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand" />
+      <p className="text-[10.5px] leading-relaxed text-[#8A92A6]">
+        Sent as a <b>utility</b> template. Meta approves it, usually in minutes, and may move it to
+        marketing if it reads like an advert — marketing costs more and needs opt-in.
+      </p>
+      <button type="button" onClick={submit} disabled={busy || !name.trim() || !body.trim()}
+        className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+        <IconSend size={15} />{busy ? "Sending to Meta…" : "Send for approval"}
+      </button>
+    </div>
+  );
+}
+
+/**
  * Reopening a conversation after the 24-hour window.
  *
  * WhatsApp allows nothing but an approved template here, so this is the only way
@@ -118,6 +179,8 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
   const [pick, setPick] = useState<Template | null>(null);
   const [vars, setVars] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
+  const [writing, setWriting] = useState(false);
+  const [note, setNote] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -152,6 +215,12 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
       </div>
 
       {err && <div className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>}
+      {note && <div className="mb-2 rounded-lg bg-brand-light px-3 py-2 text-xs text-brand">{note}</div>}
+
+      {writing ? (
+        <NewTemplate onCancel={() => setWriting(false)}
+          onDone={(m) => { setWriting(false); setNote(m); }} />
+      ) : (<>
       {!templates && <div className="text-xs text-[#8A92A6]">Loading templates…</div>}
       {templates && templates.length === 0 && !err && (
         <div className="rounded-lg bg-[#F6F7FB] px-3 py-2.5 text-xs leading-relaxed text-[#8A92A6]">
@@ -178,6 +247,13 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
         </ul>
       )}
 
+      {templates && !pick && (
+        <button type="button" onClick={() => { setWriting(true); setNote(""); }}
+          className="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-gray-200 px-2.5 py-1.5 text-[11px] font-medium text-[#8A92A6] hover:border-brand hover:text-brand">
+          <IconPlus size={12} />Write a new template
+        </button>
+      )}
+
       {pick && (
         <div className="space-y-2">
           <button type="button" onClick={() => setPick(null)} className="text-[11px] font-medium text-brand hover:underline">← pick a different template</button>
@@ -198,6 +274,7 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
           </button>
         </div>
       )}
+      </>)}
     </div>
   );
 }
