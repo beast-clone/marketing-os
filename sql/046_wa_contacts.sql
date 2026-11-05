@@ -37,3 +37,16 @@ create index if not exists wa_contacts_status_idx   on wa_contacts (status);
 -- reaches Supabase with the service-role key, which bypasses RLS; anything
 -- holding only the publishable key gets nothing. Do not add anon policies.
 alter table wa_contacts enable row level security;
+
+-- Added later the same day, as the inbox grew:
+--   alerted_at — the last message announced for this chat, so the 15-minute
+--                nudge says it once and not every quarter of an hour.
+--   blocked    — mirrors Meta's own block list for the number, so the inbox can
+--                show it without asking Meta on every load.
+alter table wa_contacts add column if not exists alerted_at timestamptz;
+alter table wa_contacts add column if not exists blocked boolean not null default false;
+
+-- Storage, created through the API rather than here (buckets are not SQL):
+--   bucket `wa-media`, PRIVATE, 25 MB limit — incoming photos and PDFs.
+--   Private on purpose: these are mark sheets and ID documents belonging to
+--   other people, and every other bucket in this project is public-read.
