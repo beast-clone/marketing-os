@@ -196,7 +196,37 @@ that does have them. Samvaya is not on that credential. That gap is the whole bu
 - A retry still only does the missing network: the publish code skips Instagram once
   `ig_url_done` is set, so nothing can double-post.
 
-**Not fixed — needs you, in Meta.** Granting permissions means signing into your Meta
+**FIXED the same night.** The page role was never the problem — Praveen already had Full
+access to the Samvaya Page. The real gap: the **n8n Self-Hosted app was authorised on 5 Aug
+with five Pages ticked individually**, and Samvaya was not one of them, so n8n never saw it
+and fell through to the dashboard token that cannot post.
+
+What was done: removed the n8n Self-Hosted business integration, re-authorised it opting in
+to **all current and future Pages**, added the three missing scopes (`pages_manage_posts`,
+`instagram_content_publish`, `instagram_basic` — the Explorer defaults would have dropped
+Instagram publishing for every brand), extended the token from 2 hours to long-lived, and
+pasted it into the n8n credential.
+
+Verified at 18:10: the live page list now returns **Samvaya Matrimony with its Instagram
+account**, alongside all five GooCampus pages. Runs green again.
+
+### ⚠️ This token expires 4 January 2027
+
+Facebook long-lived user tokens do not auto-renew — they stop, and that credential drives
+**6 workflows**, so all Instagram and Facebook publishing stops at once.
+
+The permanent fix is the **n8n Scheduler system user** (Business Settings → Users → System
+users), whose tokens can be set to never expire — the same thing done for the dashboard on
+8 Oct. **Samvaya Matrimony has now been assigned to it with Full access**, so the only step
+left is: Generate token → expiry **Never** → the same 10 scopes → paste into the
+"Praveen n8n Scheduler Graph API" credential. Do it before January and this never recurs.
+
+The gap existed in **two** places — the app grant and the system user — while the Page role
+itself looked fine. Any new brand needs adding to both.
+
+---
+
+**Original diagnosis, kept for reference:** granting permissions means signing into your Meta
 account, so it is not something to do on your behalf. Samvaya posts will keep going to
 Instagram only until one of these is done:
 
