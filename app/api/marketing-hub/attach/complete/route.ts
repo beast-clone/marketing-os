@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
+import { storeThumb } from "@/lib/thumbnail";
 import { getSupabase } from "@/lib/supabase";
 import { activeTeamIds } from "@/lib/team-db";
 import { getSessionUserId, getSessionIsAdmin } from "@/lib/auth";
@@ -52,8 +53,12 @@ export async function POST(req: Request) {
     }
 
     const publicUrl = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+    // The bytes went browser → storage, so they are fetched back once here to
+    // make the thumbnail. Once at upload, never per view.
+    const thumbUrl = await storeThumb(sb, BUCKET, path, mime);
     const { data, error } = await sb.from("mh_attachments").insert({
       post_id: b.postId, filename: b.filename || name, storage_path: publicUrl,
+      thumb_path: thumbUrl,
       mime_type: mime || null, size_bytes: size || null, uploaded_by: who, kind,
     }).select("id, filename, storage_path, mime_type, size_bytes, uploaded_by, uploaded_at, kind").single();
     if (error) { await sb.storage.from(BUCKET).remove([path]); throw new Error(`db insert: ${error.message}`); }

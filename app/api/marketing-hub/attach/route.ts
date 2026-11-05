@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
+import { storeThumb } from "@/lib/thumbnail";
 import { getSupabase } from "@/lib/supabase";
 import { activeTeamIds } from "@/lib/team-db";
 import { getSessionUserId, getSessionIsAdmin } from "@/lib/auth";
@@ -77,6 +78,9 @@ export async function POST(req: Request) {
     if (up.error) throw new Error(`upload: ${up.error.message}`);
 
     const publicUrl = sb.storage.from("scheduler-media").getPublicUrl(objectPath).data.publicUrl;
+    // A small WebP beside the original, so the grids stop loading full-size
+    // posters into 240px tiles. Null for video, PDFs and anything already small.
+    const thumbUrl = await storeThumb(sb, "scheduler-media", objectPath, mime, buf);
 
     const { data, error } = await sb
       .from("mh_attachments")
@@ -84,6 +88,7 @@ export async function POST(req: Request) {
         post_id: postId,
         filename: file.name,
         storage_path: publicUrl,
+        thumb_path: thumbUrl,
         mime_type: file.type || null,
         size_bytes: file.size,
         uploaded_by: who,

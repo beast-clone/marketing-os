@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 
     const [collabsRes, attachRes, commentsRes, activityRes, ownerRes, teamRes, trashRes] = await Promise.all([
       sb.from("mh_post_collaborators").select("member_key, added_at").eq("post_id", id),
-      sb.from("mh_attachments").select("id, filename, storage_path, mime_type, size_bytes, uploaded_by, uploaded_at, kind, sort_order").eq("post_id", id).order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true }),   // first uploaded first (22 Oct)
+      sb.from("mh_attachments").select("id, filename, storage_path, thumb_path, mime_type, size_bytes, uploaded_by, uploaded_at, kind, sort_order").eq("post_id", id).order("sort_order", { ascending: true, nullsFirst: false }).order("uploaded_at", { ascending: true }),   // first uploaded first (22 Oct)
       sb.from("mh_comments").select("id, author_key, body, resolved, created_at").eq("post_id", id).order("created_at", { ascending: false }).limit(20),
       sb.from("mh_activity").select("id, actor_key, action, from_value, to_value, detail, created_at").eq("post_id", id).gte("created_at", new Date(Date.now() - 366 * 86_400_000).toISOString()).order("created_at", { ascending: false }).limit(400),
       sb.from("mh_posts").select("owner_key, start_at, synced_to_scheduler, airtable_record_id, status, content, caption, additional_info, instagram_url, facebook_url, linkedin_url, output_link, platforms, reference_links, custom").eq("id", id).single(),

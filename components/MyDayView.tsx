@@ -473,7 +473,7 @@ const TIMELINE_STAGES = [
 ];
 
 type Collaborator = { key: string; name: string; role: string | null; addedAt: string | null };
-type Attachment = { id: string; filename: string; storage_path: string; mime_type: string | null; size_bytes: number | null; uploaded_by: string | null; uploaded_at: string };
+type Attachment = { id: string; filename: string; storage_path: string; thumb_path?: string | null; mime_type: string | null; size_bytes: number | null; uploaded_by: string | null; uploaded_at: string };
 type Comment = { id: string; author_key: string; authorName: string; body: string; resolved: boolean; created_at: string };
 type Activity = { id: string; actor_key: string; actorName: string; action: string; from_value: string | null; to_value: string | null; detail: string | null; created_at: string };
 type TaskDetail = {
@@ -1571,7 +1571,7 @@ function CreativeFiles({ postId, personRow, attachments, personKey, accent, onCh
               <div key={a.id} className="relative group flex-shrink-0 w-28 h-28 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
                 <a href={a.storage_path} target="_blank" rel="noreferrer" className="block w-full h-full" title={a.filename}>
                   {isImg ? (
-                    <img src={a.storage_path} alt={a.filename} className="w-full h-full object-contain" loading="lazy" decoding="async" />
+                    <img src={a.thumb_path || a.storage_path} alt={a.filename} className="w-full h-full object-contain" loading="lazy" decoding="async" />
                   ) : isVid ? (
                     <video src={a.storage_path} className="w-full h-full object-cover" />
                   ) : (

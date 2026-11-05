@@ -12,6 +12,10 @@ const nextConfig = {
       // its native binary — none of which the bundler can see.
       "/api/watchers/**": ["./node_modules/pdfjs-dist/{cmaps,standard_fonts,wasm}/**/*", "./node_modules/@napi-rs/**/*"],
       "/api/cron/watchers": ["./node_modules/pdfjs-dist/{cmaps,standard_fonts,wasm}/**/*", "./node_modules/@napi-rs/**/*"],
+      // Thumbnails are made with @napi-rs/canvas, whose native binary the
+      // bundler cannot see. Without this the attach routes throw on Netlify
+      // while working perfectly in dev.
+      "/api/marketing-hub/attach/**": ["./node_modules/@napi-rs/**/*"],
     },
     // Load these from node_modules at runtime instead of bundling them (native code,
     // workers and wasm don't survive bundling).

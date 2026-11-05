@@ -16,6 +16,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@mozilla/readability": "^0.6.0",
+    "@napi-rs/canvas": "^1.1.0",
     "@supabase/supabase-js": "^2.108.2",
     "@tabler/icons-react": "^3.44.0",
     "@tiptap/core": "^3.32.0",

@@ -4025,7 +4025,7 @@ function MasterSheet({ rows, facets, onOpen, onSaved, loading, bare, visibleCols
   );
 }
 
-type DetailAttachment = { id: string; filename: string; storage_path: string; mime_type: string | null; kind?: string; size_bytes?: number | null };
+type DetailAttachment = { id: string; filename: string; storage_path: string; thumb_path?: string | null; mime_type: string | null; kind?: string; size_bytes?: number | null };
 type TaskDetail = {
   content: string; caption: string; notes: string;
   instagramUrl?: string; facebookUrl?: string; linkedinUrl?: string; outputLink?: string; platforms?: string[]; referenceLinks?: string[];
@@ -4069,7 +4069,7 @@ const creativeKind = (name: string, type: string): CreativeKind => {
   if (type === "application/pdf" || /\.pdf$/i.test(name)) return "pdf";
   return "file";
 };
-type Creative = { id: string | undefined; url: string; name: string; type: string; removable: boolean };
+type Creative = { id: string | undefined; url: string; name: string; type: string; removable: boolean; thumb?: string | null };
 
 // In-dashboard creative viewer: images/videos render large; PDFs open in an
 // embedded iframe (never a new tab); prev/next arrows + ←/→ keys for multiple.
@@ -4308,13 +4308,21 @@ const FILE_EVENT = /^(creative|reference|attachment)_(added|removed)$/;
 const LINK_FIELDS = new Set(["reference_links_changed", "output_link_changed", "instagram_url_changed", "facebook_url_changed", "linkedin_url_changed"]);
 const splitLinks = (v: string | null | undefined) => (v || "").split(/,\s+(?=https?:\/\/|www\.)/).map((x) => x.trim()).filter(Boolean);
 const isImg = (name: string, mime?: string) => (mime || "").startsWith("image/") || /\.(png|jpe?g|gif|webp)$/i.test(name);
+// What to put in a small tile.
+//
+// Prefer the WebP thumbnail made when the file was uploaded — it costs nothing
+// to serve. Failing that, fall back to Supabase's resize endpoint, which is
+// what the 515 images uploaded before thumbnails existed still need. That
+// endpoint is billed per origin image, so it is the fallback and not the
+// first choice.
 const smallThumb = (u: string) => (u.includes("/storage/v1/object/public/") ? `${u.replace("/object/public/", "/render/image/public/")}?width=120&resize=contain&quality=70` : u);
-function FileChange({ name, url, mime, removed }: { name: string; url?: string; mime?: string; removed: boolean }) {
+const tileSrc = (a: { thumb_path?: string | null; storage_path: string }) => a.thumb_path || smallThumb(a.storage_path);
+function FileChange({ name, url, thumb, mime, removed }: { name: string; url?: string; thumb?: string | null; mime?: string; removed: boolean }) {
   const body = (
     <span className={`inline-flex items-center gap-2 max-w-full rounded-lg border px-1.5 py-1 ${removed ? "border-red-200 bg-red-50/60" : "border-emerald-200 bg-emerald-50/60"}`}>
       {url && isImg(name, mime)
         // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={smallThumb(url)} alt="" className={`w-10 h-10 rounded-md object-cover bg-white flex-shrink-0 ${removed ? "opacity-50 grayscale" : ""}`} loading="lazy" decoding="async" />
+        ? <img src={thumb || smallThumb(url)} alt="" className={`w-10 h-10 rounded-md object-cover bg-white flex-shrink-0 ${removed ? "opacity-50 grayscale" : ""}`} loading="lazy" decoding="async" />
         : <span className={`w-10 h-10 rounded-md bg-white flex items-center justify-center flex-shrink-0 ${removed ? "text-red-400" : "text-emerald-600"}`}><IconFileText size={18} stroke={1.6} /></span>}
       <span className={`text-[12px] truncate ${removed ? "line-through text-red-500" : "text-emerald-700"}`}>{removed ? "− " : "+ "}{name}</span>
     </span>
@@ -4452,7 +4460,7 @@ export function TaskActivityFeed({ postId, detail, loading, reload, author, auth
               <span className={`relative block w-11 h-11 rounded-md overflow-hidden border-2 ${rm ? "border-red-300" : "border-emerald-300"} bg-white`}>
                 {fl?.storage_path && isImg(name, fl.mime_type || undefined)
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={smallThumb(fl.storage_path)} alt="" className={`w-full h-full object-cover ${rm ? "opacity-40 grayscale" : ""}`} loading="lazy" decoding="async" />
+                  ? <img src={tileSrc(fl)} alt="" className={`w-full h-full object-cover ${rm ? "opacity-40 grayscale" : ""}`} loading="lazy" decoding="async" />
                   : <span className="w-full h-full flex items-center justify-center text-gray-400"><IconFileText size={16} /></span>}
                 <span className={`absolute bottom-0 right-0 text-[10px] leading-none font-semibold text-white px-1 py-0.5 rounded-tl ${rm ? "bg-red-500" : "bg-emerald-600"}`}>{rm ? "−" : "+"}</span>
               </span>
@@ -4570,7 +4578,7 @@ export function TaskActivityFeed({ postId, detail, loading, reload, author, auth
                     ) : it.kind === "activity" && FILE_EVENT.test(it.action) ? (() => {
                       const name = it.to || it.from || "";
                       const f = (detail?.attachments || []).find((x) => x.filename === name) || (detail?.trashedFiles || []).find((x) => x.filename === name);
-                      return <FileChange name={name} url={f?.storage_path || undefined} mime={f?.mime_type || undefined} removed={it.action.endsWith("_removed")} />;
+                      return <FileChange name={name} url={f?.storage_path || undefined} thumb={(f as { thumb_path?: string | null } | undefined)?.thumb_path} mime={f?.mime_type || undefined} removed={it.action.endsWith("_removed")} />;
                     })() : it.kind === "activity" && LINK_FIELDS.has(it.action) ? (
                       <LinkChange from={it.from || null} to={it.to || null} />
                     ) : DIFF_FIELDS.has(it.action) ? (
@@ -4970,10 +4978,10 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
 
   // Attachments split by kind: creatives (the deliverable), references (mood-board)
   // and attachments (working files, never published — Manya, 10 Oct).
-  const attMap = (a: DetailAttachment) => ({ id: a.id as string | undefined, url: a.storage_path, name: a.filename, type: a.mime_type || "", removable: true });
+  const attMap = (a: DetailAttachment) => ({ id: a.id as string | undefined, url: a.storage_path, name: a.filename, type: a.mime_type || "", removable: true, thumb: a.thumb_path || null });
   const creatives = [
     ...(detail?.attachments || []).filter((a) => a.kind !== "reference" && a.kind !== "attachment" && a.kind !== "thumbnail").map(attMap),
-    ...row.attachments.map((a) => ({ id: undefined as string | undefined, url: a.url, name: a.filename, type: a.type || "", removable: false })),
+    ...row.attachments.map((a) => ({ id: undefined as string | undefined, url: a.url, name: a.filename, type: a.type || "", removable: false, thumb: null })),
   ];
   const refImages = (detail?.attachments || []).filter((a) => a.kind === "reference").map(attMap);
   const workFiles = (detail?.attachments || []).filter((a) => a.kind === "attachment").map(attMap);
@@ -4981,7 +4989,7 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
   // the linked thumbnail task's image stands in while it's empty.
   const isReelTask = /reel/i.test(typeCur) && !/thumbnail/i.test(typeCur);
   const ownThumb = [...(detail?.attachments || [])].reverse().find((a) => a.kind === "thumbnail") || null;
-  const shownThumb = ownThumb ? attMap(ownThumb) : detail?.linkedThumbnail ? { id: undefined as string | undefined, url: detail.linkedThumbnail.storage_path, name: `${detail.linkedThumbnail.filename} (thumbnail task)`, type: "image/", removable: false } : null;
+  const shownThumb = ownThumb ? attMap(ownThumb) : detail?.linkedThumbnail ? { id: undefined as string | undefined, url: detail.linkedThumbnail.storage_path, name: `${detail.linkedThumbnail.filename} (thumbnail task)`, type: "image/", removable: false, thumb: null } : null;
   const bigVideos = (detail?.attachments || []).filter((a) => a.kind === "creative" && /^video\//.test(a.mime_type || "") && (a.size_bytes || 0) > 300 * 1024 * 1024);
   // A task opens with its files already showing, small, between the content and
   // History (Praveen, 26 Oct): the CREATIVES once the output is ready (that's what
@@ -5150,7 +5158,7 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
                     accept="image/*,video/*,.pdf" onFiles={(f) => upload(f)} busyText={qCre.busy ? qCre.status : undefined}
                     tiles={creatives.map((c, i): FileTile => {
                       const k = creativeKind(c.name, c.type);
-                      return { key: c.id || `${c.url}-${i}`, name: c.name, url: c.url, kind: k,
+                      return { key: c.id || `${c.url}-${i}`, name: c.name, url: c.url, preview: c.thumb || undefined, kind: k,
                         onOpen: k === "image" || k === "video" ? () => setLightbox({ items: creatives, index: i }) : undefined,
                         onRemove: c.removable && c.id ? (why) => removeCreative(c.id!, why) : undefined };
                     })}
@@ -5180,7 +5188,7 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
                       count={ownThumb ? "the reel's cover" : shownThumb ? "from the thumbnail task" : "the reel's cover · 1 image"}
                       accept="image/*" onFiles={(f) => qThumb.add([...f].slice(0, 1))} busyText={qThumb.busy ? qThumb.status : undefined}
                       addLabel={shownThumb ? "Replace" : "+ Add thumbnail"} addSub="one image" askWhy
-                      tiles={shownThumb ? [{ key: shownThumb.id || shownThumb.url, name: shownThumb.name, url: shownThumb.url, kind: "image",
+                      tiles={shownThumb ? [{ key: shownThumb.id || shownThumb.url, name: shownThumb.name, url: shownThumb.url, preview: shownThumb.thumb || undefined, kind: "image",
                         onOpen: () => setLightbox({ items: [shownThumb], index: 0 }),
                         onRemove: shownThumb.removable && shownThumb.id ? (why) => removeCreative(shownThumb.id!, why) : undefined }] : []}
                       pending={qThumb.pending} onDismiss={qThumb.dismiss} />
@@ -5193,7 +5201,7 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
                     accept="image/*,video/*,.pdf" onFiles={(f) => upload(f, "reference")} busyText={qRef.busy ? qRef.status : undefined}
                     tiles={refImages.map((c, i): FileTile => {
                       const k = creativeKind(c.name, c.type);
-                      return { key: c.id || `${c.url}-${i}`, name: c.name, url: c.url, kind: k,
+                      return { key: c.id || `${c.url}-${i}`, name: c.name, url: c.url, preview: c.thumb || undefined, kind: k,
                         onOpen: k === "image" ? () => setLightbox({ items: refImages, index: i }) : undefined,
                         onRemove: c.id ? () => removeCreative(c.id!) : undefined };
                     })}
@@ -5207,7 +5215,7 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
                   <FilesCard icon={<IconPaperclip size={15} stroke={1.8} />} title="Attachments"
                     count={`${workFiles.length} file${workFiles.length === 1 ? "" : "s"} · never published`}
                     accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv" onFiles={(f) => upload(f, "attachment")} busyText={qAtt.busy ? qAtt.status : undefined}
-                    tiles={workFiles.map((c, i): FileTile => ({ key: c.id || `${c.url}-${i}`, name: c.name, url: c.url, kind: creativeKind(c.name, c.type),
+                    tiles={workFiles.map((c, i): FileTile => ({ key: c.id || `${c.url}-${i}`, name: c.name, url: c.url, preview: c.thumb || undefined, kind: creativeKind(c.name, c.type),
                       onRemove: c.id ? () => removeCreative(c.id!) : undefined }))}
                     onReorder={workFiles.length > 1 && workFiles.every((c) => c.id) ? async (ids) => {
                       const res = await reorderTaskFiles(row.id, ids);
