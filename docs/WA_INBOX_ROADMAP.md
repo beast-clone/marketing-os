@@ -5,7 +5,13 @@ How the inbox works today and WhatsApp's rules: see [`WA_INBOX_SPEC.md`](WA_INBO
 
 **Done so far:** read replies, reply within 24 hours, delivered/read ticks, who replied, unread counts,
 search, WhatsApp rules panel. n8n workflows "WA Inbox — receive" and "WA Inbox — send reply" are live.
-Dashboard code is on localhost only (not committed, not deployed).
+
+**Added 5 Nov (afternoon):** #3 assign a chat, #4 Slack nudge for an unanswered reply, #6 saved quick
+replies, #7 labels / notes / filters / open-closed-spam, #8 the Sales Hub lead beside the chat, and #1
+Open Conversation — the template picker, backed by the new n8n workflow "WA Inbox — templates"
+(`SzQZkodBWSN33f3t`, published).
+
+Dashboard code is committed on `feat/dashboard-reskin`, not deployed.
 
 ## The 9 features
 

@@ -28,6 +28,7 @@ type Meta = { contact: string; display_name: string | null; assigned_to: string 
 type Lead = { name: string; phone: string | null; email: string | null; counsellor: string | null; source: string | null; leadStatus: string | null; url: string };
 type Member = { id: string; name: string };
 type QuickReply = { id: string; text: string; created_by: string | null };
+type Template = { name: string; language: string; category: string; header: string | null; body: string; footer: string | null; variables: number };
 
 const fmtNum = (d: string) => (d.startsWith("91") && d.length === 12 ? `+91 ${d.slice(2, 7)} ${d.slice(7)}` : `+${d}`);
 const initials = (c: Conv) => (c.name || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "#";
@@ -57,6 +58,107 @@ const RULES: { icon: typeof IconClock; title: string; text: string }[] = [
 ];
 
 const STATUS_LABEL: Record<Meta["status"], string> = { open: "Open", closed: "Closed", spam: "Spam" };
+
+/** Fill a template's {{1}}, {{2}} … with what's been typed, so you see what they will. */
+const fillIn = (body: string, vars: string[]) =>
+  vars.reduce((s, v, i) => s.split(`{{${i + 1}}}`).join(v || `{{${i + 1}}}`), body);
+
+/**
+ * Reopening a conversation after the 24-hour window.
+ *
+ * WhatsApp allows nothing but an approved template here, so this is the only way
+ * back to someone who last wrote yesterday. It shows what will actually be sent,
+ * filled in, because a template is charged per message and cannot be unsent.
+ */
+function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg) => void; onClose: () => void }) {
+  const [templates, setTemplates] = useState<Template[] | null>(null);
+  const [err, setErr] = useState("");
+  const [pick, setPick] = useState<Template | null>(null);
+  const [vars, setVars] = useState<string[]>([]);
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const r = await fetch("/api/wa-inbox/templates", { cache: "no-store" });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) { setErr(j.error || "Couldn't load templates"); setTemplates([]); return; }
+      setTemplates(j.templates || []);
+      if (j.error) setErr(j.error);
+    })();
+  }, []);
+
+  const choose = (t: Template) => { setPick(t); setVars(Array(t.variables).fill("")); };
+
+  async function send() {
+    if (!pick || sending) return;
+    setSending(true); setErr("");
+    const r = await fetch("/api/wa-inbox/templates", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to, name: pick.name, language: pick.language, variables: vars, preview: fillIn(pick.body, vars) }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { onSent(j.message); onClose(); } else setErr(j.error || "Couldn't send it");
+    setSending(false);
+  }
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-3">
+      <div className="mb-2 flex items-center gap-1.5">
+        <IconTemplate size={15} className="text-brand" />
+        <span className="text-sm font-medium text-[#232D42]">Send an approved template</span>
+        <button type="button" onClick={onClose} className="ml-auto text-[#8A92A6] hover:text-[#232D42]" aria-label="Close"><IconX size={15} /></button>
+      </div>
+
+      {err && <div className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>}
+      {!templates && <div className="text-xs text-[#8A92A6]">Loading templates…</div>}
+      {templates && templates.length === 0 && !err && (
+        <div className="rounded-lg bg-[#F6F7FB] px-3 py-2.5 text-xs leading-relaxed text-[#8A92A6]">
+          No approved templates on this number yet. Create one in WhatsApp Manager and wait for Meta to approve it — a
+          short utility template that invites a reply is the one worth having here.
+        </div>
+      )}
+
+      {templates && templates.length > 0 && !pick && (
+        <ul className="space-y-1.5">
+          {templates.map((t) => (
+            <li key={`${t.name}|${t.language}`}>
+              <button type="button" onClick={() => choose(t)}
+                className="w-full rounded-lg border border-gray-100 px-3 py-2 text-left hover:border-brand hover:bg-brand-light">
+                <span className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-[#232D42]">{t.name}</span>
+                  <span className="rounded-full bg-[#F6F7FB] px-1.5 py-0.5 text-[10px] font-medium text-[#8A92A6]">{t.category.toLowerCase()}</span>
+                  <span className="text-[10px] text-[#8A92A6]">{t.language}</span>
+                </span>
+                <span className="mt-0.5 block truncate text-[11px] text-[#8A92A6]">{t.body.split("\n")[0]}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pick && (
+        <div className="space-y-2">
+          <button type="button" onClick={() => setPick(null)} className="text-[11px] font-medium text-brand hover:underline">← pick a different template</button>
+          {Array.from({ length: pick.variables }).map((_, i) => (
+            <input key={i} value={vars[i] || ""} onChange={(e) => setVars((v) => v.map((x, j) => (j === i ? e.target.value : x)))}
+              placeholder={`What goes in {{${i + 1}}}?`}
+              className="w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand" />
+          ))}
+          <div className="rounded-lg bg-[#F6F7FB] px-3 py-2">
+            <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#8A92A6]">They will see</div>
+            {pick.header && <div className="text-xs font-medium text-[#232D42]">{pick.header}</div>}
+            <div className="whitespace-pre-wrap break-words text-xs text-[#232D42]">{fillIn(pick.body, vars)}</div>
+            {pick.footer && <div className="mt-1 text-[10.5px] text-[#8A92A6]">{pick.footer}</div>}
+          </div>
+          <button type="button" onClick={send} disabled={sending || vars.some((v) => !v.trim())}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+            <IconSend size={15} />{sending ? "Sending…" : "Send the template"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function SectionTitle({ icon: Icon, children }: { icon: typeof IconUser; children: React.ReactNode }) {
   return (
@@ -247,6 +349,7 @@ function Inbox() {
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState("");
   const [quick, setQuick] = useState<QuickReply[]>([]);
+  const [showTemplate, setShowTemplate] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   const loadList = useCallback(async () => {
@@ -279,7 +382,7 @@ function Inbox() {
   useEffect(() => { loadList(); loadQuick(); const t = setInterval(loadList, 15000); return () => clearInterval(t); }, [loadList, loadQuick]);
   useEffect(() => {
     if (!sel) return;
-    setMsgs(null); setSendErr(""); loadThread(sel).then(loadList); loadContact(sel);
+    setMsgs(null); setSendErr(""); setShowTemplate(false); loadThread(sel).then(loadList); loadContact(sel);
     const t = setInterval(() => loadThread(sel), 8000);
     return () => clearInterval(t);
   }, [sel, loadThread, loadList, loadContact]);
@@ -516,9 +619,19 @@ function Inbox() {
                   <IconSend size={16} />{sending ? "Sending…" : "Send"}
                 </button>
               </div>
+            ) : showTemplate ? (
+              <TemplateComposer to={cur.contact}
+                onSent={(m) => { setMsgs((x) => [...(x || []), m]); loadList(); }}
+                onClose={() => setShowTemplate(false)} />
             ) : (
-              <div className="rounded-xl bg-[#F6F7FB] px-3 py-2.5 text-xs text-[#8A92A6]">
-                It&apos;s been more than 24 hours since their last message, so WhatsApp only allows an approved template now. Free replies open again as soon as they write back.
+              <div className="flex items-center gap-3 rounded-xl bg-[#F6F7FB] px-3 py-2.5">
+                <span className="text-xs text-[#8A92A6]">
+                  It&apos;s been more than 24 hours since their last message, so WhatsApp only allows an approved template now. Free replies open again as soon as they write back.
+                </span>
+                <button type="button" onClick={() => setShowTemplate(true)}
+                  className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-medium text-white">
+                  <IconTemplate size={13} />Open conversation
+                </button>
               </div>
             )}
           </footer>
