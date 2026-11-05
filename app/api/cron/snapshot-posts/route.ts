@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { sameSecret } from "@/lib/cron-auth";
 import { getAccount } from "@/lib/instagram";
-import { snapshotPostsForMonth, snapshotAllAccountsPostsForMonth, currentMonth } from "@/lib/post-history";
+import { snapshotPostsForMonth, snapshotAllAccountsPostsForMonth, currentMonth, previousMonth } from "@/lib/post-history";
 import { snapshotAudienceForMonth, snapshotAllAccountsAudienceForMonth } from "@/lib/audience-history";
 import { safeError } from "@/lib/errors";
 import { warmBrandAccounts } from "@/lib/brand-accounts";
@@ -9,7 +9,7 @@ import { warmBrandAccounts } from "@/lib/brand-accounts";
 // Freeze one month of post performance per account into Supabase, so past months
 // stay stable + instant on the Overview (see lib/post-history.ts).
 //
-//   GET /api/cron/snapshot-posts                          -> CURRENT month, ALL accounts
+//   GET /api/cron/snapshot-posts                          -> posts: LAST month, audience: current month, ALL accounts
 //   GET /api/cron/snapshot-posts?month=2026-08            -> that month, ALL accounts
 //   GET /api/cron/snapshot-posts?month=2026-08&accountId=goocampus  -> one account
 //
@@ -28,8 +28,12 @@ export async function GET(req: Request) {
   await warmBrandAccounts();   // include brands connected on the Brands page
 
   const url = new URL(req.url);
-  const month = url.searchParams.get("month") || currentMonth();
-  if (!/^\d{4}-\d{2}$/.test(month)) {
+  // No month given: posts freeze the month that just ENDED (a running month would be
+  // frozen half-empty); the audience snapshot stays the current month, as before.
+  const month = url.searchParams.get("month") || "";
+  const postsMonth = month || previousMonth();
+  const audMonth = month || currentMonth();
+  if (month && !/^\d{4}-\d{2}$/.test(month)) {
     return NextResponse.json({ error: "month must be YYYY-MM" }, { status: 400 });
   }
   const accountId = url.searchParams.get("accountId");
@@ -43,18 +47,19 @@ export async function GET(req: Request) {
       const acc = getAccount(accountId);
       if (!acc) return NextResponse.json({ error: `Unknown account ${accountId}` }, { status: 400 });
       const [posts, audience] = await Promise.all([
-        doPosts ? snapshotPostsForMonth(acc, month) : Promise.resolve(null),
-        doAudience ? snapshotAudienceForMonth(acc, month) : Promise.resolve(null),
+        doPosts ? snapshotPostsForMonth(acc, postsMonth) : Promise.resolve(null),
+        doAudience ? snapshotAudienceForMonth(acc, audMonth) : Promise.resolve(null),
       ]);
-      return NextResponse.json({ month, results: [{ accountId, posts, audience }], latencyMs: Date.now() - t0 });
+      return NextResponse.json({ month: postsMonth, audienceMonth: audMonth, results: [{ accountId, posts, audience }], latencyMs: Date.now() - t0 });
     }
     const [postResults, audResults] = await Promise.all([
-      doPosts ? snapshotAllAccountsPostsForMonth(month) : Promise.resolve([]),
-      doAudience ? snapshotAllAccountsAudienceForMonth(month) : Promise.resolve([]),
+      doPosts ? snapshotAllAccountsPostsForMonth(postsMonth) : Promise.resolve([]),
+      doAudience ? snapshotAllAccountsAudienceForMonth(audMonth) : Promise.resolve([]),
     ]);
     const postsWritten = postResults.filter((r) => r.ok).reduce((s, r) => s + (r.count || 0), 0);
     return NextResponse.json({
-      month,
+      month: postsMonth,
+      audienceMonth: audMonth,
       accountsOk: postResults.filter((r) => r.ok).length,
       accountsFailed: postResults.filter((r) => !r.ok).length,
       postsWritten,

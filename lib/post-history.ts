@@ -188,7 +188,18 @@ export async function readPostsMonthSnapshot(accountId: string, month: string): 
     .eq("cache_key", `postsnap:${accountId}:${month}`)
     .eq("source", "posts_month_snapshot")
     .maybeSingle();
-  return (data?.payload as PostMonthSnapshot) ?? null;
+  const snap = (data?.payload as PostMonthSnapshot) ?? null;
+  // Only a copy taken after the month ended is complete. One taken mid-month froze
+  // whatever existed then (October's, taken 4 Oct, had 7 of 84 posts) — treat it
+  // as missing so the month is fetched live instead.
+  if (snap && !(snap.capturedAt > `${monthBounds(month).to}T23:59:59.999Z`)) return null;
+  return snap;
+}
+
+export function previousMonth(): string {
+  const d = new Date();
+  const p = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() - 1, 1));
+  return `${p.getUTCFullYear()}-${String(p.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
 // Stored posts for an arbitrary [from,to] range: read every covered month's
