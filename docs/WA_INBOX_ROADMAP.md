@@ -45,3 +45,29 @@ Dashboard code is committed on `feat/dashboard-reskin`, not deployed.
 - **WhatsApp calling** — not needed (Praveen, 5 Nov 2026).
 - **Old chats from before 5 Nov 2026** — Meta gives no history; the inbox fills up from now on.
 - **Free-text replies after 24 hours** — Meta's rule; #1 (templates) is the way to reach people then.
+
+## #2 — logging what we send: the first workflow is done
+
+**ALS Leads — WhatsApp** (`YT5xagkHunvFNmqw`) now saves a copy of the callback template it sends,
+published 5 Nov. The pattern to copy into the other senders:
+
+1. A **Filter** after the WhatsApp node — keep only items with `{{ $json.messages[0].id }}`.
+   Those nodes are set to `continueRegularOutput`, so a failed send still produces an item; without
+   this you log messages that were never delivered.
+2. A **Supabase** node, create row in `wa_messages`, credential *Beast Clone Supabase account*:
+   `wa_message_id` = `{{ $json.messages[0].id }}`, `contact` = `{{ $json.contacts[0].wa_id }}`
+   (Meta hands back the normalised number, so there is no phone formatting to get wrong),
+   `direction` = `out`, `kind` = `template`, `status` = `sent`, `sent_by` = the workflow in words,
+   `body` = what was sent, in words.
+3. Set the Supabase node to **continueRegularOutput**, and hang it off the WhatsApp node as a
+   **parallel leaf** — never in the chain. Logging must never be able to break the real work.
+
+**Do not log internal alerts.** This workflow also messages Jeswin; logging that would open a chat
+for a colleague own number inside a customer inbox. Only log the message to the customer.
+
+**Side effect, already handled:** every logged message creates a conversation, including for people
+who never reply. The inbox now hides chats with no incoming message behind Show chats with no
+reply, so the real conversations stay findable once all 15 senders are logging.
+
+Remaining senders to do: AMC Razorpay auto-grant, Samvaya lead ads, round-robin assignment, NEET PG
+Bijapur, Samvaya waitlist, and the rest — roughly 14.

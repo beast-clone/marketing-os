@@ -339,6 +339,7 @@ function Inbox() {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [labelFilter, setLabelFilter] = useState("");
   const [showDone, setShowDone] = useState(false);
+  const [showNoReply, setShowNoReply] = useState(false);
   const [sel, setSel] = useState<string | null>(null);
   const [msgs, setMsgs] = useState<Msg[] | null>(null);
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -413,6 +414,11 @@ function Inbox() {
       // Closed and spam chats are out of the way unless asked for, so the inbox
       // shows what still needs doing rather than everything that ever arrived.
       if (!showDone && c.chatStatus !== "open") return false;
+      // A chat nobody has replied to is something we sent, not a conversation.
+      // Once the eBook and lead-alert workflows log what they send, there will be
+      // one of these for every person ever messaged, and they would bury the
+      // handful of real conversations. Hidden by default, one click away.
+      if (!showNoReply && !c.lastInAt) return false;
       if (filter === "unread" && !c.unread) return false;
       if (filter === "needsReply" && !c.open) return false;
       if (filter === "mine" && c.assignedTo !== me) return false;
@@ -421,7 +427,7 @@ function Inbox() {
       if (!s) return true;
       return (c.name || "").toLowerCase().includes(s) || c.contact.includes(s.replace(/\D/g, "") || "~") || c.last.toLowerCase().includes(s);
     });
-  }, [convs, q, filter, labelFilter, showDone, me]);
+  }, [convs, q, filter, labelFilter, showDone, showNoReply, me]);
   const cur = convs?.find((c) => c.contact === sel) || null;
   const nameOf = (id: string | null) => team.find((m) => m.id === id)?.name || id;
 
@@ -492,10 +498,16 @@ function Inbox() {
               ))}
             </div>
           )}
-          <button type="button" onClick={() => setShowDone((v) => !v)}
-            className="flex items-center gap-1 text-[11px] font-medium text-[#8A92A6] hover:text-brand">
-            <IconArchive size={12} />{showDone ? "Hide closed and spam" : "Show closed and spam"}
-          </button>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <button type="button" onClick={() => setShowDone((v) => !v)}
+              className="flex items-center gap-1 text-[11px] font-medium text-[#8A92A6] hover:text-brand">
+              <IconArchive size={12} />{showDone ? "Hide closed and spam" : "Show closed and spam"}
+            </button>
+            <button type="button" onClick={() => setShowNoReply((v) => !v)}
+              className="flex items-center gap-1 text-[11px] font-medium text-[#8A92A6] hover:text-brand">
+              <IconSend size={12} />{showNoReply ? "Hide chats with no reply" : "Show chats with no reply"}
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
