@@ -6,10 +6,20 @@ How the inbox works today and WhatsApp's rules: see [`WA_INBOX_SPEC.md`](WA_INBO
 **Done so far:** read replies, reply within 24 hours, delivered/read ticks, who replied, unread counts,
 search, WhatsApp rules panel. n8n workflows "WA Inbox — receive" and "WA Inbox — send reply" are live.
 
-**Added 5 Nov (afternoon):** #3 assign a chat, #4 Slack nudge for an unanswered reply, #6 saved quick
-replies, #7 labels / notes / filters / open-closed-spam, #8 the Sales Hub lead beside the chat, and #1
-Open Conversation — the template picker, backed by the new n8n workflow "WA Inbox — templates"
-(`SzQZkodBWSN33f3t`, published).
+**Added 5 Nov (afternoon):** #1 Open Conversation (template picker, n8n workflow
+`SzQZkodBWSN33f3t`, published), #3 assign a chat, #6 saved quick replies, #7 labels / notes /
+filters / open-closed-spam, #8 the Sales Hub lead beside the chat, and #2 on the first sender.
+
+Three honest caveats on that list:
+
+- **#4 is half done.** The Slack nudge is built (`/api/cron/wa-unread`); the *dashboard bell* side
+  of "dashboard bell / Slack" is not. `lib/notifications.ts` already exists, so it is a small job,
+  but it is still outstanding.
+- **#6 was built differently from this plan.** Rather than wait for wording from Praveen, a reply
+  is saved from whatever you have just typed, so the list fills from real use. If specific approved
+  wording is wanted instead, that is a separate pass.
+- **The suggested order below was not followed.** #3, #7 and #8 went first because they share one
+  table (`wa_contacts`) and needed nothing from anyone.
 
 Dashboard code is committed on `feat/dashboard-reskin`, not deployed.
 
