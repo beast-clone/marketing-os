@@ -8,7 +8,7 @@ import { LI_PAGE, YT_CHANNEL } from "@/lib/brand-platforms";
 import { getAccount } from "@/lib/instagram";
 import { CHANNELS } from "@/lib/youtube-channels";
 import { hasChannelGrant } from "@/lib/youtube";
-import { readRegistry, writeRegistry, brandIdOf, META_PAGE_PREFIX } from "@/lib/brand-accounts";
+import { readRegistry, writeRegistry, brandIdOf, META_PAGE_PREFIX, warmBrandAccounts, forgetAvatars } from "@/lib/brand-accounts";
 
 // Brands page (docs/BRANDS_SPEC.md, stage 1): every brand, its logo, and whether each of its
 // four accounts is really connected — read from the same places the data tabs read, so the page
@@ -101,6 +101,22 @@ export async function POST(req: Request) {
 }
 
 /** Body: { id } — removes a brand added on this page. Its Instagram/Facebook must be disconnected first. Admin only. */
+// What removing a brand takes with it (?impact=<id>), for the warning: posts still
+// waiting to go out on its page, and Primary Interests that post to it by default.
+async function impactOf(sb: NonNullable<ReturnType<typeof getSupabase>>, id: string) {
+  const { data: tok } = await sb.from("mh_integration_tokens").select("note").eq("provider", `${META_PAGE_PREFIX}${id}`).maybeSingle();
+  let page = "";
+  try { page = String((JSON.parse(String(tok?.note || "{}")) as { pageName?: string }).pageName || ""); } catch { /* not connected */ }
+  if (!page) return { connected: !!tok, page: null, scheduled: 0, interests: [] as string[] };
+  const { count } = await sb.from("mh_posts").select("id", { count: "exact", head: true })
+    .contains("publish_to_pages", [page]).in("publish_status", ["scheduled", "draft"]);
+  const { data: sbus } = await sb.from("mh_sbus").select("name").eq("page", page);
+  return { connected: true, page, scheduled: count || 0, interests: (sbus || []).map((r) => String(r.name)) };
+}
+
+/** Body: { id } removes a brand added on this page — with its Instagram/Facebook
+ *  connection and its logo (5 Nov: one step, after a warning that says what goes).
+ *  The four built-in brands can't be removed. Admin only. */
 export async function DELETE(req: Request) {
   const denied = await requireSection("system");
   if (denied) return denied;
@@ -108,12 +124,24 @@ export async function DELETE(req: Request) {
   const sb = getSupabase();
   if (!sb) return NextResponse.json({ error: "no db" }, { status: 500 });
   try {
-    const { id } = (await req.json()) as { id?: string };
+    const url = new URL(req.url);
+    const { id, impact } = (await req.json().catch(() => ({}))) as { id?: string; impact?: boolean };
     const reg = await readRegistry();
-    if (!reg.added.some((a) => a.id === id)) return NextResponse.json({ error: "Only brands added on this page can be removed." }, { status: 400 });
-    const { data } = await sb.from("mh_integration_tokens").select("provider").eq("provider", `${META_PAGE_PREFIX}${id}`).maybeSingle();
-    if (data) return NextResponse.json({ error: "Disconnect its Instagram + Facebook first." }, { status: 400 });
+    if (!id || !reg.added.some((a) => a.id === id)) return NextResponse.json({ error: "Only brands added on this page can be removed." }, { status: 400 });
+    if (impact || url.searchParams.get("impact")) return NextResponse.json(await impactOf(sb, id));
+    // Primary Interests that defaulted to its page go back to GooCampus Main (the
+    // column's own default), so nothing points at a brand that is gone.
+    const { page } = await impactOf(sb, id);
+    if (page) await sb.from("mh_sbus").update({ page: "GooCampus Main" }).eq("page", page);
+    await sb.from("mh_integration_tokens").delete().eq("provider", `${META_PAGE_PREFIX}${id}`);
+    const { data: logos } = await sb.from("discover_cache").select("payload").eq("cache_key", "brands:logos").maybeSingle();
+    if (logos?.payload && (logos.payload as Record<string, unknown>)[id]) {
+      const next = { ...(logos.payload as Record<string, unknown>) }; delete next[id];
+      await sb.from("discover_cache").update({ payload: next }).eq("cache_key", "brands:logos");
+    }
     await writeRegistry({ ...reg, added: reg.added.filter((a) => a.id !== id) });
+    await warmBrandAccounts(true);
+    await forgetAvatars();
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(safeError(err, "Could not remove the brand"), { status: 400 });

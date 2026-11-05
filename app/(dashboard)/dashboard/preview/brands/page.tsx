@@ -112,10 +112,25 @@ function Brands() {
     if (!r.ok) { showToast({ who: "Couldn't disconnect", body: r.error, av: "!" }); return; }
     showToast({ who: "Disconnected", body: `${b.name}'s Instagram + Facebook.`, av: "✓" }); load();
   };
+  // One step (5 Nov): the warning says everything that goes with it, from the server's
+  // count of what still points at the brand.
   const removeBrand = async () => {
-    if (!b || !(await confirmDialog({ title: `Remove ${b.name}?`, body: "It goes off the Brands page. You can add it again any time.", action: "Remove", danger: true }))) return;
+    if (!b) return;
+    const im = await post("/api/brands", "DELETE", { id: b.id, impact: true });
+    if (!im.ok) { showToast({ who: "Couldn't check the brand", body: im.error, av: "!" }); return; }
+    const { connected, scheduled, interests } = im.j as { connected: boolean; scheduled: number; interests: string[] };
+    const body = <>
+      <span className="block">This removes {b.name} from the entire dashboard:</span>
+      <span className="block mt-1.5">· {connected ? "Its Instagram/Facebook connection is deleted — " : ""}its numbers stop showing on every tab, and it leaves the brand picker and the Scheduler&apos;s pages.</span>
+      <span className="block">· Its logo is deleted.</span>
+      {scheduled > 0 && <span className="block text-[#C0201F]">· {scheduled} post{scheduled === 1 ? "" : "s"} scheduled or drafted for it won&apos;t go out.</span>}
+      {interests.length > 0 && <span className="block">· {interests.join(", ")} will post to GooCampus Main by default instead.</span>}
+      <span className="block mt-1.5">Nothing is deleted on Instagram or Facebook. You can add it and connect it again later.</span>
+    </>;
+    if (!(await confirmDialog({ title: `Remove ${b.name}?`, body, action: "Remove brand", danger: true }))) return;
     const r = await post("/api/brands", "DELETE", { id: b.id });
     if (!r.ok) { showToast({ who: "Couldn't remove the brand", body: r.error, av: "!" }); return; }
+    showToast({ who: "Brand removed", body: `${b.name} and its connections are gone from the dashboard.`, av: "✓" });
     setSel(""); load();
   };
   const pick = () => {
@@ -165,7 +180,7 @@ function Brands() {
             <div className="flex gap-2">
               <button onClick={pick} className={`h-10 px-4 rounded-[10px] border border-gray-100 inline-flex items-center gap-1.5 text-[14px] font-medium ${INK} hover:border-brand hover:text-brand`}><IconUpload size={16} stroke={1.8} />{b.logo ? "Change logo" : "Upload logo"}</button>
               {b.logoUploaded && <button onClick={() => void saveLogo(null)} title="Go back to the Instagram picture" className={`h-10 w-10 rounded-[10px] grid place-items-center ${MUTED} hover:text-[#C0201F]`}><IconTrash size={17} stroke={1.8} /></button>}
-              {b.added && !b.metaOnPage && <button onClick={() => void removeBrand()} className={`h-10 px-4 rounded-[10px] border border-gray-100 inline-flex items-center gap-1.5 text-[14px] font-medium ${MUTED} hover:text-[#C0201F]`}><IconX size={16} stroke={1.8} />Remove brand</button>}
+              {b.added && <button onClick={() => void removeBrand()} className={`h-10 px-4 rounded-[10px] border border-gray-100 inline-flex items-center gap-1.5 text-[14px] font-medium ${MUTED} hover:text-[#C0201F]`}><IconX size={16} stroke={1.8} />Remove brand</button>}
             </div>
           </div>
           {!b.logo && <Note>No logo yet. It fills in from the Instagram profile picture once Instagram is connected, or upload one now.</Note>}
