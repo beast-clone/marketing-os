@@ -877,7 +877,7 @@ function Scheduler() {
             <div className="rounded-xl border border-gray-100 bg-brand-light px-3 py-2.5">
               <div className="text-[11px] uppercase tracking-wide text-[#8A92A6]">Posting to</div>
               {composePages.map((p) => (
-                <div key={p} className="text-[15px] font-medium text-[#232D42]">{p} <span className="text-[#8A92A6] font-normal">{pageHandle(p)}</span></div>
+                <div key={p} className="text-[15px] font-medium text-[#232D42]">{p.startsWith("@") ? pageInfo(p).label : p} <span className="text-[#8A92A6] font-normal">{pageHandle(p)}</span></div>
               ))}
               <div className="text-[13px] text-[#4A5468] mt-1">{nets || "No network ticked"}</div>
             </div>
@@ -2144,7 +2144,7 @@ function Scheduler() {
             ? <span className="text-green-700">✓ {result.story ? "Post and Story scheduled" : "Scheduled"} for {result.whenLabel}. It goes out on its own — you don&apos;t need to be here.</span>
             : <span className="text-green-700">✓ {result.story ? "Post and Story queued" : "Queued"} to go out now — live within a minute (a video can take a few more while Instagram processes it).</span>)}
           {result?.ok === false && <span className="text-red-700">✗ {result.error}</span>}
-          {!result && <span>{scheduleEnabled ? sendAheadHint(scheduleDate, scheduleTime) : "Goes straight into your publishing queue."}</span>}
+          {!result && <span>{scheduleEnabled ? sendAheadHint(scheduleDate, scheduleTime, [toInstagram && "Instagram", toFacebook && "Facebook", alsoLinkedIn && linkedInAvailable && "LinkedIn"].filter(Boolean) as string[]) : "Goes straight into your publishing queue."}</span>}
         </div>
         <div className="flex items-center gap-2">
           {/* A draft is OURS, not Meta's. Instagram has no draft API at all, so this
@@ -2340,11 +2340,13 @@ const fmtSize = (n: number) => (n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(2)} 
 
 // "File goes to Instagram at 5:00 · live at 5:30" — what scheduling a post means now
 // that the publisher sends the file ahead (22 Oct).
-function sendAheadHint(date: string, time: string): string {
+function sendAheadHint(date: string, time: string, nets: string[]): string {
   const at = date && time ? new Date(`${date}T${time}:00`) : null;
   if (!at || Number.isNaN(at.getTime())) return "Goes into your publishing queue for the time you set.";
   const f = (d: Date) => d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
-  return `The file goes to Instagram, Facebook and LinkedIn from ${f(new Date(at.getTime() - SEND_AHEAD_MIN * 60_000))} · live at ${f(at)}.`;
+  // Only the networks actually ticked — an Instagram-only brand said "Facebook and LinkedIn" too (5 Nov).
+  const list = nets.length > 1 ? `${nets.slice(0, -1).join(", ")} and ${nets[nets.length - 1]}` : nets[0] || "the queue";
+  return `The file goes to ${list} from ${f(new Date(at.getTime() - SEND_AHEAD_MIN * 60_000))} · live at ${f(at)}.`;
 }
 
 // Ticks once a second while mounted — drives the countdowns below.
