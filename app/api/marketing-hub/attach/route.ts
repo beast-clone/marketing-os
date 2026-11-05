@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
 import { storeThumb } from "@/lib/thumbnail";
+import { readableName, storageSafe } from "@/lib/attachment-name";
 import { getSupabase } from "@/lib/supabase";
 import { activeTeamIds } from "@/lib/team-db";
 import { getSessionUserId, getSessionIsAdmin } from "@/lib/auth";
@@ -64,8 +65,16 @@ export async function POST(req: Request) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(postId))) {
       return NextResponse.json({ error: "postId must be a valid task id" }, { status: 400 });
     }
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const objectPath = `mh-creatives/${postId}/${Date.now()}-${safeName}`;
+    // A name a person can read later. "15.png" becomes
+    // "aus-batch-carousel-15.png"; a name the uploader chose is kept as is.
+    // The sequence only matters for names with no number of their own, so a
+    // second paste onto the same task doesn't land on the first one's name.
+    const [{ data: task }, { count: already }] = await Promise.all([
+      sb.from("mh_posts").select("particulars").eq("id", postId).maybeSingle(),
+      sb.from("mh_attachments").select("id", { count: "exact", head: true }).eq("post_id", postId).eq("kind", kind),
+    ]);
+    const storedName = readableName(file.name, task?.particulars, kind, (already || 0) + 1);
+    const objectPath = `mh-creatives/${postId}/${Date.now()}-${storageSafe(storedName)}`;
 
     const buf = Buffer.from(await file.arrayBuffer());
     const up = await sb.storage.from("scheduler-media").upload(objectPath, buf, {
@@ -86,7 +95,7 @@ export async function POST(req: Request) {
       .from("mh_attachments")
       .insert({
         post_id: postId,
-        filename: file.name,
+        filename: storedName,
         storage_path: publicUrl,
         thumb_path: thumbUrl,
         mime_type: file.type || null,
@@ -104,9 +113,9 @@ export async function POST(req: Request) {
       post_id: postId,
       actor_key: who,
       action: `${kind}_added`,
-      to_value: file.name,
+      to_value: storedName,
     });
-    const sentBack = kind === "creative" ? await sendBackForReview(sb, postId, who, file.name) : false;
+    const sentBack = kind === "creative" ? await sendBackForReview(sb, postId, who, storedName) : false;
 
     return NextResponse.json({ attachment: data, sentBack });
   } catch (err) {

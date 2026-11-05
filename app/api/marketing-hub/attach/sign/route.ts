@@ -4,6 +4,7 @@ import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
 import { getSessionUserId } from "@/lib/auth";
 import { BUCKET, MAX_MB, UUID, asKind, mimeAllowed, mimeRefusal, safeName } from "@/lib/attach-rules";
+import { readableName } from "@/lib/attachment-name";
 
 // Step 1 of a task-file upload: check it, then hand back a one-time upload URL so the
 // browser sends the file STRAIGHT to storage. Going through this server capped every
@@ -26,7 +27,13 @@ export async function POST(req: Request) {
 
     const sb = getSupabase();
     if (!sb) return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
-    const path = `mh-creatives/${b.postId}/${Date.now()}-${safeName(b.filename)}`;
+    // The object is named after the task, so the bucket reads as something
+    // other than a wall of "15.png". attach/complete derives the same name
+    // from the same inputs, so the row and the object agree.
+    const { data: task } = await sb.from("mh_posts").select("particulars").eq("id", b.postId).maybeSingle();
+    const { count } = await sb.from("mh_attachments").select("id", { count: "exact", head: true }).eq("post_id", b.postId).eq("kind", kind);
+    const stored = readableName(b.filename, task?.particulars, kind, (count || 0) + 1);
+    const path = `mh-creatives/${b.postId}/${Date.now()}-${safeName(stored)}`;
     const { data, error } = await sb.storage.from(BUCKET).createSignedUploadUrl(path);
     if (error || !data) throw new Error(`sign: ${error?.message || "no url"}`);
     return NextResponse.json({ path, signedUrl: data.signedUrl });

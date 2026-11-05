@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
 import { safeError } from "@/lib/errors";
 import { storeThumb } from "@/lib/thumbnail";
+import { readableName } from "@/lib/attachment-name";
 import { getSupabase } from "@/lib/supabase";
 import { activeTeamIds } from "@/lib/team-db";
 import { getSessionUserId, getSessionIsAdmin } from "@/lib/auth";
@@ -56,15 +57,20 @@ export async function POST(req: Request) {
     // The bytes went browser → storage, so they are fetched back once here to
     // make the thumbnail. Once at upload, never per view.
     const thumbUrl = await storeThumb(sb, BUCKET, path, mime);
+    // The browser still sends whatever the file was called on disk, so the
+    // same rule that named the object names the row.
+    const { data: task } = await sb.from("mh_posts").select("particulars").eq("id", b.postId).maybeSingle();
+    const { count: already } = await sb.from("mh_attachments").select("id", { count: "exact", head: true }).eq("post_id", b.postId).eq("kind", kind);
+    const storedName = readableName(b.filename || name, task?.particulars, kind, (already || 0) + 1);
     const { data, error } = await sb.from("mh_attachments").insert({
-      post_id: b.postId, filename: b.filename || name, storage_path: publicUrl,
+      post_id: b.postId, filename: storedName, storage_path: publicUrl,
       thumb_path: thumbUrl,
       mime_type: mime || null, size_bytes: size || null, uploaded_by: who, kind,
     }).select("id, filename, storage_path, mime_type, size_bytes, uploaded_by, uploaded_at, kind").single();
     if (error) { await sb.storage.from(BUCKET).remove([path]); throw new Error(`db insert: ${error.message}`); }
 
-    await sb.from("mh_activity").insert({ post_id: b.postId, actor_key: who, action: `${kind}_added`, to_value: b.filename || name });
-    const sentBack = kind === "creative" ? await sendBackForReview(sb, b.postId, who, b.filename || name) : false;
+    await sb.from("mh_activity").insert({ post_id: b.postId, actor_key: who, action: `${kind}_added`, to_value: storedName });
+    const sentBack = kind === "creative" ? await sendBackForReview(sb, b.postId, who, storedName) : false;
     return NextResponse.json({ attachment: data, sentBack });
   } catch (err) {
     return NextResponse.json(safeError(err, "Upload failed"), { status: 502 });
