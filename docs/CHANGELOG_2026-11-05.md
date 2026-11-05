@@ -217,9 +217,45 @@ Facebook long-lived user tokens do not auto-renew — they stop, and that creden
 
 The permanent fix is the **n8n Scheduler system user** (Business Settings → Users → System
 users), whose tokens can be set to never expire — the same thing done for the dashboard on
-8 Oct. **Samvaya Matrimony has now been assigned to it with Full access**, so the only step
-left is: Generate token → expiry **Never** → the same 10 scopes → paste into the
-"Praveen n8n Scheduler Graph API" credential. Do it before January and this never recurs.
+8 Oct.
+
+**Started on 5 Nov, blocked on a Meta approval. Finish this tomorrow.**
+
+Done already:
+
+- **Samvaya Matrimony assigned** to the n8n Scheduler system user, Full access (it was
+  missing there too — the same gap as in the app grant, in a second place).
+- Token request raised with: app **GooCampus**, expiry **Never**, system user
+  **n8n Scheduler**, and these **9 permissions** —
+  `business_management`, `instagram_basic`, `instagram_content_publish`, `pages_show_list`,
+  `pages_read_engagement`, `pages_manage_posts`, `pages_manage_ads`,
+  `pages_manage_metadata`, `leads_retrieval`.
+
+What blocked it: Meta answered *"Approval needed — we need someone else on this business
+approve this request."* A second business admin has to approve before the token is issued.
+Meta says it has already notified someone, so the request exists; it may just need chasing.
+
+**Two things that were nearly got wrong, so keep them if the request has to be re-made:**
+
+1. The app must be **GooCampus**, not n8n Self-Hosted. The n8n Self-Hosted app offers exactly
+   one permission for system-user tokens (`leads_retrieval`), so a token from it cannot
+   publish anything at all.
+2. `pages_manage_ads`, `pages_manage_metadata` and `leads_retrieval` are **not** pre-ticked
+   and must be added by hand. They are on the current token and this credential is shared by
+   **6 workflows** — dropping them fixes Samvaya while quietly breaking something else. The
+   same trap as the Instagram scopes earlier tonight.
+
+Once approved: Generate token → copy → paste into the **"Praveen n8n Scheduler Graph API"**
+credential in n8n → Save. Then check that the publisher's page list still has all six pages
+and that Samvaya is among them.
+
+Unverified until it runs: a system-user token resolves `/me/accounts` against the *system
+user's* assets rather than Praveen's. Samvaya is now assigned, so it should be identical —
+but check the page list after pasting rather than assuming.
+
+**No rush, and do not do it under time pressure:** the current token is valid until
+**4 January 2027** and Samvaya publishes to both networks in the meantime. Swapping tokens
+means a window with publishing down, so pick a quiet moment.
 
 The gap existed in **two** places — the app grant and the system user — while the Page role
 itself looked fine. Any new brand needs adding to both.
