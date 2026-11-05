@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
-import { getAccount } from "@/lib/instagram";
+import { getAccount, graphFor } from "@/lib/instagram";
 import { safeError } from "@/lib/errors";
 
 const GRAPH = "https://graph.facebook.com/v25.0";
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   const acct = getAccount(accountId);
   if (!acct) return NextResponse.json({ error: "unknown account" }, { status: 400 });
   try {
-    const url = `${GRAPH}/${mediaId}?fields=children{media_url,thumbnail_url,media_type}&access_token=${encodeURIComponent(acct.pageAccessToken)}`;
+    const url = `${graphFor(acct.pageAccessToken)}/${mediaId}?fields=children{media_url,thumbnail_url,media_type}&access_token=${encodeURIComponent(acct.pageAccessToken)}`;
     const r = await fetch(url, { cache: "no-store" });
     const d = await r.json();
     if (!r.ok || d.error) return NextResponse.json({ error: d.error?.message || `HTTP ${r.status}` }, { status: 502 });

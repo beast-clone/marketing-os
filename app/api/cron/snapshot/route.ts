@@ -3,6 +3,8 @@ import { sameSecret } from "@/lib/cron-auth";
 import { snapshotAllAccountsForDay } from "@/lib/snapshot";
 import { snapshotClarityForDay, snapshotBingForDay } from "@/lib/web-history";
 import { buildReportSnapshot, saveReportSnapshot } from "@/lib/report-month";
+import { getSupabase } from "@/lib/supabase";
+import { refreshInstagramLogins } from "@/lib/instagram-login";
 
 // Daily cron endpoint. Call this once a day (n8n) to record each account's
 // metrics into Supabase so we keep history beyond Meta's 30-day cutoff.
@@ -22,6 +24,11 @@ export async function GET(req: Request) {
   if (!sameSecret(headerSecret, secret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  // Keys from "Connect Instagram only" last 60 days — renew any due within 10, before
+  // they're used below (lib/instagram-login.ts). Never blocks the snapshot.
+  const sbForIg = getSupabase();
+  const igRefresh = sbForIg ? await refreshInstagramLogins(sbForIg).catch(() => null) : null;
 
   const backfill = parseInt(url.searchParams.get("backfill") || "0", 10);
   const explicit = url.searchParams.get("date");
@@ -72,5 +79,5 @@ export async function GET(req: Request) {
     latencyMs: Date.now() - t0,
     dates,
   };
-  return NextResponse.json({ ...summary, results: all });
+  return NextResponse.json({ ...summary, igRefresh, results: all });
 }

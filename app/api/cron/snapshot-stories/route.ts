@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sameSecret } from "@/lib/cron-auth";
-import { getConfiguredAccounts, type IGAccountConfig } from "@/lib/instagram";
+import { getConfiguredAccounts, type IGAccountConfig, graphFor } from "@/lib/instagram";
 import { getSupabase } from "@/lib/supabase";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import { safeError } from "@/lib/errors";
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
 
 async function fetchStories(acct: IGAccountConfig): Promise<IGStoryRaw[]> {
   const fields = "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp";
-  const url = `${GRAPH}/${acct.igUserId}/stories?fields=${fields}&access_token=${acct.pageAccessToken}`;
+  const url = `${graphFor(acct.pageAccessToken)}/${acct.igUserId}/stories?fields=${fields}&access_token=${acct.pageAccessToken}`;
   const r = await fetchWithTimeout(url, { cache: "no-store" });
   if (!r.ok) throw new Error(`Meta stories ${r.status}: ${await r.text()}`);
   const j = (await r.json()) as { data?: IGStoryRaw[] };
@@ -79,7 +79,7 @@ async function fetchStories(acct: IGAccountConfig): Promise<IGStoryRaw[]> {
 
 async function fetchInsights(acct: IGAccountConfig, storyId: string) {
   const metrics = "reach,replies,views,follows,profile_visits,navigation";
-  const url = `${GRAPH}/${storyId}/insights?metric=${metrics}&access_token=${acct.pageAccessToken}`;
+  const url = `${graphFor(acct.pageAccessToken)}/${storyId}/insights?metric=${metrics}&access_token=${acct.pageAccessToken}`;
   const r = await fetchWithTimeout(url, { cache: "no-store" });
   const out = { reach: 0, replies: 0, views: 0, follows: 0, profile_visits: 0, navigation: 0 };
   if (!r.ok) return out;

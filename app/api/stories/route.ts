@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
-import { getAccount } from "@/lib/instagram";
+import { getAccount, graphFor } from "@/lib/instagram";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import { safeError } from "@/lib/errors";
 
@@ -32,7 +32,7 @@ export async function GET(req: Request) {
   if (!acct) return NextResponse.json({ stories: [], note: "No account configured" });
 
   const fields = "id,caption,media_type,media_url,thumbnail_url,permalink,timestamp";
-  const endpoint = `${GRAPH}/${acct.igUserId}/stories?fields=${fields}&access_token=${acct.pageAccessToken}`;
+  const endpoint = `${graphFor(acct.pageAccessToken)}/${acct.igUserId}/stories?fields=${fields}&access_token=${acct.pageAccessToken}`;
 
   try {
     const r = await fetchWithTimeout(endpoint, { cache: "no-store" });
@@ -57,7 +57,7 @@ export async function GET(req: Request) {
     const withStats = await Promise.all(baseStories.map(async (s) => {
       let reach = 0, replies = 0, views = 0, follows = 0, profileVisits = 0, navigation = 0;
       try {
-        const insightsUrl = `${GRAPH}/${s.id}/insights?metric=reach,replies,views,follows,profile_visits,navigation&access_token=${acct.pageAccessToken}`;
+        const insightsUrl = `${graphFor(acct.pageAccessToken)}/${s.id}/insights?metric=reach,replies,views,follows,profile_visits,navigation&access_token=${acct.pageAccessToken}`;
         const ir = await fetchWithTimeout(insightsUrl, { cache: "no-store" });
         if (ir.ok) {
           const ij = (await ir.json()) as { data?: Array<{ name: string; values?: Array<{ value: number }> }> };

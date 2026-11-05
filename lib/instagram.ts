@@ -6,6 +6,11 @@ import path from "path";
 
 const GRAPH_VERSION = "v25.0";
 const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`;
+// A key from "Connect Instagram only" (lib/instagram-login.ts) is an Instagram user key,
+// "IG…", and only works on graph.instagram.com; a Page key ("EAA…") on graph.facebook.com.
+// The paths and fields used here are the same on both.
+export const graphFor = (token: string | undefined | null) =>
+  (token || "").startsWith("IG") ? `https://graph.instagram.com/${GRAPH_VERSION}` : GRAPH;
 
 export type IGAccountConfig = {
   id: string;
@@ -109,7 +114,7 @@ export function getAccount(accountId: string): IGAccountConfig | null {
 
 async function gget<T>(path: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams(params).toString();
-  const res = await metaLimiter(() => fetchWithTimeout(`${GRAPH}/${path}?${qs}`, { cache: "no-store" }));
+  const res = await metaLimiter(() => fetchWithTimeout(`${graphFor(params.access_token)}/${path}?${qs}`, { cache: "no-store" }));
   recordApiCall("Instagram Graph", res.ok, res.status);
   if (!res.ok) {
     const body = await res.text();

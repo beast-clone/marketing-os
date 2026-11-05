@@ -73,6 +73,16 @@ function Brands() {
     }).catch((e) => setErr((e as Error).message));
   }, []);
   useEffect(() => { load(); }, [load]);
+  // Back from Connect Instagram only (/api/auth/instagram/callback): say what happened.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const ig = q.get("ig"); if (!ig) return;
+    if (q.get("brand")) setSel(q.get("brand")!);
+    showToast(ig === "connected"
+      ? { who: "Instagram connected", body: `${q.get("why") || "The account"} — its numbers show across the dashboard.`, av: "✓" }
+      : { who: "Couldn't connect Instagram", body: q.get("why") || "Try again.", av: "!" });
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   const b = brands?.find((x) => x.id === sel);
   const saveLogo = async (logo: string | null) => {
@@ -208,8 +218,14 @@ function AccountCard({ k, b, onConnectMeta, onDisconnectMeta }: { k: PlatKey; b:
       <span className="block">1. In <a href="https://business.facebook.com/settings/pages" target="_blank" rel="noreferrer" className="text-brand hover:underline">Meta Business Settings → Pages</a>, click <b className="font-medium">Add → Request access to a Page</b> and enter the brand&apos;s page.</span>
       <span className="block">2. The page owner clicks <b className="font-medium">Approve</b> on Meta&apos;s notification. Their Instagram must be linked to the page.</span>
       <span className="block">3. Click Connect below and pick the page.</span>
+      <span className="block mt-1.5">No Facebook page? Click <b className="font-medium">Connect Instagram only</b> and sign in with the brand&apos;s Instagram (it must be a Professional account).</span>
     </>;
-    action = <button onClick={onConnectMeta} className="h-[34px] px-3 rounded-lg bg-brand text-white inline-flex items-center gap-1.5 text-[13px] font-medium hover:bg-brand-dark"><IconLink size={15} stroke={1.8} />Connect Instagram + Facebook</button>;
+    action = <span className="flex flex-wrap gap-2">
+      <button onClick={onConnectMeta} className="h-[34px] px-3 rounded-lg bg-brand text-white inline-flex items-center gap-1.5 text-[13px] font-medium hover:bg-brand-dark"><IconLink size={15} stroke={1.8} />Connect Instagram + Facebook</button>
+      {/* No Facebook page? Sign in with the Instagram account itself (lib/instagram-login.ts, 5 Nov). */}
+      <a href={`/api/auth/instagram/start?brand=${encodeURIComponent(b.id)}`} title="Sign in with the brand's Instagram account — no Facebook page needed"
+        className={`h-[34px] px-3 rounded-lg border border-gray-100 inline-flex items-center gap-1.5 text-[13px] font-medium ${INK} hover:border-brand hover:text-brand`}><IconBrandInstagram size={15} stroke={1.8} />Connect Instagram only</a>
+    </span>;
   }
   return (
     <div className="border border-gray-100 rounded-[14px] p-[18px] flex flex-col gap-2.5">
@@ -277,8 +293,16 @@ function PagePicker({ brand, onClose, onDone }: { brand: Brand; onClose: () => v
                       {p.igUsername ? <><IconBrandInstagram size={13} stroke={1.8} />@{p.igUsername}</> : null}
                       {why && <span>{p.igUsername ? " · " : ""}{why}</span>}
                     </div>
+                    {/* A greyed Connect said nothing about why or what to do (Praveen, 5 Nov). */}
+                    {!p.igUserId && (
+                      <div className="mt-1.5 text-[12.5px] leading-relaxed text-[#4A5468] bg-[#F6F7FB] rounded-lg px-2.5 py-1.5">
+                        One Connect links this page&apos;s Instagram and Facebook together, so it needs an Instagram business account on the page.
+                        In <b className="font-medium">Meta Business Suite</b>, open <b className="font-medium">{p.pageName}</b> → Settings → Linked accounts → Instagram and link it
+                        (the Instagram account must be Professional), then close this list and open it again.
+                      </div>
+                    )}
                   </div>
-                  <button disabled={!!why || !!busy} onClick={() => void connect(p)}
+                  <button disabled={!!why || !!busy} onClick={() => void connect(p)} title={why || undefined}
                     className="h-[32px] px-3 rounded-lg bg-brand text-white text-[13px] font-medium hover:bg-brand-dark disabled:bg-[#F0F2F8] disabled:text-[#B8BECC]">
                     {busy === p.pageId ? "Connecting…" : "Connect"}
                   </button>

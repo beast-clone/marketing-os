@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSection, requireCapability, requireSchedulerPages } from "@/lib/api-guard";
-import { getAccount } from "@/lib/instagram";
+import { getAccount, graphFor } from "@/lib/instagram";
 import { loadPublishPages } from "@/lib/publish-pages-server";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
@@ -30,7 +30,7 @@ async function publishToAccount(accountId: string, imageUrl: string, caption: st
 
   // 1) create the media container. Instagram auto-invites collaborators when the
   // `collaborators` param (JSON array of usernames, max 3) is set on the container.
-  let createUrl = `${GRAPH}/${acc.igUserId}/media?image_url=${encodeURIComponent(imageUrl)}&caption=${encodeURIComponent(caption || "")}&access_token=${tok}`;
+  let createUrl = `${graphFor(acc.pageAccessToken)}/${acc.igUserId}/media?image_url=${encodeURIComponent(imageUrl)}&caption=${encodeURIComponent(caption || "")}&access_token=${tok}`;
   if (collaborators.length) createUrl += `&collaborators=${encodeURIComponent(JSON.stringify(collaborators))}`;
   const createRes = await fetch(createUrl, { method: "POST" });
   const created = await createRes.json();
@@ -40,7 +40,7 @@ async function publishToAccount(accountId: string, imageUrl: string, caption: st
   const creationId = created.id as string;
 
   // 2) publish the container
-  const pubRes = await fetch(`${GRAPH}/${acc.igUserId}/media_publish?creation_id=${encodeURIComponent(creationId)}&access_token=${tok}`, { method: "POST" });
+  const pubRes = await fetch(`${graphFor(acc.pageAccessToken)}/${acc.igUserId}/media_publish?creation_id=${encodeURIComponent(creationId)}&access_token=${tok}`, { method: "POST" });
   const published = await pubRes.json();
   if (!pubRes.ok || published.error) {
     return { accountId, ok: false as const, error: `publish step failed: ${published.error?.message || pubRes.status}` };
@@ -50,7 +50,7 @@ async function publishToAccount(accountId: string, imageUrl: string, caption: st
   // 3) permalink (best-effort)
   let permalink: string | null = null;
   try {
-    const perm = await (await fetch(`${GRAPH}/${mediaId}?fields=permalink&access_token=${tok}`)).json();
+    const perm = await (await fetch(`${graphFor(acc.pageAccessToken)}/${mediaId}?fields=permalink&access_token=${tok}`)).json();
     permalink = perm.permalink || null;
   } catch { /* best-effort */ }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
 import { format, subDays } from "date-fns";
-import { getConfiguredAccounts, fetchBasic, fetchAccountInsights, fetchRecentMedia } from "@/lib/instagram";
+import { getConfiguredAccounts, fetchBasic, fetchAccountInsights, fetchRecentMedia, graphFor } from "@/lib/instagram";
 import { buildLive as linkedinBuildLive } from "@/lib/linkedin";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
@@ -22,7 +22,7 @@ type PlatStat = { followers: number; reach: number | null; engRate: number | nul
 
 async function fbGet(pathAndQuery: string, token: string) {
   const sep = pathAndQuery.includes("?") ? "&" : "?";
-  const res = await fetchWithTimeout(`${GRAPH}/${pathAndQuery}${sep}access_token=${encodeURIComponent(token)}`, { cache: "no-store" });
+  const res = await fetchWithTimeout(`${graphFor(token)}/${pathAndQuery}${sep}access_token=${encodeURIComponent(token)}`, { cache: "no-store" });
   if (!res.ok) throw new Error("fb " + res.status);
   return res.json();
 }

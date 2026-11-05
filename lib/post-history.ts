@@ -10,7 +10,7 @@
 // Storage reuses the `discover_cache` table (no migration): one row per account per
 // month, cache_key = `postsnap:<accountId>:<YYYY-MM>`, source = `posts_month_snapshot`.
 
-import { getConfiguredAccounts, fetchMediaInsights, type IGAccountConfig, type IGMedia } from "@/lib/instagram";
+import { getConfiguredAccounts, fetchMediaInsights, type IGAccountConfig, type IGMedia, graphFor } from "@/lib/instagram";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import { metaLimiter } from "@/lib/concurrency";
 import { getSupabase } from "@/lib/supabase";
@@ -43,7 +43,7 @@ export type HistPost = {
 // Page the account's media, keeping only posts whose timestamp falls in [from, to].
 async function fetchMediaInDateRange(igUserId: string, token: string, fromIso?: string, toIso?: string, hardCap = 500): Promise<IGMedia[]> {
   const fields = "id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{media_type,media_url,thumbnail_url}";
-  let url = `${GRAPH}/${igUserId}/media?fields=${fields}&limit=100&access_token=${token}`;
+  let url = `${graphFor(token)}/${igUserId}/media?fields=${fields}&limit=100&access_token=${token}`;
   const fromTs = fromIso ? new Date(fromIso + "T00:00:00Z").getTime() : -Infinity;
   const toTs = toIso ? new Date(toIso + "T23:59:59Z").getTime() : Infinity;
   const out: IGMedia[] = [];
@@ -229,7 +229,7 @@ async function refreshMediaUrls(acc: IGAccountConfig, posts: HistPost[]): Promis
   for (let i = 0; i < posts.length; i += CHUNK) chunks.push(posts.slice(i, i + CHUNK));
   await Promise.all(chunks.map(async (slice) => {
     const ids = slice.map((p) => p.id).join(",");
-    const url = `${GRAPH}/?ids=${ids}&fields=media_type,media_url,thumbnail_url,children{media_type,media_url,thumbnail_url}&access_token=${acc.pageAccessToken}`;
+    const url = `${graphFor(acc.pageAccessToken)}/?ids=${ids}&fields=media_type,media_url,thumbnail_url,children{media_type,media_url,thumbnail_url}&access_token=${acc.pageAccessToken}`;
     try {
       const res = await metaLimiter(() => fetchWithTimeout(url, { cache: "no-store" }));
       const body = (await res.json()) as Record<string, {

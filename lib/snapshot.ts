@@ -2,7 +2,7 @@ import { fetchWithTimeout } from "./fetch-with-timeout";
 // Long-term history: snapshot one day's Meta data per account into Supabase so
 // it survives Meta's 30-day daily-data cutoff.
 
-import { getConfiguredAccounts, fetchBasic, fetchAccountInsights, type IGAccountConfig } from "@/lib/instagram";
+import { getConfiguredAccounts, fetchBasic, fetchAccountInsights, type IGAccountConfig, graphFor } from "@/lib/instagram";
 import { getSupabase } from "@/lib/supabase";
 
 const GRAPH = "https://graph.facebook.com/v25.0";
@@ -22,7 +22,7 @@ export type AccountSnapshot = {
 async function fetchDayMetric(acc: IGAccountConfig, metric: string, date: string): Promise<number> {
   const since = Math.floor(new Date(date + "T00:00:00Z").getTime() / 1000);
   const until = Math.floor(new Date(date + "T23:59:59Z").getTime() / 1000);
-  const base = `${GRAPH}/${acc.igUserId}/insights?metric=${metric}&period=day&since=${since}&until=${until}&access_token=${acc.pageAccessToken}`;
+  const base = `${graphFor(acc.pageAccessToken)}/${acc.igUserId}/insights?metric=${metric}&period=day&since=${since}&until=${until}&access_token=${acc.pageAccessToken}`;
 
   // Meta splits these metrics across two shapes:
   //   reach, follower_count  → period=day, read data[0].values[0].value
