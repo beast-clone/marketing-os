@@ -649,7 +649,7 @@ function RepostOpportunitiesCard({ loading, posts }: { loading: boolean; posts: 
               <div key={p.id} className="border border-gray-100 rounded-xl overflow-hidden bg-white flex flex-col">
                 <div className="aspect-[4/5] bg-gray-100 relative">
                   {p.mediaUrl ? (
-                    <img src={p.mediaUrl} alt="" className="w-full h-full object-cover" />
+                    <img src={p.mediaUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">▢</div>
                   )}

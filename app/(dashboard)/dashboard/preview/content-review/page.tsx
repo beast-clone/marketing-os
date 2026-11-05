@@ -569,7 +569,7 @@ function Review() {
                     // here), so show the reel's frame and open it on Drive to watch.
                     <a href={p.assetLink!} target="_blank" rel="noreferrer" className="group block w-full h-full relative">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={cardThumb(p)!} alt={p.title || "creative"} className="w-full h-full object-contain" />
+                      <img src={cardThumb(p)!} alt={p.title || "creative"} className="w-full h-full object-contain" loading="lazy" decoding="async" />
                       <span className="absolute inset-0 grid place-items-center">
                         <span className="w-14 h-14 rounded-full bg-black/55 group-hover:bg-black/75 grid place-items-center text-white transition"><IconPlayerPlayFilled size={26} /></span>
                       </span>

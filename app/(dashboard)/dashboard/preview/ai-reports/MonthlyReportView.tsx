@@ -310,7 +310,7 @@ function InstagramTopContent({ from, to, saved }: { from: string; to: string; sa
             {d.posts.map((p, i) => (
               <a key={i} href={p.permalink} target="_blank" rel="noreferrer" className="group block">
                 <div className="aspect-[4/5] rounded-lg bg-gray-100 overflow-hidden border border-gray-100">
-                  {p.thumb ? <img src={p.thumb} alt="" className="w-full h-full object-contain transition group-hover:scale-105" /> : <div className="w-full h-full grid place-items-center text-2xl text-gray-300">▢</div>}
+                  {p.thumb ? <img src={p.thumb} alt="" className="w-full h-full object-contain transition group-hover:scale-105" loading="lazy" decoding="async" /> : <div className="w-full h-full grid place-items-center text-2xl text-gray-300">▢</div>}
                 </div>
                 <div className="text-[10.5px] text-gray-500 mt-1 flex items-center justify-between"><span>{p.type}</span><span className="tabular-nums">♥{fmtNum(p.likes)} · {fmtNum(p.comments)}</span></div>
               </a>

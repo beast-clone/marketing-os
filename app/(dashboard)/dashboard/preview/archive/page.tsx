@@ -279,7 +279,7 @@ function FileGrid({ label, files }: { label: string; files: Full["files"] }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         {files.map((fl) => (
           <a key={fl.url} href={fl.url} target="_blank" rel="noreferrer" className="group block border border-gray-100 rounded-lg overflow-hidden hover:border-brand">
-            {fl.mime.startsWith("image/") ? <img src={fl.url} alt="" className="w-full aspect-square object-cover bg-gray-50" />
+            {fl.mime.startsWith("image/") ? <img src={fl.url} alt="" className="w-full aspect-square object-cover bg-gray-50" loading="lazy" decoding="async" />
               : <div className="w-full aspect-square grid place-items-center bg-[#F6F7FB] text-[#8A92A6]"><IconPaperclip size={20} /></div>}
             <div className="px-2 py-1.5 text-[11px] text-[#4A5468] truncate">{fl.name}</div>
           </a>

@@ -757,8 +757,7 @@ function Scheduler() {
                     src={previewImage}
                     alt=""
                     className="w-full h-full object-cover"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                  />
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
                 ) : (
                   <div className="text-center text-gray-300 p-8">
                     <div className="text-5xl mb-2">🖼️</div>
@@ -829,7 +828,7 @@ function Scheduler() {
                     >
                       <div className="flex-shrink-0">
                         {p.thumbnail ? (
-                          <img src={p.thumbnail} alt="" className="w-16 h-16 rounded-lg object-cover" />
+                          <img src={p.thumbnail} alt="" className="w-16 h-16 rounded-lg object-cover" loading="lazy" decoding="async" />
                         ) : (
                           <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400">📷</div>
                         )}
@@ -991,7 +990,7 @@ function QueueRow({ post, onReschedule, onPublishNow, onEdit, onScheduleNow, bus
       {/* Column 2 — carousel first slide / thumbnail */}
       <div className="w-28 h-28 shrink-0">
         {post.thumbnailUrl ? (
-          <img src={post.thumbnailUrl} alt="" className="w-full h-full object-cover rounded-lg border border-gray-100" />
+          <img src={post.thumbnailUrl} alt="" className="w-full h-full object-cover rounded-lg border border-gray-100" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full rounded-lg bg-gray-100 flex items-center justify-center text-4xl text-gray-400">
             {typeIcon}
@@ -1367,7 +1366,7 @@ function MiniPlanner({ posts, publishedIG }: { posts: ScheduledPost[]; published
                       >
                         <div className="relative">
                           {p.mediaUrl ? (
-                            <img src={p.mediaUrl} alt="" className="w-full aspect-[3/4] object-cover" />
+                            <img src={p.mediaUrl} alt="" className="w-full aspect-[3/4] object-cover" loading="lazy" decoding="async" />
                           ) : (
                             <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center text-lg text-gray-400">
                               {isReel ? "🎬" : p.type === "CAROUSEL_ALBUM" ? "🖼️" : "📄"}
@@ -1396,7 +1395,7 @@ function MiniPlanner({ posts, publishedIG }: { posts: ScheduledPost[]; published
                     >
                       <div className="relative">
                         {p.thumbnailUrl ? (
-                          <img src={p.thumbnailUrl} alt="" className="w-full aspect-[3/4] object-cover" />
+                          <img src={p.thumbnailUrl} alt="" className="w-full aspect-[3/4] object-cover" loading="lazy" decoding="async" />
                         ) : (
                           <div className="w-full aspect-[3/4] bg-amber-100 flex items-center justify-center text-lg text-amber-500">
                             {p.type?.toLowerCase().includes("reel") ? "🎬" :

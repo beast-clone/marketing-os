@@ -232,7 +232,7 @@ export function RefPreviewHost() {
       {big && v.kind === "image" && (
         <div className="rfp-big" onClick={() => setBig(false)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={v.src} alt={nameOf(cur)} onClick={(e) => e.stopPropagation()} />
+          <img src={v.src} alt={nameOf(cur)} onClick={(e) => e.stopPropagation()} loading="lazy" decoding="async" />
           {many && <>
             <button type="button" className="rfp-big-nav l" onClick={(e) => { e.stopPropagation(); go(-1); }} aria-label="Previous"><IconChevronLeft size={22} stroke={2} /></button>
             <button type="button" className="rfp-big-nav r" onClick={(e) => { e.stopPropagation(); go(1); }} aria-label="Next"><IconChevronRight size={22} stroke={2} /></button>
@@ -268,7 +268,7 @@ export function RefPreviewHost() {
         {v.kind === "frame" && <iframe className={v.narrow ? "narrow" : ""} src={v.src} allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen loading="lazy" title={nameOf(cur)} />}
         {v.kind === "pdf" && <iframe src={v.src} title={nameOf(cur)} />}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {v.kind === "image" && <img src={v.src} alt={nameOf(cur)} onError={() => setFailed(cur.url)} onClick={() => setBig(true)} className="rfp-zoomable" title="Click to view full size" />}
+        {v.kind === "image" && <img src={v.src} alt={nameOf(cur)} onError={() => setFailed(cur.url)} onClick={() => setBig(true)} className="rfp-zoomable" title="Click to view full size" loading="lazy" decoding="async" />}
         {v.kind === "video" && <SoundVideo src={v.src} open loop={false} onError={() => setFailed(cur.url)} />}
         {v.kind === "download" && (
           <div className="rfp-msg">This file can&apos;t be previewed here.

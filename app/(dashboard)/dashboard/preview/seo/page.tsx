@@ -537,7 +537,7 @@ function Competitors({ data, platform, updating, onRefresh }: { data: Data; plat
             return (
               <div key={key} role="button" tabIndex={0} onClick={() => setSel(key)} onKeyDown={(e) => { if (e.key === "Enter") setSel(key); }}
                 className={`group flex items-center gap-3 rounded border px-3 py-2 text-left transition cursor-pointer ${on ? "border-brand bg-brand-light" : "border-gray-100 hover:border-gray-300"}`}>
-                {a.pic ? <img src={a.pic} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover bg-[#F6F7FB] flex-shrink-0" /> : <span className="w-8 h-8 rounded-full bg-[#F6F7FB] grid place-items-center flex-shrink-0"><PlatformIcon p={a.platform} size={16} /></span>}
+                {a.pic ? <img src={a.pic} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover bg-[#F6F7FB] flex-shrink-0" loading="lazy" decoding="async" /> : <span className="w-8 h-8 rounded-full bg-[#F6F7FB] grid place-items-center flex-shrink-0"><PlatformIcon p={a.platform} size={16} /></span>}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-[14px] text-[#232D42] truncate">{a.name || handleOf(a)}</span>
@@ -621,7 +621,7 @@ function AddAccount({ platform, onAdded }: { platform: Platform; onAdded: (handl
             : !matches?.length ? <div className="px-3 py-2 text-[12px] text-[#8A92A6]">{yt ? "No channels found." : `No business or creator account called @${q.trim().replace(/^@/, "")}. Instagram needs the exact username, and personal accounts can't be read.`}</div>
             : matches.map((m) => (
               <button key={m.handle} onClick={() => add(m)} disabled={!!busy} className="w-full flex items-center gap-2.5 px-2.5 py-2 text-left hover:bg-brand-light disabled:opacity-60">
-                {m.pic ? <img src={m.pic} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover bg-[#F6F7FB] flex-shrink-0" /> : <span className="w-8 h-8 rounded-full bg-[#F6F7FB] flex-shrink-0" />}
+                {m.pic ? <img src={m.pic} alt="" referrerPolicy="no-referrer" className="w-8 h-8 rounded-full object-cover bg-[#F6F7FB] flex-shrink-0" loading="lazy" decoding="async" /> : <span className="w-8 h-8 rounded-full bg-[#F6F7FB] flex-shrink-0" />}
                 <span className="min-w-0 flex-1">
                   <span className="block text-[14px] text-[#232D42] truncate">{m.name}</span>
                   <span className="block text-[12px] text-[#8A92A6] truncate">@{m.handle}{m.followers != null ? ` · ${fmt(m.followers)} ${yt ? "subs" : "followers"}` : ""}{m.posts != null ? ` · ${fmt(m.posts)} ${yt ? "videos" : "posts"}` : ""}</span>
@@ -652,7 +652,7 @@ function AccountDetail({ a, ours, ourKws, onRemove }: { a: Account; ours: boolea
   return (
     <div className="min-w-0 flex flex-col gap-4">
       <div className="flex items-center gap-3 rounded-xl bg-brand-light px-4 py-3">
-        {a.pic ? <img src={a.pic} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover bg-white flex-shrink-0" /> : <span className="w-12 h-12 rounded-full bg-white grid place-items-center flex-shrink-0"><PlatformIcon p={a.platform} size={22} /></span>}
+        {a.pic ? <img src={a.pic} alt="" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover bg-white flex-shrink-0" loading="lazy" decoding="async" /> : <span className="w-12 h-12 rounded-full bg-white grid place-items-center flex-shrink-0"><PlatformIcon p={a.platform} size={22} /></span>}
         <div className="min-w-0 flex-1">
           <div className="text-[16px] font-medium text-[#232D42] truncate">{a.name || handleOf(a)}</div>
           <div className="text-[13px] text-[#4A5468] truncate">

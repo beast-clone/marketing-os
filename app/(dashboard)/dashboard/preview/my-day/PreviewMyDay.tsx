@@ -690,7 +690,7 @@ function CreativePreview({ items, index, onIndex, onClose }: { items: CreativeIt
         <div className="cv-stage">
           {cur.type === "video"
             ? <SoundVideo className="cv-el" src={cur.url || ""} open loop={false} />
-            : <img className="cv-el" src={cur.url} alt={cur.name} />}
+            : <img className="cv-el" src={cur.url} alt={cur.name} loading="lazy" decoding="async" />}
           {items.length > 1 && (
             <>
               <button className="cv-nav prev" onClick={prev} aria-label="Previous">‹</button>

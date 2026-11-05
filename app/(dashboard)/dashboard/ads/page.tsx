@@ -762,7 +762,7 @@ function CampaignDrilldown({ campaign, range, onClose }: { campaign: Campaign; r
                   className={`flex gap-4 p-4 border rounded-xl ${ad.ad_id === topAdId ? "border-brand bg-brand-light" : "border-gray-100"}`}
                 >
                   {ad.creative_thumbnail ? (
-                    <img src={ad.creative_thumbnail} alt="" className="w-24 h-24 rounded-lg object-cover bg-gray-100 flex-shrink-0" />
+                    <img src={ad.creative_thumbnail} alt="" className="w-24 h-24 rounded-lg object-cover bg-gray-100 flex-shrink-0" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-24 h-24 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center text-xs text-gray-400">No preview</div>
                   )}

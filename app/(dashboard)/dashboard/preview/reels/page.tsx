@@ -252,7 +252,7 @@ function ReelCard({ reel, isTop, insightsLoaded, onClick }: {
       {/* Vertical thumbnail — 9:16 aspect (reel format) */}
       <div className="relative bg-black aspect-[9/16] overflow-hidden">
         {reel.mediaUrl ? (
-          <img src={reel.mediaUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" />
+          <img src={reel.mediaUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400"><IconMovie size={36} stroke={1.5} /></div>
         )}
@@ -322,7 +322,7 @@ function TopReelCard({ label, reel }: { label: string; reel: ApiPost | null }) {
       </div>
       <div className="flex gap-3">
         {reel.mediaUrl ? (
-          <img src={reel.mediaUrl} alt="" className="w-14 h-20 object-cover rounded-lg shrink-0" />
+          <img src={reel.mediaUrl} alt="" className="w-14 h-20 object-cover rounded-lg shrink-0" loading="lazy" decoding="async" />
         ) : (
           <div className="w-14 h-20 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-gray-400"><IconMovie size={22} stroke={1.5} /></div>
         )}
@@ -376,7 +376,7 @@ function ReelDetailModal({ reel, insightsLoaded, onClose }: {
           {reel.videoUrl ? (
             <SoundVideo src={reel.videoUrl} poster={reel.mediaUrl || undefined} open loop={false} className="block w-full md:w-auto max-h-[45vh] md:max-h-[85vh] md:max-w-[min(58vw,620px)]" />
           ) : reel.mediaUrl ? (
-            <img src={reel.mediaUrl} alt="" className="block w-full md:w-auto max-h-[45vh] md:max-h-[85vh] md:max-w-[min(58vw,620px)]" />
+            <img src={reel.mediaUrl} alt="" className="block w-full md:w-auto max-h-[45vh] md:max-h-[85vh] md:max-w-[min(58vw,620px)]" loading="lazy" decoding="async" />
           ) : (
             <div className="text-white/70 px-16 py-24"><IconMovie size={56} stroke={1.2} /></div>
           )}

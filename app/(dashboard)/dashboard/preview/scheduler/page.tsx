@@ -870,7 +870,7 @@ function Scheduler() {
             <div className="flex items-center gap-3">
               {thumb && /\.(png|jpe?g|webp|gif)(\?|$)/i.test(thumb)
                 // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={thumb} alt="" className="w-12 h-12 rounded-lg object-cover border border-gray-100 flex-shrink-0" />
+                ? <img src={thumb} alt="" className="w-12 h-12 rounded-lg object-cover border border-gray-100 flex-shrink-0" loading="lazy" decoding="async" />
                 : null}
               <div className="min-w-0 text-[#232D42] font-medium truncate">{particulars.trim() || "This post"}</div>
             </div>
@@ -2251,7 +2251,7 @@ function ToScheduleList({ items, loading, onRefresh, onSchedule, onAddManual, hi
                 <div className="relative">
                   {/\.(mp4|mov|webm)(\?|$)/i.test(t.mediaUrls[0])
                     ? <video src={t.mediaUrls[0]} className="w-full h-28 object-cover rounded border border-gray-100" muted />
-                    : <img src={t.mediaUrls[0]} alt="" className="w-full h-28 object-cover rounded border border-gray-100" />}
+                    : <img src={t.mediaUrls[0]} alt="" className="w-full h-28 object-cover rounded border border-gray-100" loading="lazy" decoding="async" />}
                   {t.mediaUrls.length > 1 && <span className="absolute top-1 right-1 text-xs bg-black/60 text-white px-1.5 py-0.5 rounded-full">+{t.mediaUrls.length - 1}</span>}
                   <label className="absolute bottom-1 right-1 text-xs bg-white/90 text-gray-700 border border-gray-200 px-1.5 py-0.5 rounded cursor-pointer hover:bg-white">
                     replace
@@ -2536,10 +2536,10 @@ function DayCapWarningModal({ dateLabel, page, limit, existing, pageHandle, onPr
                   <div className="px-3.5 pb-3 flex gap-3 bg-gray-50/60">
                     <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 mt-2">
                       {/* A reel with no cover has only an mp4 to show — a still frame from
-                  the video beats the broken-image icon that an <img> gives. */}
+                  the video beats the broken-image icon that an <img loading="lazy" decoding="async"> gives. */}
               {p.thumbnailUrl && (isVideoUrl(p.thumbnailUrl)
                 ? <video src={p.thumbnailUrl} muted playsInline preload="metadata" className="w-full h-full object-cover" />
-                : /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.thumbnailUrl} alt="" className="w-full h-full object-cover" />)}
+                : /* eslint-disable-next-line @next/next/no-img-element */ <img src={p.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />)}
                     </div>
                     <div className="text-[12px] text-gray-600 whitespace-pre-wrap flex-1 max-h-32 overflow-y-auto pt-2">{p.fullCaption || p.caption || "No caption"}</div>
                   </div>
@@ -2670,7 +2670,7 @@ function QueueRow({ post, onReschedule, onPublishNow, onEdit, onScheduleNow, bus
       {/* Column 2 — carousel first slide / thumbnail */}
       <div className="w-28 h-28 shrink-0">
         {post.thumbnailUrl ? (
-          <img src={post.thumbnailUrl} alt="" className="w-full h-full object-cover rounded-lg border border-gray-100" />
+          <img src={post.thumbnailUrl} alt="" className="w-full h-full object-cover rounded-lg border border-gray-100" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full rounded-lg bg-gray-100 flex items-center justify-center text-4xl text-gray-400">
             {typeIcon}
@@ -2962,7 +2962,7 @@ function PaneThumb({ url }: { url?: string | null }) {
     <span className="sched-thumb">
       {url ? (isVideoUrl(url)
         ? <video src={url} muted playsInline preload="metadata" className="w-full h-full object-cover" />
-        : /* eslint-disable-next-line @next/next/no-img-element */ <img src={url} alt="" className="w-full h-full object-cover" />)
+        : /* eslint-disable-next-line @next/next/no-img-element */ <img src={url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />)
         : <IconPhoto size={16} stroke={1.6} className="text-[#C2C6D0]" />}
     </span>
   );
@@ -3113,7 +3113,7 @@ function PostPreviewContent({ item, story }: { item: CalendarItem; story?: { fra
                 ? <SoundVideo src={cur} open className="w-full h-full object-cover"
                     onLoadedMetadata={(e) => { const v = e.currentTarget; if (v.videoWidth) setRatio(`${v.videoWidth} / ${v.videoHeight}`); }} />
                 : /* eslint-disable-next-line @next/next/no-img-element */ <img src={cur} alt="" className="w-full h-full object-cover"
-                    onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth) setRatio(`${i.naturalWidth} / ${i.naturalHeight}`); }} />}
+                    onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth) setRatio(`${i.naturalWidth} / ${i.naturalHeight}`); }} loading="lazy" decoding="async" />}
             </div>
           )
           : <div className="min-h-[320px] w-full flex items-center justify-center text-gray-400"><IconPhoto size={56} stroke={1.2} /></div>}
@@ -3350,7 +3350,7 @@ function MiniPlanner({ posts, publishedIG, wide, onSelect }: { posts: ScheduledP
                       >
                         <div className="relative">
                           {p.mediaUrl ? (
-                            <img src={p.mediaUrl} alt="" className="w-full aspect-[3/4] object-cover" />
+                            <img src={p.mediaUrl} alt="" className="w-full aspect-[3/4] object-cover" loading="lazy" decoding="async" />
                           ) : (
                             <div className="w-full aspect-[3/4] bg-gray-100 flex items-center justify-center text-lg text-gray-400">
                               {isReel ? <IconMovie size={20} stroke={1.5} /> : p.type === "CAROUSEL_ALBUM" ? <IconPhoto size={20} stroke={1.5} /> : <IconFileText size={20} stroke={1.5} />}
@@ -3381,7 +3381,7 @@ function MiniPlanner({ posts, publishedIG, wide, onSelect }: { posts: ScheduledP
                     >
                       <div className="relative">
                         {p.thumbnailUrl ? (
-                          <img src={p.thumbnailUrl} alt="" className="w-full aspect-[3/4] object-cover" />
+                          <img src={p.thumbnailUrl} alt="" className="w-full aspect-[3/4] object-cover" loading="lazy" decoding="async" />
                         ) : (
                           <div className="w-full aspect-[3/4] bg-amber-100 flex items-center justify-center text-lg text-amber-500">
                             {p.type?.toLowerCase().includes("reel") ? <IconMovie size={20} stroke={1.5} /> :
@@ -3537,7 +3537,7 @@ function MediaUploader({ mediaUrls, setMediaUrls, locked, taskId }: { mediaUrls:
                 onDragEnd={locked ? undefined : () => { dragIdxRef.current = null; setDragIdx(null); setOverIdx(null); }}
                 title={locked ? undefined : "Drag to reorder"}
                 className={`relative group w-16 h-16 flex-shrink-0 rounded overflow-hidden border transition ${locked ? "cursor-default border-gray-200" : "cursor-grab active:cursor-grabbing"} ${!locked && overIdx === i && dragIdx !== i ? "border-brand ring-2 ring-brand" : "border-gray-200"} ${!locked && dragIdx === i ? "opacity-40" : ""}`}>
-                {/* A PDF has nothing an <img> can render — it used to fade to a
+                {/* A PDF has nothing an <img loading="lazy" decoding="async"> can render — it used to fade to a
                     blank tile. Draw it as a labelled document instead. */}
                 {isPdfUrl(url)
                   ? <div className="w-full h-full pointer-events-none">
@@ -3549,7 +3549,7 @@ function MediaUploader({ mediaUrls, setMediaUrls, locked, taskId }: { mediaUrls:
                     </div>
                   : isVideo(url)
                   ? <video src={url} className="w-full h-full object-cover pointer-events-none" muted />
-                  : <img src={url} alt="" className="w-full h-full object-cover pointer-events-none" onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.15"; }} />}
+                  : <img src={url} alt="" className="w-full h-full object-cover pointer-events-none" onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = "0.15"; }} loading="lazy" decoding="async" />}
                 {no !== null && <span className="absolute bottom-0 left-0 text-xs font-medium bg-black/55 text-white px-1 rounded-tr leading-tight">{no}</span>}
                 {!locked && (
                   <button type="button" onClick={() => void askRemove(i)} title="Remove"
@@ -4341,12 +4341,12 @@ function StoryPreview({ frames, handle, platform }: { frames: string[]; handle: 
       {cur ? (
         <>
           {/* What isn't 9:16 sits on a blurred copy of itself, the way Instagram fills the screen. */}
-          {!video && /* eslint-disable-next-line @next/next/no-img-element */ <img src={cur} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-60" />}
+          {!video && /* eslint-disable-next-line @next/next/no-img-element */ <img src={cur} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover blur-2xl scale-110 opacity-60" loading="lazy" decoding="async" />}
           {video
             ? <video key={cur} src={cur} muted autoPlay playsInline className="absolute inset-0 w-full h-full object-contain"
                 onTimeUpdate={(e) => { const v = e.currentTarget; if (v.duration) setProgress(v.currentTime / v.duration); }}
                 onEnded={() => go(1)} />
-            : /* eslint-disable-next-line @next/next/no-img-element */ <img key={cur} src={cur} alt="" className="absolute inset-0 w-full h-full object-contain" />}
+            : /* eslint-disable-next-line @next/next/no-img-element */ <img key={cur} src={cur} alt="" className="absolute inset-0 w-full h-full object-contain" loading="lazy" decoding="async" />}
         </>
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center text-white/60">
@@ -4365,7 +4365,7 @@ function StoryPreview({ frames, handle, platform }: { frames: string[]; handle: 
       </div>
       <div className="absolute top-5 inset-x-3 flex items-center gap-2 z-10 text-white">
         {avatar
-          ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={avatar} alt="" className="w-8 h-8 rounded-full object-cover flex-none" />
+          ? /* eslint-disable-next-line @next/next/no-img-element */ <img src={avatar} alt="" className="w-8 h-8 rounded-full object-cover flex-none" loading="lazy" decoding="async" />
           : <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center flex-none">{platform === "facebook" ? <FacebookLogo size={32} /> : <InstagramLogo size={20} />}</span>}
         <span className="text-[13px] font-medium truncate">{handle}</span>
         <span className="text-[12px] text-white/70 shrink-0">now</span>
@@ -4422,7 +4422,7 @@ function SocialPreview({ platform, handle, name, images, caption, device = "mobi
       {image && isPdfUrl(image)
         ? <PdfDocPreview url={image} />
         : image && isVideoUrl(image)
-        // A video in an <img> renders nothing at all, which is why the preview went
+        // A video in an <img loading="lazy" decoding="async"> renders nothing at all, which is why the preview went
         // blank the moment a reel was the creative. Muted + playsInline so it can
         // autoplay at all; looped because that is how a reel is watched.
         // autoPlay alone is unreliable here: the element mounts before the source is
@@ -4436,7 +4436,7 @@ function SocialPreview({ platform, handle, name, images, caption, device = "mobi
         ? <img src={image} alt="" style={natural ? { aspectRatio: natural } : undefined}
             className={`w-full block ${natural ? "h-full object-cover" : "h-auto max-h-[520px] object-contain"}`}
             onLoad={(e) => { const i = e.currentTarget; if (i.naturalWidth) setNatural(`${i.naturalWidth} / ${i.naturalHeight}`); }}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
         : <><div className="w-14 h-14 rounded-full bg-brand-light flex items-center justify-center mb-2.5"><IconPhoto size={24} stroke={1.6} className="text-brand" /></div><div className="text-[12.5px] font-medium text-[#8A92A6]">Add media to preview</div></>}
       {images.length > 1 && (
         <>

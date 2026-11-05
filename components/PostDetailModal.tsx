@@ -94,8 +94,7 @@ export function PostDetailModal({ post, insightsLoaded = true, metrics, typeLabe
             <img
               src={slides[Math.min(idx, slides.length - 1)]}
               alt=""
-              className="block w-full md:w-auto h-auto max-h-[45vh] md:max-h-[85vh] md:max-w-[min(58vw,620px)] object-contain"
-            />
+              className="block w-full md:w-auto h-auto max-h-[45vh] md:max-h-[85vh] md:max-w-[min(58vw,620px)] object-contain" loading="lazy" decoding="async" />
           ) : (
             <div className="text-white text-6xl px-16 py-24">{POST_TYPE_ICON[post.type] ?? "?"}</div>
           )}

@@ -86,7 +86,7 @@ export function LatestPostsStrip({ accountId, range }: { accountId: string; rang
               >
                 <div className="aspect-[4/5] bg-gray-50 relative">
                   {p.mediaUrl ? (
-                    <img src={p.mediaUrl} alt="" className="w-full h-full object-contain" />
+                    <img src={p.mediaUrl} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-3xl text-gray-300">▢</div>
                   )}
@@ -139,7 +139,7 @@ function PostModal({ post, onClose }: { post: Post; onClose: () => void }) {
         <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-5 p-5 overflow-y-auto">
           <div className="aspect-[4/5] rounded-lg bg-gray-100 overflow-hidden">
             {post.mediaUrl ? (
-              <img src={post.mediaUrl} alt="" className="w-full h-full object-contain" />
+              <img src={post.mediaUrl} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
             ) : (
               <div className="w-full h-full flex items-center justify-center text-4xl text-gray-300">▢</div>
             )}

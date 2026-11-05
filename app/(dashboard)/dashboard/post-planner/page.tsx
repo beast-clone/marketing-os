@@ -124,7 +124,7 @@ function Planner() {
                     </div>
                     {/* thumb */}
                     <div className="w-14 h-14 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                      {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xl">▢</div>}
+                      {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xl">▢</div>}
                     </div>
                     {/* body */}
                     <div className="min-w-0 flex-1">

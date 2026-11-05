@@ -634,7 +634,7 @@ function LiveAdsSection({ ads, rangeLabel, selected, onSelect, selectedAd, onSel
                         <div className="w-9 h-9 rounded-md bg-white overflow-hidden flex-shrink-0 border border-gray-200">
                           {a.thumbnail
                             // eslint-disable-next-line @next/next/no-img-element
-                            ? <img src={a.thumbnail} alt="" className="w-full h-full object-cover" />
+                            ? <img src={a.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                             : <div className="w-full h-full grid place-items-center text-gray-300"><IconPhoto size={15} stroke={1.6} /></div>}
                         </div>
                         <div className="min-w-0 flex-1 text-[12.5px] text-[#232D42] truncate"
@@ -728,7 +728,7 @@ function AdPanel({ ad, siblings, onBack, onAll }: { ad: LiveAd; siblings: LiveAd
           <div className="w-12 h-12 rounded-lg bg-white overflow-hidden flex-shrink-0 border border-gray-200">
             {ad.thumbnail
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={ad.thumbnail} alt="" className="w-full h-full object-cover" />
+              ? <img src={ad.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
               : <div className="w-full h-full grid place-items-center text-gray-300"><IconPhoto size={18} stroke={1.6} /></div>}
           </div>
           <div className="min-w-0 flex-1">
@@ -749,7 +749,7 @@ function AdPanel({ ad, siblings, onBack, onAll }: { ad: LiveAd; siblings: LiveAd
             {video.kind === "video"
               ? <SoundVideo src={video.url} poster={video.poster || undefined} open loop={false} className="block max-h-[420px] w-auto max-w-full" />
               // eslint-disable-next-line @next/next/no-img-element
-              : <img src={video.url} alt="" className="block max-h-[420px] w-auto max-w-full" />}
+              : <img src={video.url} alt="" className="block max-h-[420px] w-auto max-w-full" loading="lazy" decoding="async" />}
           </div>
         )}
         <div className="grid grid-cols-3 gap-2 mb-3">
@@ -1557,7 +1557,7 @@ function CampaignDrilldown({ campaign, range, onClose }: { campaign: Campaign; r
                   className={`flex gap-4 p-4 border rounded-xl ${ad.ad_id === topAdId ? "border-brand bg-brand-light" : "border-gray-100 bg-white"}`}
                 >
                   {ad.creative_thumbnail ? (
-                    <img src={ad.creative_thumbnail} alt="" className="w-24 h-24 rounded-lg object-cover bg-gray-100 flex-shrink-0" />
+                    <img src={ad.creative_thumbnail} alt="" className="w-24 h-24 rounded-lg object-cover bg-gray-100 flex-shrink-0" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-24 h-24 rounded-lg bg-gray-100 flex-shrink-0 flex items-center justify-center text-xs text-gray-400">No preview</div>
                   )}

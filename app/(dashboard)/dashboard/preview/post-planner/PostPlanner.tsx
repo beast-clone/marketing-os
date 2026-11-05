@@ -495,7 +495,7 @@ function DetailSidebar({ card, isPlan, onClose, onAccept, accepted, busy }: { ca
             {cur ? (
               isVideo(cur)
                 ? <video key={cur} src={cur} controls autoPlay playsInline className="block w-auto max-w-full max-h-[70vh]" />
-                : /* eslint-disable-next-line @next/next/no-img-element */ <img src={cur} alt="" className="block w-auto max-w-full max-h-[70vh]" />
+                : /* eslint-disable-next-line @next/next/no-img-element */ <img src={cur} alt="" className="block w-auto max-w-full max-h-[70vh]" loading="lazy" decoding="async" />
             ) : (
               <div className="text-center px-4">
                 <div className="text-gray-600 text-4xl mb-2"><IconPhoto size={40} stroke={1.3} className="mx-auto" /></div>

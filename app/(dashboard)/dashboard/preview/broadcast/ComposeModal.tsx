@@ -549,7 +549,7 @@ export function ComposeModal({ initialDate, seed, onClose, onSaved }: {
                         ) : (
                         /* eslint-disable-next-line @next/next/no-img-element */
                         <img src={imageUrl} alt="" className="w-16 h-16 object-cover rounded-lg border border-gray-100"
-                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
                         )}
                         <button onClick={() => { setImageUrl(""); setMediaMime(""); }} title="Remove"
                           className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-gray-200 text-[#8A92A6] grid place-items-center hover:text-[#C03221]"><IconX size={12} /></button>
@@ -752,7 +752,7 @@ export function ComposeModal({ initialDate, seed, onClose, onSaved }: {
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={imageUrl} alt="" className="w-full rounded-lg mb-1.5 block"
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
                 ))}
                 <div className="text-[13px] whitespace-pre-wrap break-words leading-snug" style={{ color: "var(--wa-ink)" }}>
                   {body.trim() ? renderWa(body) : <span className="italic" style={{ color: "var(--wa-meta)" }}>Your message will appear here</span>}

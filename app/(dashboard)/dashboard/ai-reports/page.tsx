@@ -344,7 +344,7 @@ function ReportView({ report, regenerating }: { report: ReportPayload; regenerat
               >
                 <div className="text-[22px] font-semibold tabular-nums text-gray-300 text-center">{p.rank}</div>
                 <div className="aspect-square rounded-md bg-gray-100 overflow-hidden">
-                  {p.mediaUrl ? <img src={p.mediaUrl} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">▢</div>}
+                  {p.mediaUrl ? <img src={p.mediaUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">▢</div>}
                 </div>
                 <div className="min-w-0">
                   <div className="text-[10px] uppercase tracking-widest text-gray-500 font-semibold">

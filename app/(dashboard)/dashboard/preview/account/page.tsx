@@ -171,7 +171,7 @@ function PhotoPicker({ person, forUser, onChanged }: { person: Me; forUser?: str
   return (
     <div className="flex items-center gap-4 pb-4 mb-2 border-b border-gray-100">
       {person?.photoUrl
-        ? <img src={person.photoUrl} alt="" className="w-16 h-16 rounded-full object-cover bg-[#F6F7FB]" />
+        ? <img src={person.photoUrl} alt="" className="w-16 h-16 rounded-full object-cover bg-[#F6F7FB]" loading="lazy" decoding="async" />
         : <span className="w-16 h-16 rounded-full bg-brand-light text-brand grid place-items-center text-[20px] font-medium">{person?.initials || "?"}</span>}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center gap-2">

@@ -56,6 +56,22 @@ export function PdfExportButton({ accountId, range }: { accountId: string; range
       }
       await new Promise((r) => setTimeout(r, 500));
 
+      // Force every lazy image to load before the screenshot.
+      //
+      // html2canvas paints what the browser has already decoded, and a lazy
+      // image below the fold has never been fetched — it comes out blank in the
+      // PDF with nothing to say why. Flip them all to eager and wait, capped so
+      // that one dead URL cannot hang the export.
+      const imgs = Array.from(target.querySelectorAll("img"));
+      imgs.forEach((im) => { im.loading = "eager"; });
+      await Promise.race([
+        Promise.all(imgs.map((im) => (im.complete ? Promise.resolve() : new Promise<void>((res) => {
+          im.addEventListener("load", () => res(), { once: true });
+          im.addEventListener("error", () => res(), { once: true });
+        })))),
+        new Promise((r) => setTimeout(r, 8000)),
+      ]);
+
       const hidden: HTMLElement[] = Array.from(target.querySelectorAll(".no-print"));
       hidden.forEach((el) => (el.style.visibility = "hidden"));
 

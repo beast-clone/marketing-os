@@ -169,7 +169,7 @@ function Inner({ accountId, range }: { accountId: string; range: { from: string;
                         <a key={p.id} href={p.permalink} target="_blank" rel="noopener noreferrer" className="block w-10 h-10 rounded overflow-hidden bg-gray-100 border border-gray-200 hover:ring-2 hover:ring-violet-400 transition">
                           {p.thumbnail ? (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img src={p.thumbnail} alt="" className="w-full h-full object-cover" />
+                            <img src={p.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                           ) : null}
                         </a>
                       ))}

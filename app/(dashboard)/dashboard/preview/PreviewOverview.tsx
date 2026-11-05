@@ -129,7 +129,7 @@ function HeaderClock() {
 // LinkedIn and YouTube side by side, so badging the brand with any one of their
 // marks says something untrue about what you are looking at.
 //
-// A plain <img>: these are base64 data URIs, so next/image has nothing to optimise
+// A plain <img loading="lazy" decoding="async">: these are base64 data URIs, so next/image has nothing to optimise
 // and would only add a loader in front of bytes that are already here.
 function BrandLogo({ src, label, size }: { src?: string; label: string; size: number }) {
   const radius = Math.round(size * 0.27);
@@ -141,7 +141,7 @@ function BrandLogo({ src, label, size }: { src?: string; label: string; size: nu
     return (
       <span style={{ ...base, border: `1px solid ${C.line}`, background: C.card }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={src} alt="" width={size} height={size} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        <img src={src} alt="" width={size} height={size} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} loading="lazy" decoding="async" />
       </span>
     );
   }
@@ -774,7 +774,7 @@ export function PreviewOverview({ person = "" }: { person?: string }) {
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenPost(post); } }}
                         style={{ border: `1px solid ${C.line}`, borderRadius: 12, overflow: "hidden", background: C.card, cursor: "pointer" }}>
                         <div style={{ position: "relative", aspectRatio: "4/5", background: C.bg }}>
-                          {post.mediaUrl ? <img src={post.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : null}
+                          {post.mediaUrl ? <img src={post.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} loading="lazy" decoding="async" /> : null}
                           <span style={{ position: "absolute", top: 8, left: 8, width: 24, height: 24, borderRadius: 99, background: C.primary, color: "#fff", fontSize: 12, fontWeight: 600, display: "grid", placeItems: "center", boxShadow: "0 4px 10px rgba(58,87,232,0.4)" }}>{i + 1}</span>
                           <span style={{ position: "absolute", top: 8, right: 8, fontSize: 12, fontWeight: 600, padding: "3px 8px", borderRadius: 99, background: chip.bg, color: chip.fg }}>{chip.label}</span>
                         </div>
@@ -809,7 +809,7 @@ export function PreviewOverview({ person = "" }: { person?: string }) {
                         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenPost(post); } }}
                         style={{ border: `1px solid ${C.line}`, borderRadius: 12, overflow: "hidden", background: C.card, cursor: "pointer" }}>
                         <div style={{ position: "relative", aspectRatio: "4/5", background: C.bg }}>
-                          {post.mediaUrl ? <img src={post.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : null}
+                          {post.mediaUrl ? <img src={post.mediaUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} loading="lazy" decoding="async" /> : null}
                           <span style={{ position: "absolute", top: 8, left: 8, fontSize: 12, fontWeight: 600, padding: "3px 8px", borderRadius: 99, background: chip.bg, color: chip.fg }}>{chip.label}</span>
                         </div>
                         <div style={{ padding: "10px 11px" }}>

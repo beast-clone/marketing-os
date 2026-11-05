@@ -1571,7 +1571,7 @@ function CreativeFiles({ postId, personRow, attachments, personKey, accent, onCh
               <div key={a.id} className="relative group flex-shrink-0 w-28 h-28 rounded-lg border border-gray-100 bg-gray-50 overflow-hidden">
                 <a href={a.storage_path} target="_blank" rel="noreferrer" className="block w-full h-full" title={a.filename}>
                   {isImg ? (
-                    <img src={a.storage_path} alt={a.filename} className="w-full h-full object-contain" />
+                    <img src={a.storage_path} alt={a.filename} className="w-full h-full object-contain" loading="lazy" decoding="async" />
                   ) : isVid ? (
                     <video src={a.storage_path} className="w-full h-full object-cover" />
                   ) : (

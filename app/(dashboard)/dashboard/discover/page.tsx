@@ -297,7 +297,7 @@ function TopHashtagsLeaderboard({ buckets }: { buckets: NicheBucket[] }) {
                 <div className="w-9 h-9 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                   {(r.topThumb.thumbnail_url || r.topThumb.media_url) && (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={r.topThumb.thumbnail_url || r.topThumb.media_url} alt="" className="w-full h-full object-cover" />
+                    <img src={r.topThumb.thumbnail_url || r.topThumb.media_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   )}
                 </div>
               )}
@@ -468,7 +468,7 @@ function MediaTile({ m, onSelect }: { m: Media; onSelect: (m: Media) => void }) 
     <button onClick={() => onSelect(m)} className="block aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200 hover:ring-2 hover:ring-violet-400 transition group relative cursor-pointer text-left">
       {img ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={img} alt="" className="w-full h-full object-cover" />
+        <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
       ) : (
         <div className="w-full h-full bg-gray-100" />
       )}
@@ -487,7 +487,7 @@ function MediaCard({ m, onSelect }: { m: Media; onSelect: (m: Media) => void }) 
       <div className="aspect-square bg-gray-100 relative">
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt="" className="w-full h-full object-cover" />
+          <img src={img} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
         ) : null}
         {m.username && (
           <div className="absolute top-2 left-2 bg-black/60 backdrop-blur text-white text-[10px] px-2 py-0.5 rounded-full font-mono">
@@ -518,7 +518,7 @@ function PreviewModal({ m, onClose }: { m: Media; onClose: () => void }) {
             <video src={m.media_url} poster={img} controls autoPlay className="w-full max-h-[60vh] md:max-h-[90vh] object-contain" />
           ) : img ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={img} alt="" className="w-full max-h-[60vh] md:max-h-[90vh] object-contain" />
+            <img src={img} alt="" className="w-full max-h-[60vh] md:max-h-[90vh] object-contain" loading="lazy" decoding="async" />
           ) : (
             <div className="w-full h-64 bg-gray-100" />
           )}

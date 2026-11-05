@@ -245,7 +245,7 @@ function NotifPop({ items, armed, hovering, close, open }: {
       <div className="gc-nb-card">
         {style === "person" && who ? (
           <div className="gc-nb-head">
-            <span className="gc-nb-av">{who.photoUrl ? <img src={who.photoUrl} alt="" /> : who.initials || who.first.charAt(0)}</span>
+            <span className="gc-nb-av">{who.photoUrl ? <img src={who.photoUrl} alt="" loading="lazy" decoding="async" /> : who.initials || who.first.charAt(0)}</span>
             <span className="gc-nb-meta"><b>{who.first}</b> · {decision ? "needs your OK" : "for you"}</span>
           </div>
         ) : appHead}

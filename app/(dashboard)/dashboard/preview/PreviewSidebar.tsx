@@ -427,10 +427,10 @@ export function PreviewSidebar() {
         {/* Logo → Overview (the main page). */}
         <Link href={OVERVIEW.href} aria-label="Go to Overview" className="hlogo-link">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/goocampus-logo.png" alt="GooCampus" className="hlogo-img hlogo-light" />
+          <img src="/goocampus-logo.png" alt="GooCampus" className="hlogo-img hlogo-light" loading="lazy" decoding="async" />
           {/* White logo for the dark theme (globals.css swaps them). */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/goocampus-logo-white.png" alt="GooCampus" className="hlogo-img hlogo-dark" />
+          <img src="/goocampus-logo-white.png" alt="GooCampus" className="hlogo-img hlogo-dark" loading="lazy" decoding="async" />
         </Link>
         <button type="button" onClick={toggleCollapsed} className="hcollapse"
           aria-label={collapsed ? "Expand the sidebar" : "Collapse the sidebar"}

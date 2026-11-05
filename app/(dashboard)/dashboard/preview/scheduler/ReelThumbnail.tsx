@@ -157,7 +157,7 @@ export function ReelThumbnail({ videoUrl, coverUrl, onCover }: {
       {coverUrl && (
         <div className="flex items-center gap-3 rounded-lg border border-gray-200 p-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={coverUrl} alt="Chosen cover" className="w-[54px] h-[96px] object-cover rounded-md bg-[#F6F7FB]" />
+          <img src={coverUrl} alt="Chosen cover" className="w-[54px] h-[96px] object-cover rounded-md bg-[#F6F7FB]" loading="lazy" decoding="async" />
           <span className="flex-1 min-w-0">
             <span className="flex items-center gap-1.5 text-[12.5px] font-medium text-[#2F9E6F]">
               <IconCheck size={14} stroke={2.2} /> Cover set
@@ -185,7 +185,7 @@ export function ReelThumbnail({ videoUrl, coverUrl, onCover }: {
               <button key={src} type="button" onClick={() => upload(frames[i], `cover-suggested-${i + 1}.jpg`)}
                 className="shrink-0 rounded-lg overflow-hidden border-2 border-transparent hover:border-brand">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt={`Frame ${i + 1}`} className="w-[68px] h-[121px] object-cover bg-[#F6F7FB]" />
+                <img src={src} alt={`Frame ${i + 1}`} className="w-[68px] h-[121px] object-cover bg-[#F6F7FB]" loading="lazy" decoding="async" />
               </button>
             ))}
             <button type="button" onClick={loadSuggested} title="Read the frames again"
@@ -202,7 +202,7 @@ export function ReelThumbnail({ videoUrl, coverUrl, onCover }: {
         <div className="flex items-start gap-3">
           <div className="w-[68px] h-[121px] rounded-lg overflow-hidden bg-[#F6F7FB] shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            {preview ? <img src={preview} alt="Frame preview" className="w-full h-full object-cover" />
+            {preview ? <img src={preview} alt="Frame preview" className="w-full h-full object-cover" loading="lazy" decoding="async" />
               : <span className="w-full h-full grid place-items-center text-[#C9CDD8]"><IconPhoto size={18} stroke={1.6} /></span>}
           </div>
           <div className="flex-1 min-w-0">

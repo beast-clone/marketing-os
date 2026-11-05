@@ -518,7 +518,7 @@ function CalendarTile({ post, onClick }: { post: ScheduledPost; onClick: () => v
       title={`${post.particulars} — ${acct.handle} · ${st.label}`}
     >
       {post.thumbnailUrl ? (
-        <img src={post.thumbnailUrl} alt="" className="w-5 h-5 rounded-[2px] object-cover shrink-0" />
+        <img src={post.thumbnailUrl} alt="" className="w-5 h-5 rounded-[2px] object-cover shrink-0" loading="lazy" decoding="async" />
       ) : (
         <span className={`w-5 h-5 rounded-[2px] flex items-center justify-center text-[10px] bg-white/60 shrink-0`}>{typeIcon}</span>
       )}
@@ -540,7 +540,7 @@ function DraftCard({ post, onClick }: { post: ScheduledPost; onClick: () => void
       className={`flex-none w-56 text-left border border-dashed border-gray-300 hover:border-brand hover:border-solid bg-white rounded-lg p-2.5 space-y-2 transition`}
     >
       {post.thumbnailUrl ? (
-        <img src={post.thumbnailUrl} alt="" className="w-full h-14 object-cover rounded" />
+        <img src={post.thumbnailUrl} alt="" className="w-full h-14 object-cover rounded" loading="lazy" decoding="async" />
       ) : (
         <div className="w-full h-14 rounded bg-gray-100 flex items-center justify-center text-xl text-gray-400">
           {typeIcon}
@@ -602,7 +602,7 @@ function DetailModal({ post, onClose, onRetried }: { post: ScheduledPost; onClos
         </div>
         <div className="p-5 space-y-4">
           {post.thumbnailUrl && (
-            <img src={post.thumbnailUrl} alt="" className="w-full max-h-72 object-contain rounded-lg border border-gray-100" />
+            <img src={post.thumbnailUrl} alt="" className="w-full max-h-72 object-contain rounded-lg border border-gray-100" loading="lazy" decoding="async" />
           )}
           <div>
             <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Title</div>

@@ -164,7 +164,7 @@ function CompetitorDetailBrief({ t, onSaved }: { t: Tracked; onSaved: () => void
                   const isEvent = EVENT_RE.test(p.caption || "");
                   return (
                     <button key={p.id} onClick={() => setOpen(p)} title={p.caption?.slice(0, 120)} className="relative aspect-[4/5] rounded-lg overflow-hidden bg-gray-100 border border-gray-100 hover:border-brand">
-                      {src && <img src={src} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />}
+                      {src && <img src={src} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" loading="lazy" decoding="async" />}
                       {isEvent && <span className="absolute top-1 left-1 text-[10px] font-medium rounded px-1.5 py-0.5 bg-amber-50 text-amber-800">Event</span>}
                       <span className="absolute bottom-1 left-1 right-1 flex justify-between text-[10px] text-white bg-black/50 rounded px-1">
                         <span className="inline-flex items-center gap-0.5"><IconHeart size={10} />{nfmt(p.like_count)}</span><span>{ago(p.timestamp)}</span>
@@ -203,7 +203,7 @@ function CompetitorDetailBrief({ t, onSaved }: { t: Tracked; onSaved: () => void
               <div className="grid grid-cols-2 gap-3">
                 {longs.map((v) => (
                   <button key={v.id} onClick={() => setOpenYt({ ...v, channel: label(t) })} className="text-left group">
-                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-100 border border-gray-100 group-hover:border-brand">{v.thumbnail && <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />}</div>
+                    <div className="aspect-video rounded-lg overflow-hidden bg-gray-100 border border-gray-100 group-hover:border-brand">{v.thumbnail && <img src={v.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />}</div>
                     <div className="text-[12.5px] text-[#232D42] line-clamp-2 mt-1">{v.title}</div>
                     <div className="text-[11px] text-[#8A92A6]">{nfmt(v.views)} views · {ago(v.publishedAt)}</div>
                   </button>
@@ -220,7 +220,7 @@ function CompetitorDetailBrief({ t, onSaved }: { t: Tracked; onSaved: () => void
               <div className="grid grid-cols-4 gap-2">
                 {shorts.map((v) => (
                   <a key={v.id} href={v.url} target="_blank" rel="noreferrer" title={v.title} className="group">
-                    <div className="aspect-[9/16] rounded-lg overflow-hidden bg-gray-100 border border-gray-100 group-hover:border-brand">{v.thumbnail && <img src={v.thumbnail} alt="" className="w-full h-full object-cover" />}</div>
+                    <div className="aspect-[9/16] rounded-lg overflow-hidden bg-gray-100 border border-gray-100 group-hover:border-brand">{v.thumbnail && <img src={v.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />}</div>
                     <div className="text-[11px] text-[#8A92A6] mt-1">{nfmt(v.views)} views</div>
                   </a>
                 ))}
@@ -387,7 +387,7 @@ function Metric({ label, value }: { label: string; value: string }) {
 function Avatar({ url, name, size = 28 }: { url?: string; name: string; size?: number }) {
   const initials = name.split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   return url
-    ? <img src={url} alt={name} referrerPolicy="no-referrer" style={{ width: size, height: size }} className="rounded-full object-cover shrink-0" />
+    ? <img src={url} alt={name} referrerPolicy="no-referrer" style={{ width: size, height: size }} className="rounded-full object-cover shrink-0" loading="lazy" decoding="async" />
     : <span style={{ width: size, height: size }} className="rounded-full bg-brand-light text-brand text-[10px] font-semibold flex items-center justify-center shrink-0">{initials}</span>;
 }
 
@@ -400,7 +400,7 @@ function PostCard({ p, onOpen }: { p: Post; onOpen: () => void }) {
     <button onClick={onOpen} className="text-left bg-white border border-gray-100 rounded-xl overflow-hidden hover:border-brand hover:shadow-sm transition group">
       <div className="relative aspect-[4/5] bg-gray-100">
         {src
-          ? <img src={src} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" />
+          ? <img src={src} alt="" referrerPolicy="no-referrer" className="w-full h-full object-contain" loading="lazy" decoding="async" />
           : <div className="w-full h-full flex items-center justify-center text-gray-300"><IconPhoto size={24} /></div>}
         <span className="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/55 text-white text-[10px] rounded-md px-1.5 py-0.5"><TypeIcon t={p.media_type} /> {p.media_type === "CAROUSEL_ALBUM" ? "Carousel" : p.media_type === "VIDEO" ? "Video" : "Image"}</span>
       </div>
@@ -436,7 +436,7 @@ function PostModal({ p, onClose }: { p: Post; onClose: () => void }) {
           {s.type === "VIDEO" && s.url
             ? <video src={s.url} poster={s.thumb} controls autoPlay playsInline className="block max-h-[58vh] md:max-h-[86vh] w-auto max-w-full md:max-w-[480px] object-contain" />
             : (s.url || s.thumb)
-              ? <img src={s.url || s.thumb} alt="" referrerPolicy="no-referrer" className="block max-h-[58vh] md:max-h-[86vh] w-auto max-w-full md:max-w-[480px] object-contain" />
+              ? <img src={s.url || s.thumb} alt="" referrerPolicy="no-referrer" className="block max-h-[58vh] md:max-h-[86vh] w-auto max-w-full md:max-w-[480px] object-contain" loading="lazy" decoding="async" />
               : <div className="flex items-center justify-center min-h-[300px] w-[300px] text-gray-300 text-sm p-10">Media preview unavailable</div>}
           {slides.length > 1 && (
             <>
@@ -470,7 +470,7 @@ function YtCard({ v, onOpen }: { v: YtVid; onOpen: () => void }) {
     <button onClick={onOpen} className="text-left bg-white border border-gray-100 rounded-xl overflow-hidden hover:border-brand hover:shadow-sm transition group">
       <div className="relative aspect-video bg-gray-100">
         {v.thumbnail
-          ? <img src={v.thumbnail} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+          ? <img src={v.thumbnail} alt="" referrerPolicy="no-referrer" className="w-full h-full object-cover" loading="lazy" decoding="async" />
           : <div className="w-full h-full flex items-center justify-center text-gray-300"><IconBrandYoutube size={24} /></div>}
         <span className="absolute inset-0 flex items-center justify-center">
           <span className="w-10 h-10 rounded-full bg-black/60 group-hover:bg-red-600 transition flex items-center justify-center text-white"><IconBrandYoutube size={20} /></span>

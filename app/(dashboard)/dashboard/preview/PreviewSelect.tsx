@@ -68,7 +68,7 @@ export function PreviewSelect({ value, onChange, options, placeholder, disabled,
       // eslint-disable-next-line @next/next/no-img-element
       <img src={src} alt="" width={20} height={20}
         className="w-5 h-5 rounded-full object-cover flex-shrink-0 border border-gray-200"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
     ) : null;
   // With a placeholder + no selection, show the placeholder (muted); otherwise the
   // selected option (or the first, matching the original behaviour).

@@ -63,7 +63,7 @@ function Attachment({ m }: { m: Msg }) {
       <a href={src} target="_blank" rel="noreferrer" className="mt-0.5 block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={m.media.caption || "Photo they sent"} onError={() => setFailed(true)}
-          className="max-h-[260px] w-auto max-w-full rounded-lg border border-black/5" />
+          className="max-h-[260px] w-auto max-w-full rounded-lg border border-black/5" loading="lazy" decoding="async" />
       </a>
     );
   }

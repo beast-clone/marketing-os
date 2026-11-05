@@ -73,7 +73,7 @@ export function CollaboratorPicker({ value, onChange, ownAccounts }: {
             <span key={c.username} className="inline-flex items-center gap-1.5 bg-brand-light text-brand rounded-lg pl-1.5 pr-1 py-1 text-xs">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               {c.profilePictureUrl
-                ? <img src={c.profilePictureUrl} alt="" className="w-4 h-4 rounded-full object-cover" />
+                ? <img src={c.profilePictureUrl} alt="" className="w-4 h-4 rounded-full object-cover" loading="lazy" decoding="async" />
                 : <IconCheck size={13} stroke={2.4} />}
               <span className="font-medium">@{c.username}</span>
               <button type="button" onClick={() => remove(c.username)} aria-label={`Remove ${c.username}`}
@@ -136,7 +136,7 @@ export function CollaboratorPicker({ value, onChange, ownAccounts }: {
                 <button type="button" onClick={() => add(match)}
                   className="flex items-center gap-2.5 w-full text-left px-3 py-2 hover:bg-brand-light">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {match.profilePictureUrl && <img src={match.profilePictureUrl} alt="" className="w-7 h-7 rounded-full object-cover" />}
+                  {match.profilePictureUrl && <img src={match.profilePictureUrl} alt="" className="w-7 h-7 rounded-full object-cover" loading="lazy" decoding="async" />}
                   <span className="min-w-0">
                     <span className="block text-[12.5px] font-medium text-[#232D42]">@{match.username}</span>
                     <span className="block text-[11px] text-[#A6ACBE] truncate">{match.name || "Instagram account"}</span>

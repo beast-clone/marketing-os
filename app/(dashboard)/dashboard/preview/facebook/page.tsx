@@ -70,7 +70,7 @@ function Inner({ accountId, range }: { accountId: string; range: { from: string;
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           {data?.page.picture
-            ? <img src={data.page.picture} alt="" className="w-9 h-9 rounded-full border border-gray-200 bg-gray-100" />
+            ? <img src={data.page.picture} alt="" className="w-9 h-9 rounded-full border border-gray-200 bg-gray-100" loading="lazy" decoding="async" />
             : <div className="w-9 h-9 rounded-full bg-gray-100 border border-gray-200" />}
           <div>
             <div className="text-sm font-semibold text-[#232D42]">{data?.page.name ?? "Facebook Page"}</div>

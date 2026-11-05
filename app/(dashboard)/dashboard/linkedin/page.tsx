@@ -309,7 +309,7 @@ function PostMedia({ post, tall, interactive }: { post: Post; tall?: boolean; in
     return (
       <div className={frameCls} style={frameStyle}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={post.thumbnailUrl} alt="" onError={() => setImgOk(false)} className={`absolute inset-0 w-full h-full ${tall ? "object-contain" : "object-cover"}`} />
+        <img src={post.thumbnailUrl} alt="" onError={() => setImgOk(false)} className={`absolute inset-0 w-full h-full ${tall ? "object-contain" : "object-cover"}`} loading="lazy" decoding="async" />
         {post.type === "VIDEO" && (
           <span className="absolute inset-0 flex items-center justify-center">
             <span className="w-12 h-12 rounded-full bg-black/55 flex items-center justify-center">

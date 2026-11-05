@@ -69,7 +69,7 @@ export function Landing() {
       <header className="gcl-nav">
         <a href="#top" className="gcl-logo" aria-label="GooCampus">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/goocampus-logo.png" alt="GooCampus" height={34} />
+          <img src="/goocampus-logo.png" alt="GooCampus" height={34} loading="lazy" decoding="async" />
           <span>Marketing OS</span>
         </a>
         <nav>

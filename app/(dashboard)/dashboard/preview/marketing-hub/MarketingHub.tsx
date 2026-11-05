@@ -4098,7 +4098,7 @@ function CreativeViewer({ creatives, index, setIndex, onClose }: {
       <div className="max-w-[92vw] max-h-[88vh] flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
         {kind === "image" ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={c.url} alt={c.name} className="max-w-[92vw] max-h-[82vh] object-contain rounded-lg" />
+          <img src={c.url} alt={c.name} className="max-w-[92vw] max-h-[82vh] object-contain rounded-lg" loading="lazy" decoding="async" />
         ) : kind === "video" ? (
           <div className="relative"><SoundVideo src={c.url} open loop={false} className="max-w-[92vw] max-h-[82vh] rounded-lg bg-black" /></div>
         ) : kind === "pdf" ? (
@@ -4314,7 +4314,7 @@ function FileChange({ name, url, mime, removed }: { name: string; url?: string; 
     <span className={`inline-flex items-center gap-2 max-w-full rounded-lg border px-1.5 py-1 ${removed ? "border-red-200 bg-red-50/60" : "border-emerald-200 bg-emerald-50/60"}`}>
       {url && isImg(name, mime)
         // eslint-disable-next-line @next/next/no-img-element
-        ? <img src={smallThumb(url)} alt="" className={`w-10 h-10 rounded-md object-cover bg-white flex-shrink-0 ${removed ? "opacity-50 grayscale" : ""}`} />
+        ? <img src={smallThumb(url)} alt="" className={`w-10 h-10 rounded-md object-cover bg-white flex-shrink-0 ${removed ? "opacity-50 grayscale" : ""}`} loading="lazy" decoding="async" />
         : <span className={`w-10 h-10 rounded-md bg-white flex items-center justify-center flex-shrink-0 ${removed ? "text-red-400" : "text-emerald-600"}`}><IconFileText size={18} stroke={1.6} /></span>}
       <span className={`text-[12px] truncate ${removed ? "line-through text-red-500" : "text-emerald-700"}`}>{removed ? "− " : "+ "}{name}</span>
     </span>
@@ -4452,7 +4452,7 @@ export function TaskActivityFeed({ postId, detail, loading, reload, author, auth
               <span className={`relative block w-11 h-11 rounded-md overflow-hidden border-2 ${rm ? "border-red-300" : "border-emerald-300"} bg-white`}>
                 {fl?.storage_path && isImg(name, fl.mime_type || undefined)
                   // eslint-disable-next-line @next/next/no-img-element
-                  ? <img src={smallThumb(fl.storage_path)} alt="" className={`w-full h-full object-cover ${rm ? "opacity-40 grayscale" : ""}`} />
+                  ? <img src={smallThumb(fl.storage_path)} alt="" className={`w-full h-full object-cover ${rm ? "opacity-40 grayscale" : ""}`} loading="lazy" decoding="async" />
                   : <span className="w-full h-full flex items-center justify-center text-gray-400"><IconFileText size={16} /></span>}
                 <span className={`absolute bottom-0 right-0 text-[10px] leading-none font-semibold text-white px-1 py-0.5 rounded-tl ${rm ? "bg-red-500" : "bg-emerald-600"}`}>{rm ? "−" : "+"}</span>
               </span>

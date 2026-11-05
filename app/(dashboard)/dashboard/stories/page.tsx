@@ -179,7 +179,7 @@ function StoryCard({ s, gradientIdx, isLive }: { s: StoryWithStats; gradientIdx:
     <a href={s.permalink} target="_blank" rel="noopener noreferrer" className="group block">
       <div className={`aspect-[9/16] rounded-xl overflow-hidden ${s.mediaUrl ? "bg-gray-100" : `bg-gradient-to-br ${DEMO_GRADIENTS[gradientIdx % DEMO_GRADIENTS.length]}`} relative ring-1 ring-gray-200 group-hover:ring-2 group-hover:ring-brand transition`}>
         {s.mediaUrl ? (
-          <img src={s.mediaUrl} alt="" className="w-full h-full object-cover" />
+          <img src={s.mediaUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
         ) : (
           <div className="absolute inset-0 flex items-end p-3 text-white">
             <div className="text-xs font-medium leading-snug drop-shadow">{s.caption}</div>

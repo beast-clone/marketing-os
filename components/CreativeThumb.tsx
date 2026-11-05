@@ -42,7 +42,7 @@ export function CreativeThumb({
   const isVideo = /reel|video/i.test(type || "") || /\.(mp4|mov|webm)(\?|$)/i.test(assetLink || "");
   const radius = rounded ? "rounded-lg" : "";
 
-  // A video creative (a reel's mp4) can't go in an <img> — that is what showed the
+  // A video creative (a reel's mp4) can't go in an <img loading="lazy" decoding="async"> — that is what showed the
   // coloured fallback tile instead of the reel in Content Review (22 Oct). Show a
   // frame from the video itself, with a play mark so it reads as a video.
   if (thumbnailUrl && !broken && /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(thumbnailUrl)) {
@@ -64,8 +64,7 @@ export function CreativeThumb({
         src={thumbnailUrl}
         alt={title || "creative"}
         className={`w-full h-full ${fit === "contain" ? "object-contain" : "object-cover"} ${radius}`}
-        onError={() => setBroken(true)}
-      />
+        onError={() => setBroken(true)} loading="lazy" decoding="async" />
     );
   }
 

@@ -303,7 +303,7 @@ function PostCard({ post, isTop, insightsLoaded, onClick }: {
           the top and bottom off every portrait creative (28 Oct). */}
       <div className="relative bg-gray-100 aspect-[4/5] overflow-hidden">
         {post.mediaUrl ? (
-          <img src={post.mediaUrl} alt="" className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-200" />
+          <img src={post.mediaUrl} alt="" className="w-full h-full object-contain group-hover:scale-[1.02] transition-transform duration-200" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl">
             {TYPE_ICON[post.type] ?? "?"}
@@ -376,7 +376,7 @@ function TopPerformerCard({ label, post }: { label: string; post: ApiPost | null
       <div className="text-xs uppercase tracking-wide text-amber-700 font-semibold mb-3">{label}</div>
       <div className="flex gap-4">
         {post.mediaUrl ? (
-          <img src={post.mediaUrl} alt="" className="w-36 h-36 object-cover rounded-xl shrink-0" />
+          <img src={post.mediaUrl} alt="" className="w-36 h-36 object-cover rounded-xl shrink-0" loading="lazy" decoding="async" />
         ) : (
           <div className="w-36 h-36 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center text-2xl text-gray-300">{TYPE_LABEL[post.type]?.[0] ?? "?"}</div>
         )}

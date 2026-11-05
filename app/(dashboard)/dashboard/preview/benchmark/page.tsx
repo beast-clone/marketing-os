@@ -415,7 +415,7 @@ function BenchmarkInner({ accountId }: { accountId: string; range: { from: strin
                 className={`h-10 pl-1.5 pr-3 rounded-lg text-[13px] font-medium whitespace-nowrap transition inline-flex items-center gap-2 ${
                   profile === c.username ? "bg-brand text-white" : "text-[#4A5468] hover:bg-[#F6F7FB]"}`}>
                 {c.profile_picture_url
-                  ? <img src={c.profile_picture_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" />
+                  ? <img src={c.profile_picture_url} alt="" className="w-7 h-7 rounded-full object-cover flex-shrink-0" loading="lazy" decoding="async" />
                   : <span className="w-7 h-7 rounded-full bg-[#EEEDFE] text-[#3C3489] text-[11px] grid place-items-center flex-shrink-0">{c.username.slice(0, 1).toUpperCase()}</span>}
                 <span className="max-w-[160px] truncate" title={c.name || c.username}>{c.name || c.username}</span>
               </button>
@@ -463,7 +463,7 @@ function BenchmarkInner({ accountId }: { accountId: string; range: { from: strin
               >
                 <div className="relative w-[150px] h-[150px] rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={m.thumbnail_url || m.media_url} alt="" className="w-full h-full object-cover" />
+                  <img src={m.thumbnail_url || m.media_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                   {i === 0 && (
                     <span className="absolute top-2 left-2 bg-amber-500 text-white text-[10px] font-semibold px-2 h-5 grid place-items-center rounded-full shadow"><IconTrophy size={11} stroke={2} className="inline -mt-0.5 mr-0.5" />Top</span>
                   )}
@@ -651,7 +651,7 @@ function CompetitorProfile({ c, medianER, yt, onOpenPost, onRemove }: {
       <div className="bg-white border border-gray-100 rounded-2xl p-5">
         <div className="flex items-start gap-4 flex-wrap">
           {c.profile_picture_url
-            ? <img src={c.profile_picture_url} alt="" className="w-14 h-14 rounded-2xl object-cover flex-shrink-0" />
+            ? <img src={c.profile_picture_url} alt="" className="w-14 h-14 rounded-2xl object-cover flex-shrink-0" loading="lazy" decoding="async" />
             : <span className="w-14 h-14 rounded-2xl bg-[#EEEDFE] text-[#3C3489] text-lg grid place-items-center flex-shrink-0">{c.username.slice(0, 1).toUpperCase()}</span>}
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-2">
@@ -689,7 +689,7 @@ function CompetitorProfile({ c, medianER, yt, onOpenPost, onRemove }: {
               {c.recent.slice(0, 12).map((m) => (
                 <button key={m.id} onClick={() => onOpenPost(m)} className="relative block rounded-lg overflow-hidden border border-gray-100 hover:border-brand transition">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={m.thumbnail_url || m.media_url} alt="" className="w-full aspect-square object-cover" />
+                  <img src={m.thumbnail_url || m.media_url} alt="" className="w-full aspect-square object-cover" loading="lazy" decoding="async" />
                 </button>
               ))}
             </div>
@@ -750,7 +750,7 @@ function CompetitorCompare({ brands, ourHandle, accountId }: { brands: Competito
                 <td className="py-2.5 pr-3">
                   <div className="flex items-center gap-2 min-w-0">
                     {c.profile_picture_url
-                      ? <img src={c.profile_picture_url} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                      ? <img src={c.profile_picture_url} alt="" className="w-6 h-6 rounded-full object-cover flex-shrink-0" loading="lazy" decoding="async" />
                       : <span className="w-6 h-6 rounded-full bg-[#EEEDFE] text-[#3C3489] text-[10px] grid place-items-center flex-shrink-0">{c.username.slice(0, 1).toUpperCase()}</span>}
                     <span className="truncate text-[#232D42]">{searchName(c)}</span>
                     {isUs && <span className="text-[10.5px] rounded-full px-2 py-0.5 bg-brand text-white flex-shrink-0">us</span>}
@@ -989,7 +989,7 @@ function CompetitorYouTube({ channelId }: { channelId: string }) {
             {(data.videos || []).map((v) => (
               <a key={v.id} href={v.url} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden border border-gray-100 hover:border-brand transition">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={v.thumbnail} alt="" className="w-full aspect-video object-cover" />
+                <img src={v.thumbnail} alt="" className="w-full aspect-video object-cover" loading="lazy" decoding="async" />
                 <div className="p-2">
                   <div className="text-[12px] text-[#232D42] line-clamp-2 leading-snug">{v.title}</div>
                   <div className="text-[11px] text-[#8A92A6] mt-1">{fmt(v.views)} views</div>
@@ -1032,7 +1032,7 @@ function CompetitorCard({ c, medianER, onOpen, onRemove, periodDays, category }:
         <div className="flex items-start gap-3">
           {c.profile_picture_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.profile_picture_url} alt={c.username} className="w-12 h-12 rounded-full object-cover border border-gray-100" />
+            <img src={c.profile_picture_url} alt={c.username} className="w-12 h-12 rounded-full object-cover border border-gray-100" loading="lazy" decoding="async" />
           ) : (
             <div className="w-12 h-12 rounded-full bg-gray-100" />
           )}
@@ -1087,7 +1087,7 @@ function CompetitorCard({ c, medianER, onOpen, onRemove, periodDays, category }:
                   <div className="w-10 h-10 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                     {m.thumbnail_url || m.media_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.thumbnail_url || m.media_url} alt="" className="w-full h-full object-cover" />
+                      <img src={m.thumbnail_url || m.media_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -1138,7 +1138,7 @@ function CompetitorDetail({ c, medianER, onBack }: { c: Competitor; medianER: nu
         <div className="flex items-start gap-4">
           {c.profile_picture_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.profile_picture_url} alt={c.username} className="w-16 h-16 rounded-full object-cover border border-gray-100" />
+            <img src={c.profile_picture_url} alt={c.username} className="w-16 h-16 rounded-full object-cover border border-gray-100" loading="lazy" decoding="async" />
           ) : <div className="w-16 h-16 rounded-full bg-gray-100" />}
           <div className="min-w-0 flex-1">
             <div className="font-mono text-base text-[#232D42]">@{c.username}</div>
@@ -1172,7 +1172,7 @@ function CompetitorDetail({ c, medianER, onBack }: { c: Competitor; medianER: nu
                   <div className="relative aspect-[4/5] bg-gray-100">
                     {m.thumbnail_url || m.media_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.thumbnail_url || m.media_url} alt="" className="w-full h-full object-contain" />
+                      <img src={m.thumbnail_url || m.media_url} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
                     ) : null}
                     <span className={`absolute top-2 left-2 rounded-full text-white text-[11px] font-semibold grid place-items-center shadow ${i === 0 ? "px-2 h-6 bg-amber-500" : "w-6 h-6 bg-brand"}`}>{i === 0 ? <><IconTrophy size={11} stroke={2} className="inline -mt-0.5 mr-0.5" />Top</> : i + 1}</span>
                     <span className={`absolute top-2 right-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${chip.cls}`}>{chip.label}</span>
@@ -1225,7 +1225,7 @@ function PostModal({ m, c, onClose }: { m: CompetitorMedia; c: Competitor; onClo
             <SoundVideo src={cur.media_url} poster={cur.thumbnail_url} open loop={false} className="block w-full md:w-auto h-auto max-h-[45vh] md:max-h-[85vh] md:max-w-[min(58vw,620px)]" />
           ) : (cur.thumbnail_url || cur.media_url) ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={cur.thumbnail_url || cur.media_url} alt="" className="block w-full md:w-auto h-auto max-h-[45vh] md:max-h-[85vh] md:max-w-[min(58vw,620px)]" />
+            <img src={cur.thumbnail_url || cur.media_url} alt="" className="block w-full md:w-auto h-auto max-h-[45vh] md:max-h-[85vh] md:max-w-[min(58vw,620px)]" loading="lazy" decoding="async" />
           ) : null}
           <span className={`absolute top-3 left-3 text-[11px] font-semibold px-2.5 py-1 rounded-full ${chip.cls}`}>{chip.label}{slides.length > 1 ? ` · ${slide + 1}/${slides.length}` : ""}</span>
           {slides.length > 1 && (
@@ -1243,7 +1243,7 @@ function PostModal({ m, c, onClose }: { m: CompetitorMedia; c: Competitor; onClo
             <div className="flex items-center gap-2 min-w-0">
               {c.profile_picture_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={c.profile_picture_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                <img src={c.profile_picture_url} alt="" className="w-8 h-8 rounded-full object-cover flex-shrink-0" loading="lazy" decoding="async" />
               ) : <div className="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0" />}
               <div className="font-mono text-sm truncate">@{c.username}</div>
             </div>

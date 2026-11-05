@@ -40,7 +40,7 @@ export default function BrandsPage() {
 function Logo({ b, size }: { b: Brand; size: number }) {
   return (
     <span className="rounded-full shrink-0 grid place-items-center overflow-hidden bg-brand-light text-brand font-medium" style={{ width: size, height: size, fontSize: Math.round(size / 2.8) }}>
-      {b.logo ? <img src={b.logo} alt="" className="w-full h-full object-cover" /> : initials(b.name)}
+      {b.logo ? <img src={b.logo} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" /> : initials(b.name)}
     </span>
   );
 }

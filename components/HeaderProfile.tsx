@@ -42,7 +42,7 @@ export function HeaderProfile() {
         style={{ display: "flex", alignItems: "center", gap: 10, background: "none", border: "none", cursor: "pointer", padding: 0 }}
       >
         {me?.photoUrl
-          ? <img src={me.photoUrl} alt="" style={{ width: 38, height: 38, borderRadius: 999, objectFit: "cover" }} />
+          ? <img src={me.photoUrl} alt="" style={{ width: 38, height: 38, borderRadius: 999, objectFit: "cover" }} loading="lazy" decoding="async" />
           : <span style={{ width: 38, height: 38, borderRadius: 999, background: "linear-gradient(135deg,#3A57E8,#079AA2)", display: "grid", placeItems: "center", color: "#fff", fontWeight: 600, fontSize: 14 }}>{initials}</span>}
         <div style={{ lineHeight: 1.2, textAlign: "left" }}>
           <div style={{ fontSize: 14, fontWeight: 600, color: "#232D42" }}>{name}</div>

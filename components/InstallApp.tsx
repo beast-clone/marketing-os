@@ -35,7 +35,7 @@ export function InstallApp() {
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <button className="hinstall-x" onClick={notNow} aria-label="Not now" title="Not now"><IconX size={13} /></button>
       <div className="hinstall-row">
-        <img src="/app-icon-192.png" alt="" />
+        <img src="/app-icon-192.png" alt="" loading="lazy" decoding="async" />
         <div>
           <b>Install Marketing OS</b>
           <span>Open it like an app — from your Dock or Start menu.</span>

@@ -199,7 +199,7 @@ function CompetitorCard({ c, medianER }: { c: Competitor; medianER: number }) {
         <div className="flex items-start gap-3">
           {c.profile_picture_url ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={c.profile_picture_url} alt={c.username} className="w-12 h-12 rounded-full object-cover border border-gray-100" />
+            <img src={c.profile_picture_url} alt={c.username} className="w-12 h-12 rounded-full object-cover border border-gray-100" loading="lazy" decoding="async" />
           ) : (
             <div className="w-12 h-12 rounded-full bg-gray-100" />
           )}
@@ -243,7 +243,7 @@ function CompetitorCard({ c, medianER }: { c: Competitor; medianER: number }) {
               <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer" className="relative block aspect-square rounded-lg overflow-hidden bg-gray-100 group">
                 {m.thumbnail_url || m.media_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={m.thumbnail_url || m.media_url} alt="" className="w-full h-full object-cover" />
+                  <img src={m.thumbnail_url || m.media_url} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                 ) : null}
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent text-white text-[10px] px-1.5 py-1 flex justify-between">
                   <span>♥ {fmt(m.like_count)}</span>

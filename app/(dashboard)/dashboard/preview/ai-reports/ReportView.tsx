@@ -276,7 +276,7 @@ export function ReportView({ report, regenerating, storageKey, onSaved }: {
               >
                 <div className="text-[22px] font-semibold tabular-nums text-gray-300 text-center">{p.rank}</div>
                 <div className="aspect-[4/5] rounded-md bg-gray-100 overflow-hidden">
-                  {p.mediaUrl ? <img src={p.mediaUrl} alt="" className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">▢</div>}
+                  {p.mediaUrl ? <img src={p.mediaUrl} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" /> : <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">▢</div>}
                 </div>
                 <div className="min-w-0">
                   <div className="text-xs uppercase tracking-widest text-gray-500 font-semibold">
@@ -524,7 +524,7 @@ export function ReportView({ report, regenerating, storageKey, onSaved }: {
                         <div className="flex items-center gap-3">
                           <div className={`w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 border ${isTop ? "border-emerald-300" : "border-gray-100"}`}>
                             {p.mediaUrl
-                              ? <img src={p.mediaUrl} alt="" className="w-full h-full object-cover" />
+                              ? <img src={p.mediaUrl} alt="" className="w-full h-full object-cover" loading="lazy" decoding="async" />
                               : <div className="w-full h-full flex items-center justify-center text-gray-300">▢</div>}
                           </div>
                           <div className="min-w-0">

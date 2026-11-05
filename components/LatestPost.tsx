@@ -27,7 +27,7 @@ export function LatestPost({ post }: { post: Post | null }) {
       </div>
       <div className="flex gap-4">
         {post.mediaUrl && (
-          <img src={post.mediaUrl} alt="" className="w-32 h-32 object-cover rounded-xl" />
+          <img src={post.mediaUrl} alt="" className="w-32 h-32 object-cover rounded-xl" loading="lazy" decoding="async" />
         )}
         <div className="flex-1 min-w-0">
           <p className="text-sm line-clamp-3 text-gray-700">{post.caption || "—"}</p>

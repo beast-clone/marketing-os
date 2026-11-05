@@ -248,7 +248,7 @@ function ReelCard({ reel, isTop, insightsLoaded, onClick }: {
       {/* Vertical thumbnail — 9:16 aspect (reel format) */}
       <div className="relative bg-black aspect-[9/16] overflow-hidden">
         {reel.mediaUrl ? (
-          <img src={reel.mediaUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" />
+          <img src={reel.mediaUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400 text-4xl">🎬</div>
         )}
@@ -318,7 +318,7 @@ function TopReelCard({ label, reel }: { label: string; reel: ApiPost | null }) {
       </div>
       <div className="flex gap-3">
         {reel.mediaUrl ? (
-          <img src={reel.mediaUrl} alt="" className="w-14 h-20 object-cover rounded-lg shrink-0" />
+          <img src={reel.mediaUrl} alt="" className="w-14 h-20 object-cover rounded-lg shrink-0" loading="lazy" decoding="async" />
         ) : (
           <div className="w-14 h-20 rounded-lg bg-gray-100 shrink-0 flex items-center justify-center text-2xl">🎬</div>
         )}
@@ -369,7 +369,7 @@ function ReelDetailModal({ reel, insightsLoaded, onClose }: {
         {/* LEFT — vertical thumbnail */}
         <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[400px] py-4">
           {reel.mediaUrl ? (
-            <img src={reel.mediaUrl} alt="" className="max-w-full max-h-[80vh] object-contain" />
+            <img src={reel.mediaUrl} alt="" className="max-w-full max-h-[80vh] object-contain" loading="lazy" decoding="async" />
           ) : (
             <div className="text-white text-6xl">🎬</div>
           )}

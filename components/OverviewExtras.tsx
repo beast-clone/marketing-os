@@ -729,7 +729,7 @@ function RepostOpportunitiesCard({ loading, posts }: { loading: boolean; posts: 
                   onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(p); } }}
                   className="aspect-[4/5] bg-gray-100 relative cursor-pointer group">
                   {p.mediaUrl ? (
-                    <img src={p.mediaUrl} alt="" className="w-full h-full object-contain" />
+                    <img src={p.mediaUrl} alt="" className="w-full h-full object-contain" loading="lazy" decoding="async" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-2xl text-gray-300">▢</div>
                   )}

@@ -297,7 +297,7 @@ function PostCard({ post, isTop, insightsLoaded, onClick }: {
       {/* Thumbnail — 1:1 square */}
       <div className="relative bg-gray-100 aspect-square overflow-hidden">
         {post.mediaUrl ? (
-          <img src={post.mediaUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" />
+          <img src={post.mediaUrl} alt="" className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-200" loading="lazy" decoding="async" />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-gray-400 text-3xl">
             {TYPE_ICON[post.type] ?? "?"}
@@ -374,7 +374,7 @@ function PostDetailModal({ post, insightsLoaded, onClose }: {
         {/* LEFT — thumbnail */}
         <div className="md:w-1/2 bg-black flex items-center justify-center min-h-[300px]">
           {post.mediaUrl ? (
-            <img src={post.mediaUrl} alt="" className="max-w-full max-h-[80vh] object-contain" />
+            <img src={post.mediaUrl} alt="" className="max-w-full max-h-[80vh] object-contain" loading="lazy" decoding="async" />
           ) : (
             <div className="text-white text-6xl">{TYPE_ICON[post.type] ?? "?"}</div>
           )}
@@ -454,7 +454,7 @@ function TopPerformerCard({ label, post }: { label: string; post: ApiPost | null
       <div className="text-xs uppercase tracking-wide text-amber-700 font-semibold mb-3">{label}</div>
       <div className="flex gap-4">
         {post.mediaUrl ? (
-          <img src={post.mediaUrl} alt="" className="w-36 h-36 object-cover rounded-xl shrink-0" />
+          <img src={post.mediaUrl} alt="" className="w-36 h-36 object-cover rounded-xl shrink-0" loading="lazy" decoding="async" />
         ) : (
           <div className="w-36 h-36 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center text-2xl text-gray-300">{TYPE_LABEL[post.type]?.[0] ?? "?"}</div>
         )}

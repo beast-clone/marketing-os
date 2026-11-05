@@ -465,7 +465,7 @@ function MessageDetail({ m, onClose, onCancel, onSendAgain, onDelete, fromLabel 
           {m.image_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={m.image_url} alt="" className="w-full rounded-lg mb-1.5 block"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} loading="lazy" decoding="async" />
           )}
           {poll ? (
             <div className="text-[13px]" style={{ color: "var(--wa-ink)" }}>
