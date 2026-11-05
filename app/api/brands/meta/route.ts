@@ -5,7 +5,7 @@ import { safeError } from "@/lib/errors";
 import { getSupabase } from "@/lib/supabase";
 import { getIntegrationToken, saveIntegrationToken } from "@/lib/integration-tokens";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
-import { META_PAGE_PREFIX, warmBrandAccounts, readRegistry, type PageNote } from "@/lib/brand-accounts";
+import { META_PAGE_PREFIX, warmBrandAccounts, readRegistry, forgetAvatars, type PageNote } from "@/lib/brand-accounts";
 import { ACCOUNTS } from "@/lib/accounts";
 import { getConfiguredAccounts } from "@/lib/instagram";
 
@@ -81,6 +81,7 @@ export async function POST(req: Request) {
     const note: PageNote = { igUserId: ig.id, igUsername: ig.username, pageId: page.id, pageName: page.name };
     await saveIntegrationToken(`${META_PAGE_PREFIX}${b.brand}`, page.access_token, { note: JSON.stringify(note) });
     await warmBrandAccounts(true);
+    await forgetAvatars();
     // Make the picker's logo cache refetch, so the new brand's Instagram picture shows up.
     await getSupabase()?.from("discover_cache").update({ last_fetched: new Date(0).toISOString() }).eq("cache_key", "account_avatars_v1");
     return NextResponse.json({ ok: true, instagram: `@${ig.username}`, facebook: page.name });
@@ -99,6 +100,7 @@ export async function DELETE(req: Request) {
     const { data } = await sb.from("mh_integration_tokens").delete().eq("provider", `${META_PAGE_PREFIX}${b.brand}`).select("provider");
     if (!data?.length) return NextResponse.json({ error: "This brand's Instagram/Facebook comes from the dashboard settings, not this page — it can't be disconnected here." }, { status: 400 });
     await warmBrandAccounts(true);
+    await forgetAvatars();
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json(safeError(err, "Could not disconnect"), { status: 400 });

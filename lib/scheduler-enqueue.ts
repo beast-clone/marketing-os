@@ -2,6 +2,7 @@ import { getSupabase } from "@/lib/supabase";
 import { freshPublishState, NOT_PUBLISHING } from "@/lib/scheduler-lock";
 import { logQueueAction, istTime } from "@/lib/publish-history";
 import { trashTasks } from "@/lib/task-trash";
+import { loadPublishPages } from "@/lib/publish-pages-server";
 
 // Putting a post into the publish queue (mh_posts) — shared by the Scheduler page
 // (/api/scheduler/enqueue) and the Claude connector's schedule_post, so both follow
@@ -171,6 +172,14 @@ export async function enqueuePost(sb: Sb, b: EnqueueBody, actor: string): Promis
     // A carousel of video slides only goes to Instagram, so with one too big nothing can take it.
     if (vids.length > 1 && !pics.length) return { error: "A video slide is over 300 MB — Instagram doesn't take that from here, and Facebook doesn't take carousels with video slides.", status: 400 };
     channels = ["facebook"];
+  }
+  // A brand connected with "Connect Instagram only" has no Facebook page (5 Nov):
+  // its posts go to Instagram only, whatever the screen sent.
+  const pageList = await loadPublishPages();
+  if (pages.some((v) => pageList.find((p) => p.value === v)?.instagramOnly)) {
+    if (channels.length === 1 && channels[0] === "facebook") return { error: "This brand is connected with Instagram only, and the video is over 300 MB — Instagram doesn't take that from here.", status: 400 };
+    channels = ["instagram"];
+    mediaFb = null;
   }
   const fbCaption = (b.captionFb || "").trim();
   const customPatch = {

@@ -11,7 +11,7 @@
 //   INSTAGRAM_APP_ID, INSTAGRAM_APP_SECRET, and this redirect URL added there:
 //   <site>/api/auth/instagram/callback
 import { saveIntegrationToken } from "@/lib/integration-tokens";
-import { META_PAGE_PREFIX, warmBrandAccounts, type PageNote } from "@/lib/brand-accounts";
+import { META_PAGE_PREFIX, warmBrandAccounts, forgetAvatars, type PageNote } from "@/lib/brand-accounts";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 import { publicOrigin } from "@/lib/public-origin";
 
@@ -64,6 +64,7 @@ export async function saveInstagramLogin(code: string, redirectUri: string, bran
   const expiresAt = long.expires_in ? new Date(Date.now() + Number(long.expires_in) * 1000).toISOString() : null;
   await saveIntegrationToken(`${META_PAGE_PREFIX}${brandId}`, token, { expiresAt, note: JSON.stringify(note) });
   await warmBrandAccounts(true);
+  await forgetAvatars();
   return `@${username}`;
 }
 

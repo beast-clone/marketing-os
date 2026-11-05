@@ -214,7 +214,9 @@ function Scheduler() {
     const meta = mediaUrls.map((u) => u.trim()).filter((u) => u && !isPdfUrl(u));
     return meta.length > 1 && meta.some(isVideoUrl) && meta.every(isVideoUrl);
   }, [mediaUrls]);
-  const toFacebook = fbPref && !videoCarousel;
+  // A brand connected with "Connect Instagram only" has no Facebook page (5 Nov).
+  const igOnlyPage = composePages.map((v) => pageInfo(v)).find((p) => p.instagramOnly) || null;
+  const toFacebook = fbPref && !videoCarousel && !igOnlyPage;
   // A second caption for Facebook. Off by default: one caption is the common case,
   // and two boxes to fill is a tax on every post that doesn't need it.
   // The brand/business unit this post is for. Required on every Marketing Hub row,
@@ -944,7 +946,7 @@ function Scheduler() {
   const channelTicks = (
     <div>
       <div className="flex items-center gap-4 flex-wrap">
-        {([["Instagram", toInstagram, setToInstagram, tooBigForIg.length > 0], ["Facebook", toFacebook, setToFacebook, videoCarousel]] as const).map(([label, on, set, off]) => (
+        {([["Instagram", toInstagram, setToInstagram, tooBigForIg.length > 0], ["Facebook", toFacebook, setToFacebook, videoCarousel || !!igOnlyPage]] as const).map(([label, on, set, off]) => (
           <label key={label} className={`flex items-center gap-2 ${off ? "cursor-not-allowed" : "cursor-pointer"}`}>
             <input type="checkbox" checked={on} disabled={off} onChange={(e) => set(e.target.checked)} className="w-4 h-4 accent-[#3A57E8] disabled:opacity-40" />
             <span className={`text-sm ${off ? "text-gray-400" : "text-gray-800"}`}>{label}</span>
@@ -962,6 +964,9 @@ function Scheduler() {
       </div>
       {videoCarousel && (
         <div className="text-xs text-[#F16A1B] mt-1">Facebook doesn&apos;t take carousels with video slides, so this goes to Instagram only.</div>
+      )}
+      {igOnlyPage && (
+        <div className="text-xs text-[#8A92A6] mt-1">{igOnlyPage.label} is connected with Instagram only — it has no Facebook page, so this goes to Instagram only.</div>
       )}
       {tooBigForIg.length > 0 && (
         <div className="text-xs text-[#F16A1B] mt-1">Over 300 MB ({tooBigForIg.map((t) => fmtSize(t.size)).join(", ")}) — Instagram doesn&apos;t take videos that big from outside its app, so this goes to Facebook only.</div>

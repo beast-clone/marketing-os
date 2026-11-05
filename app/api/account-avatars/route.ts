@@ -31,9 +31,10 @@ async function uploadedLogos(db: ReturnType<typeof getSupabase>): Promise<Avatar
 // them after the built-in brands. An added brand with nothing connected stays off the picker:
 // every tab would be empty for it.
 async function addedBrands() {
-  const live = new Map(getConfiguredAccounts().map((a) => [a.id, a.handle]));
+  // A brand connected with "Connect Instagram only" has no Facebook page (5 Nov).
+  const live = new Map(getConfiguredAccounts().map((a) => [a.id, a]));
   return (await readRegistry()).added.filter((b) => live.has(b.id))
-    .map((b) => ({ ...b, handle: live.get(b.id) || b.handle, platforms: ["instagram", "facebook"] }));
+    .map((b) => ({ ...b, handle: live.get(b.id)?.handle || b.handle, platforms: live.get(b.id)?.pageId ? ["instagram", "facebook"] : ["instagram"] }));
 }
 
 async function toDataUri(url: string): Promise<string | null> {

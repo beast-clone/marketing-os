@@ -35,6 +35,15 @@ export async function warmBrandAccounts(force = false): Promise<void> {
   } catch { /* database unreachable — keep the last list */ }
 }
 
+/** Connecting or disconnecting a brand drops the day-cached profile pictures
+ *  (/api/account-avatars), so the brand's Instagram picture shows on the next page
+ *  load instead of up to a day later (5 Nov). Never throws. */
+export async function forgetAvatars(): Promise<void> {
+  const sb = getSupabase();
+  if (!sb) return;
+  try { await sb.from("discover_cache").delete().eq("cache_key", "account_avatars_v1"); } catch { /* next day's refresh still comes */ }
+}
+
 // ── the brand list ───────────────────────────────────────────────────────────
 export type AddedBrand = { id: string; label: string; handle: string };
 export type Registry = { added: AddedBrand[]; hidden: string[] };

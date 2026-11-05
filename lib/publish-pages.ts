@@ -9,6 +9,8 @@
 export type PublishPage = {
   value: string; label: string; handle: string; subtitle: string;
   accountId: string; color: string; linkedIn: "goocampus" | "world" | null; linked?: boolean;
+  /** Connected with "Connect Instagram only" (lib/instagram-login.ts): no Facebook page. */
+  instagramOnly?: boolean;
 };
 
 export const CORE_PAGES: PublishPage[] = [
@@ -25,11 +27,14 @@ export function setLinkedPages(linked: PublishPage[]) {
   PUBLISH_PAGES.push(...linked.filter((p) => !CORE_PAGES.some((c) => c.value === p.value)));
 }
 
-/** A linked brand as a page — from what the Brands page saved when it was linked. */
-export function linkedPage(accountId: string, pageName: string, igUsername: string, label?: string): PublishPage {
+/** A linked brand as a page — from what the Brands page saved when it was linked.
+ *  An Instagram-only brand's value is its @handle, which is also how the n8n publisher
+ *  finds it (it has no Facebook page to be named by). */
+export function linkedPage(accountId: string, pageName: string, igUsername: string, label?: string, instagramOnly = false): PublishPage {
   return {
-    value: pageName, label: label || pageName, handle: `@${igUsername}`, subtitle: `@${igUsername} + ${pageName} page`,
-    accountId, color: "#8B5CF6", linkedIn: null, linked: true,
+    value: pageName, label: label || pageName, handle: `@${igUsername}`,
+    subtitle: instagramOnly ? `@${igUsername} · Instagram only` : `@${igUsername} + ${pageName} page`,
+    accountId, color: "#8B5CF6", linkedIn: null, linked: true, ...(instagramOnly ? { instagramOnly: true } : {}),
   };
 }
 
