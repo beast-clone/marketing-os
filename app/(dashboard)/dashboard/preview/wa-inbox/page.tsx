@@ -27,6 +27,7 @@ type Msg = { id: string; direction: "in" | "out"; kind: string; body: string | n
 type Meta = { contact: string; display_name: string | null; assigned_to: string | null; labels: string[]; note: string | null; status: "open" | "closed" | "spam" };
 type Lead = { name: string; phone: string | null; email: string | null; counsellor: string | null; source: string | null; leadStatus: string | null; url: string };
 type Member = { id: string; name: string };
+type QuickReply = { id: string; text: string; created_by: string | null };
 
 const fmtNum = (d: string) => (d.startsWith("91") && d.length === 12 ? `+91 ${d.slice(2, 7)} ${d.slice(7)}` : `+${d}`);
 const initials = (c: Conv) => (c.name || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "#";
@@ -245,6 +246,7 @@ function Inbox() {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const [sendErr, setSendErr] = useState("");
+  const [quick, setQuick] = useState<QuickReply[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
 
   const loadList = useCallback(async () => {
@@ -268,7 +270,13 @@ function Inbox() {
     setLeadLoading(false);
   }, []);
 
-  useEffect(() => { loadList(); const t = setInterval(loadList, 15000); return () => clearInterval(t); }, [loadList]);
+  const loadQuick = useCallback(async () => {
+    const r = await fetch("/api/wa-inbox/quick-replies", { cache: "no-store" });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) setQuick(j.replies || []);
+  }, []);
+
+  useEffect(() => { loadList(); loadQuick(); const t = setInterval(loadList, 15000); return () => clearInterval(t); }, [loadList, loadQuick]);
   useEffect(() => {
     if (!sel) return;
     setMsgs(null); setSendErr(""); loadThread(sel).then(loadList); loadContact(sel);
@@ -313,6 +321,22 @@ function Inbox() {
   }, [convs, q, filter, labelFilter, showDone, me]);
   const cur = convs?.find((c) => c.contact === sel) || null;
   const nameOf = (id: string | null) => team.find((m) => m.id === id)?.name || id;
+
+  /** Keep the reply you just typed, so the next person doesn't retype it. */
+  async function saveQuick() {
+    const text = draft.trim();
+    if (!text) return;
+    const r = await fetch("/api/wa-inbox/quick-replies", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) setQuick((q) => (q.some((x) => x.id === j.reply.id) ? q : [j.reply, ...q]));
+    else setSendErr(j.error || "Couldn't save that reply");
+  }
+  async function removeQuick(id: string) {
+    setQuick((q) => q.filter((x) => x.id !== id));
+    await fetch(`/api/wa-inbox/quick-replies?id=${id}`, { method: "DELETE" });
+  }
 
   async function send() {
     if (!sel || !draft.trim() || sending) return;
@@ -460,6 +484,27 @@ function Inbox() {
 
           <footer className="border-t border-gray-100 bg-white px-4 py-3">
             {sendErr && <div className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{sendErr}</div>}
+            {cur.open && (quick.length > 0 || draft.trim()) && (
+              <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                {quick.map((r) => (
+                  <span key={r.id} className="group inline-flex max-w-[260px] items-center gap-1 rounded-full bg-[#F6F7FB] py-1 pl-2.5 pr-1 text-[11px] text-[#232D42]">
+                    <button type="button" onClick={() => setDraft(r.text)} title={r.text} className="truncate">
+                      {r.text.split("\n")[0]}
+                    </button>
+                    <button type="button" onClick={() => removeQuick(r.id)} aria-label="Remove this quick reply"
+                      className="shrink-0 text-[#8A92A6] opacity-0 transition-opacity group-hover:opacity-100 hover:text-red-600">
+                      <IconX size={11} />
+                    </button>
+                  </span>
+                ))}
+                {draft.trim() && !quick.some((r) => r.text === draft.trim()) && (
+                  <button type="button" onClick={saveQuick}
+                    className="inline-flex items-center gap-1 rounded-full border border-dashed border-gray-200 px-2.5 py-1 text-[11px] font-medium text-[#8A92A6] hover:border-brand hover:text-brand">
+                    <IconPlus size={11} />Save this reply
+                  </button>
+                )}
+              </div>
+            )}
             {cur.open ? (
               <div className="flex items-end gap-2">
                 <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} maxLength={4096}

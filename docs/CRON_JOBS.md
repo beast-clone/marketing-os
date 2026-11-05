@@ -224,3 +224,26 @@ The admin doesn't approve date changes any more (approval switched off for every
 it and why. Anything still waiting for approval (if someone's switch is ever turned back
 on) is listed too. Quiet day → no email. Copy the Daily Comment Digest workflow (same
 `x-cron-secret` header).
+
+
+## WhatsApp — unanswered replies — added 5 November 2026, NOT YET SCHEDULED
+
+| Workflow | ID | Schedule |
+| --- | --- | --- |
+| *(to create)* GC Dashboard — WhatsApp unread | — | every 15 min, 9:00–21:00 IST → `/api/cron/wa-unread` (header `x-cron-secret`, credential: GC Dashboard Cron) |
+
+Posts one Slack message when a WhatsApp reply has gone unanswered for more than
+10 minutes. Worth interrupting someone over, because a free reply is only allowed
+for 24 hours after the person writes — one left overnight costs an approved
+template to reopen the conversation.
+
+Says it once per chat, not every quarter of an hour: `wa_contacts.alerted_at`
+records the last message announced, so a chat that sits unread all afternoon is
+mentioned once, while a *new* message in that same chat is announced again.
+Nothing waiting, or nothing new → no Slack message, so a quiet day is silent.
+
+Office hours only on purpose. Outside them nobody is going to answer, and the
+nudge would just train people to ignore it.
+
+Needs `SLACK_WEBHOOK_URL` (already set on Netlify, not locally — the endpoint
+still runs and still marks chats as announced without it, it just posts nothing).
