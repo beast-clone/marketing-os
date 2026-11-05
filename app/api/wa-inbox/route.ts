@@ -80,6 +80,7 @@ export async function GET(req: Request) {
         assignedTo: meta.assigned_to,
         labels: meta.labels,
         chatStatus: meta.status,
+        blocked: meta.blocked,
         hasNote: !!meta.note,
       };
     });

@@ -7,7 +7,7 @@ import {
   IconBrandWhatsapp, IconSearch, IconSend, IconCheck, IconChecks, IconAlertTriangle, IconClock, IconMessageCircle,
   IconInfoCircle, IconTemplate, IconUserCheck, IconShieldCheck, IconCoinRupee, IconGauge,
   IconUser, IconTag, IconNote, IconPlus, IconX, IconExternalLink, IconChevronDown, IconArchive, IconBan, IconInbox,
-  IconPaperclip,
+  IconPaperclip, IconTrash, IconLockOpen,
 } from "@tabler/icons-react";
 
 // WhatsApp Inbox — the official number +91 74116 54951 (the one the eBook and lead
@@ -22,14 +22,14 @@ import {
 type Conv = {
   contact: string; name: string | null; last: string; lastAt: string; lastDir: string;
   unread: number; lastInAt: string | null; open: boolean;
-  assignedTo: string | null; labels: string[]; chatStatus: "open" | "closed" | "spam"; hasNote: boolean;
+  assignedTo: string | null; labels: string[]; chatStatus: "open" | "closed" | "spam"; blocked: boolean; hasNote: boolean;
 };
 type Msg = {
   id: string; direction: "in" | "out"; kind: string; body: string | null; status: string | null;
   error: string | null; sent_by: string | null; created_at: string;
   media?: { mime: string; filename: string | null; caption: string | null };
 };
-type Meta = { contact: string; display_name: string | null; assigned_to: string | null; labels: string[]; note: string | null; status: "open" | "closed" | "spam" };
+type Meta = { contact: string; display_name: string | null; assigned_to: string | null; labels: string[]; note: string | null; status: "open" | "closed" | "spam"; blocked: boolean };
 type Lead = { name: string; phone: string | null; email: string | null; counsellor: string | null; source: string | null; leadStatus: string | null; url: string };
 type Member = { id: string; name: string };
 type QuickReply = { id: string; text: string; created_by: string | null };
@@ -217,9 +217,10 @@ function SectionTitle({ icon: Icon, children }: { icon: typeof IconUser; childre
  * The rules used to fill this panel on their own. They matter most the first few
  * times, so they stay — folded away, below the things that change per chat.
  */
-function ContactPanel({ cur, meta, lead, leadLoading, team, save, saving }: {
+function ContactPanel({ cur, meta, lead, leadLoading, team, save, saving, onBlock, onDelete }: {
   cur: Conv | null; meta: Meta | null; lead: Lead | null; leadLoading: boolean;
   team: Member[]; save: (patch: Partial<Meta>) => void; saving: boolean;
+  onBlock: (blocked: boolean) => void; onDelete: () => void;
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
@@ -336,6 +337,32 @@ function ContactPanel({ cur, meta, lead, leadLoading, team, save, saving }: {
           )}
         </div>
       </>)}
+
+      {cur && meta && (
+        <div className="border-t border-gray-100 pt-3">
+          <SectionTitle icon={IconBan}>This person</SectionTitle>
+          {meta.blocked && (
+            <p className="mb-2 rounded-lg bg-red-50 px-2.5 py-2 text-[11px] leading-relaxed text-red-700">
+              Blocked. Their messages do not reach +91 74116 54951 at all, and they are not told.
+            </p>
+          )}
+          <div className="flex gap-1.5">
+            <button type="button" onClick={() => onBlock(!meta.blocked)}
+              className={"flex-1 inline-flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-xs font-medium " +
+                (meta.blocked ? "border-gray-100 text-[#232D42] hover:bg-[#F6F7FB]" : "border-gray-100 text-[#8A92A6] hover:border-red-200 hover:text-red-600")}>
+              {meta.blocked ? <><IconLockOpen size={13} />Unblock</> : <><IconBan size={13} />Block</>}
+            </button>
+            <button type="button" onClick={onDelete}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-gray-100 px-2 py-1.5 text-xs font-medium text-[#8A92A6] hover:border-red-200 hover:text-red-600">
+              <IconTrash size={13} />Delete chat
+            </button>
+          </div>
+          <p className="mt-1.5 text-[10.5px] leading-relaxed text-[#8A92A6]">
+            Blocking stops them writing. Deleting only removes our copy — they keep theirs, and a new
+            chat appears if they write again.
+          </p>
+        </div>
+      )}
 
       {/* The rules — folded, because they're the same every time */}
       <div className="mt-auto border-t border-gray-100 pt-3">
@@ -472,6 +499,29 @@ function Inbox() {
   }, [convs, q, filter, labelFilter, showDone, showNoReply, me]);
   const cur = convs?.find((c) => c.contact === sel) || null;
   const nameOf = (id: string | null) => team.find((m) => m.id === id)?.name || id;
+
+  /** Stop them reaching the number, or let them back in. */
+  const block = useCallback(async (blocked: boolean) => {
+    if (!sel) return;
+    if (blocked && !confirm("Block this number?\n\nTheir messages will stop reaching +91 74116 54951. They are not told, and you can unblock later.")) return;
+    const r = await fetch("/api/wa-inbox/block", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contact: sel, blocked }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { setMeta((m) => (m ? { ...m, blocked: j.blocked } : m)); loadList(); }
+    else setErr(j.error || "Couldn’t change the block");
+  }, [sel, loadList]);
+
+  /** Remove our copy of the chat. Theirs is untouched — the warning says so. */
+  const del = useCallback(async () => {
+    if (!sel) return;
+    if (!confirm("Delete this chat?\n\nEvery message in it is removed from the dashboard, with the labels and notes. There is no undo.\n\nThis does NOT reach WhatsApp: they keep their copy, and a new chat appears if they write again. To stop them writing, block them.")) return;
+    const r = await fetch("/api/wa-inbox/contact?contact=" + sel, { method: "DELETE" });
+    const j = await r.json().catch(() => ({}));
+    if (r.ok) { setSel(null); setMsgs(null); setMeta(null); loadList(); }
+    else setErr(j.error || "Couldn’t delete this chat");
+  }, [sel, loadList]);
 
   /** Keep the reply you just typed, so the next person doesn't retype it. */
   async function saveQuick() {
@@ -669,21 +719,25 @@ function Inbox() {
                 )}
               </div>
             )}
-            {cur.open ? (
+            {showTemplate ? (
+              <TemplateComposer to={cur.contact}
+                onSent={(m) => { setMsgs((x) => [...(x || []), m]); loadList(); }}
+                onClose={() => setShowTemplate(false)} />
+            ) : cur.open ? (
               <div className="flex items-end gap-2">
                 <textarea value={draft} onChange={(e) => setDraft(e.target.value)} rows={2} maxLength={4096}
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
                   placeholder="Write a reply… (Enter to send, Shift+Enter for a new line)"
                   className="min-h-[44px] flex-1 resize-none rounded-xl border border-gray-100 bg-[#F6F7FB] px-3 py-2 text-sm text-[#232D42] outline-none focus:border-brand" />
+                <button type="button" onClick={() => setShowTemplate(true)} title="Send an approved template instead"
+                  className="inline-flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-xl border border-gray-100 text-[#8A92A6] hover:border-brand hover:text-brand">
+                  <IconTemplate size={17} />
+                </button>
                 <button type="button" onClick={send} disabled={!draft.trim() || sending}
                   className="inline-flex h-[44px] items-center gap-1.5 rounded-xl bg-brand px-4 text-sm font-medium text-white disabled:opacity-50">
                   <IconSend size={16} />{sending ? "Sending…" : "Send"}
                 </button>
               </div>
-            ) : showTemplate ? (
-              <TemplateComposer to={cur.contact}
-                onSent={(m) => { setMsgs((x) => [...(x || []), m]); loadList(); }}
-                onClose={() => setShowTemplate(false)} />
             ) : (
               <div className="flex items-center gap-3 rounded-xl bg-[#F6F7FB] px-3 py-2.5">
                 <span className="text-xs text-[#8A92A6]">
@@ -698,7 +752,8 @@ function Inbox() {
           </footer>
         </>)}
       </section>
-      <ContactPanel cur={cur} meta={meta} lead={lead} leadLoading={leadLoading} team={team} save={save} saving={saving} />
+      <ContactPanel cur={cur} meta={meta} lead={lead} leadLoading={leadLoading} team={team} save={save} saving={saving}
+        onBlock={block} onDelete={del} />
     </div>
   );
 }

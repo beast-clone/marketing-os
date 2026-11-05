@@ -66,10 +66,49 @@ export async function POST(req: Request) {
 
   try {
     const { data, error } = await db.from("wa_contacts").upsert(patch, { onConflict: "contact" })
-      .select("contact, display_name, assigned_to, labels, note, status, updated_at, updated_by").single();
+      .select("contact, display_name, assigned_to, labels, note, status, blocked, updated_at, updated_by").single();
     if (error) throw error;
     return NextResponse.json({ meta: { ...EMPTY_META(contact), ...data, labels: data.labels ?? [] } });
   } catch (err) {
     return NextResponse.json(safeError(err, "Couldn't save this contact"), { status: 500 });
+  }
+}
+
+/**
+ * Delete our copy of a chat.
+ *
+ *   DELETE /api/wa-inbox/contact?contact=9198…
+ *
+ * Removes the messages and everything we know about the chat. It does NOT reach
+ * WhatsApp: the other person keeps their copy, and if they write again a new
+ * chat appears. Blocking is the thing that stops them writing — see
+ * /api/wa-inbox/block — and the two are offered together in the UI for that
+ * reason.
+ *
+ * There is no undo. Messages are the record of what was said, so this is
+ * deliberately a separate, confirmed action rather than part of "Spam".
+ */
+export async function DELETE(req: Request) {
+  const denied = await requireSection("sales");
+  if (denied) return denied;
+  const limited = guardRate(req, "wa-inbox-delete", 10, 60_000);
+  if (limited) return limited;
+  const db = getSupabase();
+  if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 500 });
+
+  const contact = (new URL(req.url).searchParams.get("contact") || "").replace(/\D/g, "");
+  if (!contact) return NextResponse.json({ error: "Which number?" }, { status: 400 });
+
+  try {
+    const { count } = await db.from("wa_messages").select("id", { count: "exact", head: true }).eq("contact", contact);
+    const { error: mErr } = await db.from("wa_messages").delete().eq("contact", contact);
+    if (mErr) throw mErr;
+    // The notes and labels go too — keeping them would resurrect an empty chat
+    // in the list the next time anyone looked.
+    const { error: cErr } = await db.from("wa_contacts").delete().eq("contact", contact);
+    if (cErr) throw cErr;
+    return NextResponse.json({ ok: true, deleted: count ?? 0 });
+  } catch (err) {
+    return NextResponse.json(safeError(err, "Couldn't delete this chat"), { status: 500 });
   }
 }

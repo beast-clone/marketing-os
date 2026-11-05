@@ -17,13 +17,15 @@ export type ContactMeta = {
   labels: string[];
   note: string | null;
   status: "open" | "closed" | "spam";
+  /** Blocked on Meta's own list for this number, so their messages never arrive. */
+  blocked: boolean;
   updated_at: string | null;
   updated_by: string | null;
 };
 
 export const EMPTY_META = (contact: string): ContactMeta => ({
   contact, display_name: null, assigned_to: null, labels: [], note: null,
-  status: "open", updated_at: null, updated_by: null,
+  status: "open", blocked: false, updated_at: null, updated_by: null,
 });
 
 /**
@@ -41,7 +43,7 @@ export async function contactMetaMap(contacts: string[]): Promise<Map<string, Co
   const db = getSupabase();
   if (!db || contacts.length === 0) return map;
   const { data } = await db.from("wa_contacts")
-    .select("contact, display_name, assigned_to, labels, note, status, updated_at, updated_by")
+    .select("contact, display_name, assigned_to, labels, note, status, blocked, updated_at, updated_by")
     .in("contact", [...new Set(contacts)]);
   for (const r of data ?? []) map.set(r.contact, { ...EMPTY_META(r.contact), ...r, labels: r.labels ?? [] });
   return map;
