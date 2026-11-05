@@ -31,7 +31,7 @@ export async function GET(req: Request) {
   }
   try {
     const taken = (igUserId: string) => getConfiguredAccounts().find((a) => a.igUserId === igUserId)?.id ?? null;
-    const handle = await saveInstagramLogin(code, instagramRedirect(req.url), brand, taken);
+    const handle = await saveInstagramLogin(code, instagramRedirect(req), brand, taken);
     return back("connected", handle);
   } catch (e) {
     return back("failed", (e as Error).message);

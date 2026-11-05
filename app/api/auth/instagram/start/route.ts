@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   const state = `${randomBytes(16).toString("hex")}.${brand}`;
   const auth = new URL("https://www.instagram.com/oauth/authorize");
   auth.searchParams.set("client_id", process.env.INSTAGRAM_APP_ID!);
-  auth.searchParams.set("redirect_uri", instagramRedirect(req.url));
+  auth.searchParams.set("redirect_uri", instagramRedirect(req));
   auth.searchParams.set("response_type", "code");
   auth.searchParams.set("scope", IG_LOGIN_SCOPES);
   auth.searchParams.set("state", state);
