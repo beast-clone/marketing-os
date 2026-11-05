@@ -136,7 +136,7 @@ function Brands() {
         <span className="block text-[12px] font-medium uppercase tracking-wide text-[#C0392B]">What gets deleted</span>
         {goes.map((g) => <span key={g} className="block text-[13px] text-[#232D42] mt-1.5">• {g}</span>)}
       </span>
-      <span className="block mt-2.5 text-[12.5px] text-[#8A92A6]">Not touched: the Instagram and Facebook accounts themselves. You can add the brand and connect it again later.</span>
+      <span className="block mt-2.5 text-[12.5px] text-[#4A5468]">Your Instagram and Facebook accounts are not affected — their posts and followers stay as they are. This only removes the brand from this dashboard; you can add it back any time.</span>
     </>;
     if (!(await confirmDialog({ title: `Delete ${b.name}?`, body, action: "Delete this brand", danger: true, confirmText: b.name }))) return;
     const r = await post("/api/brands", "DELETE", { id: b.id });
