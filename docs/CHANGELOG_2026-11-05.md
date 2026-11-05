@@ -162,6 +162,53 @@ failing.
 
 ---
 
+## Samvaya was publishing to Instagram and being recorded as failed
+
+Found while checking what was scheduled today. **Every Samvaya post since 4 Nov went
+out on Instagram and was then marked failed on the board** — nine of them. Three were
+confirmed live by opening them on Instagram; all nine carry an `ig_media_id`, which
+only exists once Instagram has accepted the post.
+
+**Why.** The publisher posts to Instagram, then Facebook, and marks the whole row
+failed if either leg fails. Samvaya's Facebook leg returns a bare `403` every time,
+because of the token it was connected with:
+
+```
+Samvaya page token     instagram_content_publish ✓   pages_manage_posts ✗
+System User token      instagram_content_publish ✓   pages_manage_posts ✗
+Long-lived user token  instagram_content_publish ✓   pages_manage_posts ✗
+```
+
+All three belong to **GooCampus Analytics (1325868559684543)** — an analytics app that
+was never given page-posting rights. The five GooCampus pages publish to Facebook fine
+because **n8n holds a separate Meta credential** ("Praveen n8n Scheduler Graph API")
+that does have them. Samvaya is not on that credential. That gap is the whole bug.
+
+**Fixed.**
+
+- The nine rows now read as published, with the Facebook failure kept on each so the
+  real problem stays visible (`scripts/fix-partial-publishes.ts`).
+- n8n `RssNBI5xb6F3gIH4` → **Mark Results**: a post that reached Instagram but not
+  Facebook is now recorded as published with *"Instagram published. Facebook did not: …"*,
+  instead of a bare failure. The publish code already did this on its success path; a
+  403 throws into the `catch`, which left `publishStatus` at its initial `failed`.
+  Live now — the run five seconds later succeeded on the new version. No deploy needed.
+- A retry still only does the missing network: the publish code skips Instagram once
+  `ig_url_done` is set, so nothing can double-post.
+
+**Not fixed — needs you, in Meta.** Granting permissions means signing into your Meta
+account, so it is not something to do on your behalf. Samvaya posts will keep going to
+Instagram only until one of these is done:
+
+1. **Easiest** — give the Facebook account behind n8n's Meta credential an admin role on
+   the **Samvaya Matrimony** Page, then re-authorise that credential in n8n so the page
+   appears in its list. Samvaya then publishes exactly like the GooCampus pages already do.
+2. Regenerate the GooCampus Analytics System User token with `pages_manage_posts` ticked
+   and reconnect Samvaya on the Brands page. Slower, and may need App Review.
+
+Note: I briefly set the 56 pending Samvaya posts to Instagram-only and reverted it — they
+are back on Instagram + Facebook, ready for whenever the permission lands.
+
 ## Still open
 
 - **Not deployed.** The live site is the 8 October build. Netlify builds are stopped, so
