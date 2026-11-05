@@ -132,6 +132,7 @@ const GROUPS: Group[] = [
   { label: "Sales", sec: "sales", items: [
     { label: "Marketing Campaigns", href: `${HUB}/campaigns`, icon: IconSpeakerphone },
     { label: "Inbox",         href: `${HUB}/inbox`,          icon: IconInbox },
+    { label: "WhatsApp Inbox", href: `${HUB}/wa-inbox`,      icon: IconBrandWhatsapp },
     { label: "Marketing Leads", href: `${HUB}/leads`,          icon: IconUserDollar },
     // Sales Hub is a folder, not a page with tabs inside it: the six views were
     // in-page tabs and read as a second, competing navigation next to the sidebar.

@@ -1,6 +1,6 @@
 "use client";
 import { Fragment, useEffect, useRef, useState } from "react";
-import { IconUpload, IconLink, IconFileText, IconDownload } from "@tabler/icons-react";
+import { IconUpload, IconLink, IconFileText, IconDownload, IconCheck } from "@tabler/icons-react";
 import { makeZip, downloadHref, saveBlob } from "@/lib/zip";
 import { PdfThumb } from "@/components/PdfThumb";
 import type { PendingUpload } from "@/lib/use-upload-queue";
@@ -242,7 +242,7 @@ export function FilesCard({
     { items: vidSlides, head: <div className="gcf-sec"><b>Video slides</b><span className="gcf-cnt">· {vidSlides.length}</span><span className="gcf-chip ig">For Instagram</span><span className="gcf-ds">the Instagram carousel</span>{groupDelete(vidSlides, "video slides")}</div> },
     { items: picSlides, head: <div className="gcf-sec"><b>Picture slides</b><span className="gcf-cnt">· {picSlides.length}</span><span className="gcf-chip">For Facebook</span><span className="gcf-ds">Facebook can&apos;t take the video slides, so it gets these</span>{groupDelete(picSlides, "picture slides")}</div> },
   ] : [{ items: slides, head: null }];
-  const tile = (t: FileTile, no: number | null) => {
+  const tile = (t: FileTile, no: number | null, ok = false) => {
               const inner = t.kind === "pdf" && t.url
                 ? <PdfThumb url={t.url} width={96} fallback={<span className="gcf-doc"><IconFileText size={20} stroke={1.7} /></span>} />
                 : t.kind === "file" || (t.kind === "pdf" && !t.url)
@@ -259,7 +259,7 @@ export function FilesCard({
                     ? <a className="gcf-im" draggable={false} href={t.url} target="_blank" rel="noreferrer" style={style} onClick={(e) => openTile(e, t)}>{inner}</a>
                     : <div className={`gcf-im${t.onOpen ? " clk" : ""}`} style={style} onClick={t.onOpen ? () => { if (!justDragged.current) t.onOpen!(); } : undefined}>{inner}</div>}
                   {no !== null && <span className="gcf-n">{no}</span>}
-                  <div className="gcf-nm">{t.name}</div>
+                  <div className={`gcf-nm${ok && t.url ? " has-ok" : ""}`}>{ok && t.url ? <><span className="gcf-ok" title="Uploaded"><IconCheck size={9} stroke={3.5} /></span><span className="gcf-nm-t">{t.name}</span></> : t.name}</div>
                   {t.url && <a className="gcf-dl" href={downloadHref(t.url, t.name)} download={t.name} title={`Download ${t.name}`} onClick={(e) => e.stopPropagation()}><IconDownload size={12} stroke={2} /></a>}
                   {t.onRemove && <button type="button" className="gcf-x" onClick={() => askRemoveTile(t, no, slideCount)} title="Delete">✕</button>}
                 </div>
@@ -301,7 +301,7 @@ export function FilesCard({
           <Fragment key={gi}>
           {g.head}
           <div className="gcf-tiles">
-            {g.items.map((t, i) => tile(t, numbered ? i + 1 : null))}
+            {g.items.map((t, i) => tile(t, numbered ? i + 1 : null, true))}
             {gi === groups.length - 1 && pending.map((p, i) => {
               const C = 2 * Math.PI * 15;
               return (
@@ -309,7 +309,7 @@ export function FilesCard({
                   <div className="gcf-im" style={p.preview ? { backgroundImage: `url(${p.preview})` } : undefined}>
                     {!p.preview && <span className="gcf-doc"><IconFileText size={20} stroke={1.7} /></span>}
                     <span className="gcf-ring">
-                      {p.state === "err" ? <span className="gcf-ring-x">!</span> : p.state === "done" ? <span className="gcf-ring-ok">✓</span> : (
+                      {p.state === "err" ? <span className="gcf-ring-x">!</span> : p.state === "done" ? <span className="gcf-ring-ok"><IconCheck size={16} stroke={3} /></span> : (
                         <svg width="38" height="38" viewBox="0 0 38 38" aria-label={`${p.pct}% uploaded`}>
                           <circle cx="19" cy="19" r="15" fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="3.5" />
                           <circle cx="19" cy="19" r="15" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeDasharray={C}
@@ -332,7 +332,7 @@ export function FilesCard({
           <div className="gcf-pdfrow">
             <div className="gcf-sec"><b>LinkedIn PDF</b><span className="gcf-chip li">For LinkedIn</span></div>
             {pdfs.length ? (
-              <div className="gcf-tiles">{pdfs.map((t) => tile(t, null))}</div>
+              <div className="gcf-tiles">{pdfs.map((t) => tile(t, null, true))}</div>
             ) : picker("gcf-pdfadd", <>+ Add the LinkedIn PDF <span>the same slides as one document</span></>)}
             <div className="gcf-ds">The whole carousel as one document — LinkedIn keeps the slides in order. Not a slide.</div>
           </div>
@@ -424,6 +424,9 @@ html[data-theme="dark"] .gcf-chip.li{background:rgba(10,102,194,.22);color:#7FB6
 .gcf-ring{position:absolute;inset:0;display:grid;place-items:center;z-index:1}
 .gcf-ring-ok,.gcf-ring-x{width:30px;height:30px;border-radius:99px;display:grid;place-items:center;font-size:15px;color:#fff;background:var(--brand)}
 .gcf-ring-x{background:#C0392B}
+.gcf-nm.has-ok{display:flex;align-items:center;gap:5px}
+.gcf-nm-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.gcf-ok{flex:0 0 auto;display:grid;place-items:center;width:13px;height:13px;border-radius:99px;background:var(--brand);color:#fff}
 .gcf-lrow{display:flex;align-items:center;gap:.6rem;border:1px solid var(--line);border-radius:10px;padding:.45rem .65rem;font-size:12.5px}
 .gcf-host{font-size:11px;font-weight:500;color:var(--brand-ink);background:var(--brand-soft);border-radius:6px;padding:2px 7px;flex:0 0 auto}
 .gcf-u{flex:1;min-width:0;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-decoration:none}

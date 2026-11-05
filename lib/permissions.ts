@@ -276,6 +276,7 @@ export const TABS: TabDef[] = [
   { key: "competitors", label: "Competitors", group: "Ads", sec: "ads", paths: [`${P}/benchmark`] },
   { key: "campaigns", label: "Marketing Campaigns", group: "Sales", sec: "sales", paths: [`${P}/campaigns`] },
   { key: "inbox", label: "Inbox", group: "Sales", sec: "sales", paths: [`${P}/inbox`] },
+  { key: "wa-inbox", label: "WhatsApp Inbox", group: "Sales", sec: "sales", paths: [`${P}/wa-inbox`] },
   { key: "leads", label: "Marketing Leads", group: "Sales", sec: "sales", paths: [`${P}/leads`] },
   { key: "sales-hub", label: "Sales Hub", group: "Sales", sec: "sales", paths: [`${P}/sales-ops`] },
   { key: "assistant", label: "Ask GooCampus", group: "AI", sec: "ai", paths: [`${P}/assistant`] },
@@ -301,7 +302,7 @@ export function canSeeTab(user: { isAdmin?: boolean; sections?: Sections; permis
 // feeds My Day and /api/benchmark the Briefing, so those stay section-only.
 const API_TABS: [string, string][] = [
   ["/api/sales-ops", "sales-hub"], ["/api/leads-crm", "sales-hub"],
-  ["/api/leads", "leads"], ["/api/dm-leads", "inbox"], ["/api/inbox", "inbox"],
+  ["/api/leads", "leads"], ["/api/dm-leads", "inbox"], ["/api/inbox", "inbox"], ["/api/wa-inbox", "wa-inbox"],
   ["/api/campaigns", "campaigns"],
   ["/api/ads", "ads"], ["/api/competitors", "competitor-ads"],
   ["/api/ai-insights", "ai-insights"], ["/api/archive", "archive"], ["/api/seo", "seo"], ["/api/geo", "geo-seo"],

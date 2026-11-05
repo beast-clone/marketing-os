@@ -6,7 +6,7 @@ export type PreviewTab =
   | "my-day" | "my-workspace" | "marketing-materials" | "overview" | "marketing-hub" | "calendar" | "content-review" | "scheduler" | "post-planner" | "radar" | "content-studio"
   | "broadcast" | "watchers"
   | "instagram" | "linkedin" | "youtube" | "facebook" | "website" | "seo" | "geo-seo" | "audience"
-  | "ads" | "competitors" | "benchmark" | "leads" | "inbox" | "sales" | "campaigns" | "ai-insights" | "ai-reports"
+  | "ads" | "competitors" | "benchmark" | "leads" | "inbox" | "wa-inbox" | "sales" | "campaigns" | "ai-insights" | "ai-reports"
   | "integrations" | "diagnostics" | "tools" | "team" | "comments" | "account" | "reports" | "assistant" | "notifications"
   | "changelog" | "connectors" | "workflows" | "brands" | "api-keys" | "plan-board" | "archive";
 
