@@ -4039,6 +4039,24 @@ type TaskDetail = {
   me?: string | null;
   linkedThumbnail?: { storage_path: string; filename: string } | null;   // the reel's thumbnail task's image
 };
+// Saved field name → the key it is shown under, for the fields whose outcome
+// the server does not change. Editing one of these can be painted straight
+// away instead of waiting for the round trip.
+//
+// A Netlify function that has gone cold takes about 2.4 seconds to answer the
+// first save, against 35ms once it is warm, and nothing can make that first
+// call fast — so the only thing left is to stop making people wait for it.
+//
+// Deliberately short. status, owner and type are NOT here: the server applies
+// the ownership and completeness rules and can save something other than what
+// was sent, and showing a value that then snaps back is worse than waiting.
+// content and caption are not here either — they are saved on a different path
+// that already does not block, and the editor holds the typed text regardless.
+const SHOWS_AS: Record<string, keyof TaskDetail> = {
+  output_link: "outputLink", reference_links: "referenceLinks",
+  instagram_url: "instagramUrl", facebook_url: "facebookUrl", linkedin_url: "linkedinUrl",
+};
+
 // "Mon 17 Aug, 9:51 pm" — the year only when it is not the current one. The shared
 // fmtDateTime spells the weekday and month out in full, which is more than this
 // 240px column can hold.
@@ -4804,11 +4822,18 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
   // that writes a guessed "previous" over a real one is worse than no undo at all,
   // so a save without it simply is not recorded.
   const saveOne = async (field: string, value: unknown, prev?: { value: unknown; label: string }) => {
+    // Show it immediately where the server's answer is already known, and keep
+    // the old detail so a refusal can put it back. loadDetail() below still
+    // runs and quietly reconciles, so this only changes WHEN the value appears.
+    const shownAs = SHOWS_AS[field];
+    const before = detail;
+    if (shownAs && detail) setDetail({ ...detail, [shownAs]: value } as TaskDetail);
     const res = await fetch("/api/marketing-hub/update", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id: row.id, actor: activeAuthor, fields: { [field]: value } }),
     });
     if (!res.ok) {
+      if (shownAs) setDetail(before);   // it was not saved, so stop showing it
       const j = await res.json().catch(() => ({}));
       // 422 = a completeness gate. Name the missing fields rather than alerting
       // the one-line summary and dropping the list on the floor.
