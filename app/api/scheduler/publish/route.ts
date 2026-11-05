@@ -39,6 +39,15 @@ async function publishToAccount(accountId: string, imageUrl: string, caption: st
   }
   const creationId = created.id as string;
 
+  // Instagram processes the image before it can be published ("Media ID is not
+  // available" otherwise) — wait for the container to finish, up to ~30 s.
+  for (let i = 0; i < 15; i++) {
+    const st = await (await fetch(`${graphFor(acc.pageAccessToken)}/${creationId}?fields=status_code&access_token=${tok}`)).json().catch(() => ({}));
+    if (st.status_code === "FINISHED") break;
+    if (st.status_code === "ERROR" || st.status_code === "EXPIRED") return { accountId, ok: false as const, error: `container ${st.status_code.toLowerCase()}` };
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+
   // 2) publish the container
   const pubRes = await fetch(`${graphFor(acc.pageAccessToken)}/${acc.igUserId}/media_publish?creation_id=${encodeURIComponent(creationId)}&access_token=${tok}`, { method: "POST" });
   const published = await pubRes.json();
