@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
+import { getSessionUserId } from "@/lib/auth";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
+import { fetchRoster } from "@/lib/team-db";
+import { contactMetaMap, knownLabels, EMPTY_META } from "@/lib/wa-inbox";
 
 // WhatsApp Inbox for the official number +91 74116 54951.
 // Incoming messages land in `wa_messages` through n8n "WA Inbox — receive" (see
@@ -45,9 +48,43 @@ export async function GET(req: Request) {
         if (!m.read_at) c.unread++;
       }
     }
+
+    // Who is handling each chat, and what it is about. One query for the whole
+    // list; the Sales Hub lead is NOT fetched here — that is an Airtable call per
+    // number, so it waits until a chat is actually opened.
+    const contacts = [...by.keys()];
+    const [metaMap, roster, labels] = await Promise.all([
+      contactMetaMap(contacts),
+      fetchRoster().catch(() => []),
+      knownLabels().catch(() => [] as string[]),
+    ]);
+
     const now = Date.now();
-    const conversations = [...by.values()].map((c) => ({ ...c, open: !!c.lastInAt && now - Date.parse(c.lastInAt) < WINDOW_MS }));
-    return NextResponse.json({ conversations, unread: conversations.reduce((s, c) => s + c.unread, 0) });
+    const conversations = [...by.values()].map((c) => {
+      const meta = metaMap.get(c.contact) ?? EMPTY_META(c.contact);
+      return {
+        ...c,
+        // A name somebody typed beats the WhatsApp profile name, which students
+        // set to nicknames.
+        name: meta.display_name || c.name,
+        open: !!c.lastInAt && now - Date.parse(c.lastInAt) < WINDOW_MS,
+        assignedTo: meta.assigned_to,
+        labels: meta.labels,
+        chatStatus: meta.status,
+        hasNote: !!meta.note,
+      };
+    });
+
+    return NextResponse.json({
+      conversations,
+      unread: conversations.reduce((s, c) => s + c.unread, 0),
+      // For the assign picker and the label filter, so the page doesn't need its
+      // own round trips to draw the toolbar.
+      team: roster.filter((u) => u.active).map((u) => ({ id: u.id, name: u.first || u.name })),
+      labels,
+      // So "My chats" can mean something without the page asking who it is.
+      me: getSessionUserId(),
+    });
   } catch (err) {
     return NextResponse.json(safeError(err, "Couldn't load WhatsApp messages"), { status: 500 });
   }
