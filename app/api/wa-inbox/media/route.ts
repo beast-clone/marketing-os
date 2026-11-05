@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireSection } from "@/lib/api-guard";
 import { getSupabase } from "@/lib/supabase";
 import { safeError } from "@/lib/errors";
-import { mediaOf } from "@/lib/wa-inbox";
+import { mediaOf, mediaPath } from "@/lib/wa-inbox";
 
 // A photo, PDF or voice note somebody sent us on WhatsApp.
 //
@@ -35,14 +35,15 @@ export async function GET(req: Request) {
 
   try {
     const { data: row, error } = await db.from("wa_messages")
-      .select("id, kind, raw").eq("id", messageId).maybeSingle();
+      .select("id, contact, kind, raw, created_at").eq("id", messageId).maybeSingle();
     if (error) throw error;
     if (!row) return NextResponse.json({ error: "No such message" }, { status: 404 });
 
     const media = mediaOf(row.raw);
     if (!media) return NextResponse.json({ error: "That message has no attachment" }, { status: 404 });
 
-    const path = `${media.id}`;
+    // Named so the bucket can be read by a person — see mediaPath.
+    const path = mediaPath(row, media);
     const disposition = media.filename
       // Only a document gets a download name; a photo should open, not download.
       ? `attachment; filename="${media.filename.replace(/[^\w.\- ]+/g, "_").slice(0, 120)}"`

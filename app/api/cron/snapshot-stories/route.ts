@@ -31,6 +31,27 @@ type IGStoryRaw = {
 
 type InsightsResp = { data?: Array<{ name: string; values?: Array<{ value: number }> }> };
 
+/**
+ * Where a story snapshot is kept, named so a person can read it.
+ *
+ * It used to be `<accountId>/<17-digit story id>.jpg`, which says nothing about
+ * whose story it is, when it ran, or what it was. Now:
+ *
+ *   goocampus/2026-11-05/0930-story-34567890.jpg
+ *
+ * Old files are left where they are. Their public URLs are stored on the rows
+ * that point at them, so those keep working; only new snapshots are named this
+ * way.
+ */
+function snapshotPath(accountId: string, story: IGStoryRaw): string {
+  // IST — the day the team would say the story went out.
+  const ist = new Date(Date.parse(story.timestamp) + 5.5 * 3600_000);
+  const day = ist.toISOString().slice(0, 10);
+  const hhmm = ist.toISOString().slice(11, 16).replace(":", "");
+  // The id's tail separates two stories posted in the same minute.
+  return `${accountId}/${day}/${hhmm}-story-${story.id.slice(-8)}.jpg`;
+}
+
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 500 });
@@ -103,10 +124,13 @@ async function snapshotOne(
   if (!db) return { rows: 0, uploaded: 0 };
 
   const insights = await fetchInsights(acct, story.id);
-  const path = `${acct.id}/${story.id}${story.media_type === "VIDEO" ? ".jpg" : ".jpg"}`;
+  const path = snapshotPath(acct.id, story);
 
-  // Check if we've already stored the image (avoid re-downloading Meta's CDN bytes hourly).
-  const { data: existing } = await db.storage.from(BUCKET).list(acct.id, { search: story.id, limit: 1 });
+  // Check if we've already stored the image (avoid re-downloading Meta's CDN bytes
+  // hourly). Searched inside the day folder, on the same tail of the id the name
+  // ends with — miss this and every story is fetched again on every run.
+  const dir = path.slice(0, path.lastIndexOf("/"));
+  const { data: existing } = await db.storage.from(BUCKET).list(dir, { search: story.id.slice(-8), limit: 1 });
   let storedImageUrl: string | null = null;
   let uploaded = 0;
   if (existing && existing.length > 0) {

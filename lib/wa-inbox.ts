@@ -9,6 +9,7 @@
 
 import { getSupabase } from "@/lib/supabase";
 import { airtableList, CRM_TABLE, SALES_HUB_BASE, pickName } from "@/lib/sales-hub";
+import { safeName } from "@/lib/attach-rules";
 
 export type ContactMeta = {
   contact: string;
@@ -199,4 +200,38 @@ export function mediaOf(raw: unknown): WaMedia | null {
     filename: part.filename || null,
     caption: part.caption || null,
   };
+}
+
+/**
+ * Where an attachment is kept, named so a person can read it.
+ *
+ * It used to be stored under Meta's media id — a bare 16-digit number with no
+ * extension, which tells whoever opens the bucket nothing and does not even say
+ * what kind of file it is.
+ *
+ *   919837479850/2026-11-05/2014-photo-996812.jpg
+ *   919837479850/2026-11-05/NEET-scorecard.pdf
+ *
+ * Whose number, which day, what time, what it is. A document keeps the name
+ * they sent it under, because that is the most useful label there is.
+ *
+ * Must stay a pure function of the stored row: the route works this out again on
+ * every request to find the copy it saved last time, so it cannot depend on the
+ * clock or on anything random.
+ */
+export function mediaPath(row: { contact: string; kind: string; created_at: string }, media: WaMedia): string {
+  const EXT: Record<string, string> = {
+    "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif",
+    "application/pdf": "pdf", "audio/ogg": "ogg", "audio/mpeg": "mp3",
+    "video/mp4": "mp4", "video/3gpp": "3gp",
+  };
+  // IST, because that is the day the person here would call it.
+  const ist = new Date(Date.parse(row.created_at) + 5.5 * 3600_000);
+  const day = ist.toISOString().slice(0, 10);
+  const hhmm = ist.toISOString().slice(11, 16).replace(":", "");
+
+  if (media.filename) return `${row.contact}/${day}/${safeName(media.filename)}`;
+  const ext = EXT[media.mime] || media.mime.split("/")[1]?.replace(/[^a-z0-9]/gi, "") || "bin";
+  // The id's tail keeps two photos in the same minute apart.
+  return `${row.contact}/${day}/${hhmm}-${row.kind}-${media.id.slice(-6)}.${ext}`;
 }
