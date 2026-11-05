@@ -26,10 +26,13 @@ export async function POST(req: Request) {
     const { data: atts } = await sb.from("mh_attachments").select("id, storage_path, kind").eq("post_id", postId).in("id", ids);
     if ((atts || []).length !== new Set(ids).size) return NextResponse.json({ error: "Some of these files aren't on this task any more — refresh and try again." }, { status: 409 });
 
-    for (let i = 0; i < ids.length; i++) {
-      const { error } = await sb.from("mh_attachments").update({ sort_order: i + 1 }).eq("id", ids[i]).eq("post_id", postId);
-      if (error) throw error;
-    }
+    // Each file needs its own position, so these cannot be one statement — but
+    // they are independent rows, so they go together rather than one after the
+    // other. Dragging a 20-file carousel was 20 sequential round trips.
+    const moved = await Promise.all(ids.map((id, i) =>
+      sb.from("mh_attachments").update({ sort_order: i + 1 }).eq("id", id).eq("post_id", postId)));
+    const failed = moved.find((m) => m.error);
+    if (failed?.error) throw failed.error;
 
     // Already queued: put its media in the same order.
     const media = (post.media_urls as string[] | null) || [];

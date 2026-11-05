@@ -46,7 +46,10 @@ export async function listFileTrash(sb: SupabaseClient): Promise<FileTrashItem[]
 
 export async function restoreFiles(sb: SupabaseClient, ids: string[], actor: string) {
   const out = { done: [] as string[], failed: [] as { id: string; error: string }[] };
-  for (const id of ids) {
+  // Each file still takes its own steps in order — the insert depends on the
+  // lookup — but the files no longer queue behind one another. Restoring twenty
+  // was sixty round trips end to end.
+  const results = await Promise.all(ids.map(async (id) => {
     try {
       const t = await sb.from("mh_attachments_trash").select("row, post_id, filename, kind").eq("id", id).is("purged_at", null).maybeSingle();
       if (t.error) throw new Error(t.error.message);
@@ -62,10 +65,15 @@ export async function restoreFiles(sb: SupabaseClient, ids: string[], actor: str
         to_value: t.data.filename, detail: `restored a ${t.data.kind || "file"} from the recycle bin` }).then(() => {}, () => {});
       // A creative coming back onto an approved post is a creative change like any other.
       if (t.data.kind !== "reference" && t.data.kind !== "attachment" && t.data.kind !== "thumbnail") await sendBackForReview(sb, t.data.post_id, actor, t.data.filename);
-      out.done.push(id);
+      return { id, ok: true as const };
     } catch (e) {
-      out.failed.push({ id, error: e instanceof Error ? e.message : String(e) });
+      return { id, ok: false as const, error: e instanceof Error ? e.message : String(e) };
     }
+  }));
+  // Rebuilt in the order they were asked for, so the caller's list still lines up.
+  for (const r of results) {
+    if (r.ok) out.done.push(r.id);
+    else out.failed.push({ id: r.id, error: r.error });
   }
   return out;
 }

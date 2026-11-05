@@ -221,7 +221,12 @@ export async function sendDateChangeDaily(sb: SB, opts: { to?: string; dryRun?: 
   });
   if (!opts.to) {
     const now = new Date().toISOString();
-    for (const r of waiting) await sb.from("discover_cache").update({ payload: { ...r, emailedAt: now } }).eq("cache_key", KEY(r.postId)).eq("payload->>requestedAt", r.requestedAt);
+    // One update each, but sent together: every row carries its own payload so
+    // they cannot be merged, and waiting for each in turn made the email handler
+    // as slow as the number of requests outstanding.
+    await Promise.all(waiting.map((r) =>
+      sb.from("discover_cache").update({ payload: { ...r, emailedAt: now } })
+        .eq("cache_key", KEY(r.postId)).eq("payload->>requestedAt", r.requestedAt)));
   }
   return { sent: true, moved: n, waiting: waiting.length };
 }
