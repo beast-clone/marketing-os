@@ -69,5 +69,5 @@ Do the same Reconnect for **12thplus** and **Samvaya**, picking the right channe
 ## 5. Turn the worker on in production
 
 Add an n8n schedule: every minute, 10:00–18:00 IST, `GET https://goocampus-ig-dashboard.netlify.app/gc-dashboard/api/cron/youtube-shorts` with header `x-cron-secret`. Same as the LinkedIn worker.
-- **Needs:** the n8n connection in this app reconnected first; it was down on 6 Nov.
-- **While at it:** add the same kind of schedule for `/api/cron/wa-templates`, every 15 min.
+- **How:** use the n8n header login **"GC Dashboard Cron"** (id `S18aERuQT3eiogXX`) so no secret is typed.
+- **Model:** "GC Dashboard — WhatsApp unread + template alerts" (`eKKVCM63C205yrCo`), switched on 6 Nov: every 15 min, 10:00–17:45 IST, it calls `/api/cron/wa-unread` and `/api/cron/wa-templates`.
