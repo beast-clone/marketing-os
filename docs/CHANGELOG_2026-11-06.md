@@ -76,6 +76,32 @@ No new settings since 5 Nov. If `.env.local` there lacks `WA_BUSINESS_ACCOUNT_ID
 
 ---
 
+## Known issues right now: posts reach Instagram but not Facebook
+
+Checked 6 Nov, 6:40 PM. The scheduler itself is fine:
+- the publisher runs every minute, with no failed runs since 6 PM;
+- everything due in the last 3 days went out on time;
+- 33 posts are queued through Tue 10 Nov.
+
+But **some posts go to Instagram and miss Facebook**, for two separate reasons:
+
+| Issue | What you see | Who's affected | Fix |
+|---|---|---|---|
+| **1. Facebook reel upload hangs** | The reel is live on Instagram; Facebook never gets it. The post sits on "publishing". | Reels going to Facebook, now and then. AIQ reel on 6 Nov: hung twice. The 12thPlus reel on 4 Nov was fine. | Add time limits to the n8n publisher's Facebook requests. Plan in `docs/YOUTUBE_SHORTS_MONDAY.md`, last section. |
+| **2. Samvaya: Facebook refuses (403)** | Instagram posts; the post says "Instagram published. Facebook did not: 403". | Every Samvaya post. | Samvaya's page connection has no Facebook posting permission (`pages_manage_posts`); needs a Meta permission change. See the 5 Nov notes. |
+
+**Reels going to Facebook before the fix**, so watch these. If one shows "publishing" for more than 10 minutes, post it on Facebook by hand from Meta Business Suite:
+- **Sat 7 Nov, 5:30 PM:** Tamil Nadu NRI quota reel (12thPlus)
+- **Mon 9 Nov, 1:30 PM:** Government MBBS tuition reel (12thPlus)
+
+(The NEET PG Speaking Reel, Sat 6:30 PM, is set to Instagram only, so it isn't affected.)
+
+**Also on Instagram only this weekend:** the Samvaya posts on 7, 8, 9 and 10 Nov (issue 2).
+
+**Still to post by hand on Facebook:** the AIQ reel from 6 Nov (12thPlus).
+
+---
+
 ## Commits
 - `245bfd0` feat: WhatsApp templates + alerts, chat bin, YouTube Shorts scheduling
 - `ddebf22` docs: n8n timer for WhatsApp alerts is on; Shorts timer left for Monday
