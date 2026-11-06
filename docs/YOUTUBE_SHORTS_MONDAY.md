@@ -71,3 +71,25 @@ Do the same Reconnect for **12thplus** and **Samvaya**, picking the right channe
 Add an n8n schedule: every minute, 10:00–18:00 IST, `GET https://goocampus-ig-dashboard.netlify.app/gc-dashboard/api/cron/youtube-shorts` with header `x-cron-secret`. Same as the LinkedIn worker.
 - **How:** use the n8n header login **"GC Dashboard Cron"** (id `S18aERuQT3eiogXX`) so no secret is typed.
 - **Model:** "GC Dashboard — WhatsApp unread + template alerts" (`eKKVCM63C205yrCo`), switched on 6 Nov: every 15 min, 10:00–17:45 IST, it calls `/api/cron/wa-unread` and `/api/cron/wa-templates`.
+
+## Also Monday: the IG/FB publisher hangs on Facebook reels (not YouTube)
+
+On Fri 6 Nov, the 12thPlus reel "You can't hold an AIQ seat and wait for a state seat" went to Instagram (1:03 PM), but **never reached Facebook**:
+- The n8n publisher ("IG/FB Publisher v3", `RssNBI5xb6F3gIH4`, node "Publish (at the time)") hung in its Facebook reel step.
+- n8n killed it after its 300-second task limit (runs 3251954 at 1:03 PM and 3254872 at 5:37 PM). Nothing was written back, so the post sat on "publishing".
+
+**Cause:** none of the `H.httpRequest` calls in `n8n/publisher-v3/publish.js` set a `timeout`. That covers:
+- the `rupload.facebook.com` upload by `file_url`;
+- the cover image GET and the thumbnails POST;
+- `video_reels` start and finish.
+
+One request that never answers freezes the whole run. The file is a normal 56 MB mp4.
+
+**Fix:**
+1. Give every request a timeout, e.g. 60 s, and 120 s for the `rupload` upload. A hang then throws, and the existing catch writes "Facebook failed — reason" back while keeping `ig_url_done`.
+2. Apply the same change to `prepare.js`.
+3. Test on one post, then update the live workflow.
+
+**Afterwards:** re-post the AIQ reel to Facebook. Its row is marked published, with the Instagram link saved and the Facebook failure noted in `failure_reason`. Also check whether its Story (marked failed) reached Instagram.
+
+**Deploy note learned the same day:** build with the Linux `@napi-rs/canvas` binary added (see memory "Netlify deploy procedure"). Without it, task uploads fail.
