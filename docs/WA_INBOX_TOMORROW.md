@@ -17,7 +17,7 @@ Then **C**, the three features still unbuilt, and **D**, things found today that
 - [ ] **Pull** — 12 commits on `feat/dashboard-reskin`.
 - [ ] **Add one line to the Mac's `.env.local`:**
       ```
-      WA_BUSINESS_ACCOUNT_ID=193332033867367
+      WA_BUSINESS_ACCOUNT_ID=1400461001694967   # corrected 6 Nov — see WA_INBOX_SPEC.md
       ```
       That is the only new setting. The Mac already has `WA_INBOX_SEND_SECRET`,
       which is exactly what the Windows machine lacks — so everything that could
@@ -51,7 +51,7 @@ on **8 October**.
       building while it runs corrupts `.next`.
 - [ ] **Push** the 12 commits.
 - [ ] **Add two environment variables on Netlify** — both are missing there:
-      - `WA_BUSINESS_ACCOUNT_ID` = `193332033867367`
+      - `WA_BUSINESS_ACCOUNT_ID` = `1400461001694967` (corrected 6 Nov; the old `193332033867367` is the wrong account)
       - `WA_INBOX_SEND_SECRET` = the value from the Mac's `.env.local`.
         **Without this the live inbox cannot send, block, fetch an attachment or
         list a template** — it only reads what n8n has already stored.
@@ -110,7 +110,7 @@ Also open, smaller:
 | n8n bridge | `SzQZkodBWSN33f3t` — templates, media, block/unblock, create-template |
 | n8n nudge | `eKKVCM63C205yrCo` — **inactive** |
 | n8n receive / send | `UfMw48Bkdx0gNIWd` / `XgwtmPExHM4LveCV` — untouched today |
-| WhatsApp Business Account | `193332033867367` |
+| WhatsApp Business Account | `1400461001694967` ("Samvaya Matrimony" in Business Settings; corrected 6 Nov) |
 | Prototype for the redesign | `public/mockups/wa-inbox-sidebar.html` |
 
 Background and Meta's rules: [`WA_INBOX_SPEC.md`](WA_INBOX_SPEC.md).

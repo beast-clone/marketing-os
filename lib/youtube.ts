@@ -174,6 +174,14 @@ async function ytFetch(channelKey: string | undefined, url: string): Promise<Res
   return r;
 }
 
+/** An access token for a channel that was connected from the dashboard, or null.
+ *  Uploads use only these: the env fallbacks can belong to another channel's
+ *  account, and an upload must never land on the wrong channel. */
+export async function channelAccessToken(channelKey: string): Promise<string | null> {
+  if (!(await getIntegrationToken(`youtube:${channelKey}`))) return null;
+  return freshAccessToken(channelKey);
+}
+
 /** Drop a cached access token so the next call mints a new one. */
 export function forgetYouTubeToken(channelKey?: string): void {
   // Clear the lot rather than one entry. Channels that share an account share an

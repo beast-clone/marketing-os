@@ -27,6 +27,8 @@ export type EnqueueBody = {
   coverUrl?: string;           // reel cover image, already uploaded
   channels?: string[];         // ["instagram","facebook"] — which of Meta's two
   captionFb?: string;          // a different caption for Facebook, when asked for
+  /** Also as a YouTube Short (6 Nov 2026): null = not, absent = leave as it was. */
+  youtube?: { title: string; description: string } | null;
   draft?: boolean;             // park it; the worker only picks up "scheduled"
   sbu?: string;                // brand / business unit — the calendar's "Interest"
   scheduleTimeISO?: string;    // absent/empty → publish "now" (schedule_time = now)
@@ -189,6 +191,9 @@ export async function enqueuePost(sb: Sb, b: EnqueueBody, actor: string): Promis
     channels: channels.length ? channels : ["instagram", "facebook"],
     caption_fb: fbCaption || null,
     media_fb: mediaFb,
+    // A Short is one video: only a reel can carry it (/api/cron/youtube-shorts uploads it).
+    ...(b.youtube !== undefined ? { youtube: b.youtube && format === "reel" && media.length === 1 && b.youtube.title.trim()
+      ? { title: b.youtube.title.trim(), description: b.youtube.description || "" } : null } : {}),
   };
 
   const sbu = (b.sbu || "").trim();

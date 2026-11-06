@@ -77,13 +77,17 @@ Source: Meta developer docs, checked 5 Nov 2026 — pricing, messaging limits, o
 
 All three webhooks share the header `x-wa-inbox-secret`, credential **WA Inbox send secret**.
 
-**WhatsApp Business Account id: `193332033867367`** ("GooCampus Edu Solutions Pvt Ltd.", owned by
-GooCampus Edu Solutions Private Limited). Meta gives no way to find it from a phone number — the
-number returns only its own details — so it is configuration: `WA_BUSINESS_ACCOUNT_ID`.
+**WhatsApp Business Account id: `1400461001694967`** — the account named **"Samvaya Matrimony"**
+in Business Settings → WhatsApp accounts (business portfolio GooCampus Edu Solutions Private Limited).
+Meta gives no way to find it from a phone number, so it is configuration: `WA_BUSINESS_ACCOUNT_ID`.
 
-That account currently has **one** approved template, `test_campaign`: a MARKETING blast about an
-August event, image header, no variables. It sends, but it is not something to reopen a conversation
-with. A short utility template that invites a reply is what Open Conversation actually needs.
+**Corrected 6 Nov 2026.** The 5 Nov notes said `193332033867367` ("GooCampus Edu Solutions Pvt Ltd.").
+That is a different account: it has only `enquiry_followup` and `test_campaign`, and sending either from
++91 74116 54951 fails with Meta error **#132001 "Template name does not exist in the translation"**.
+Proof of the right one: `1400461001694967` holds the 51 templates the live n8n senders use
+(`india_payment_successful_v2`, `als_enquiry_callback_v2`, …), and `hello_world` sent from the inbox
+with it was delivered. `enquiry_followup` therefore lives in the wrong account and has to be written
+again from the inbox form before Open Conversation can use it.
 
 The phone number also reports `code_verification_status: EXPIRED` — worth re-verifying in WhatsApp
 Manager before it bites.
@@ -110,3 +114,40 @@ anything bigger says so and points at WhatsApp.
 
 **Not built: sending files back.** That needs an upload to Meta and a place to put the file first,
 and is a separate job from reading what arrives.
+
+## Templates tab (6 Nov 2026)
+
+WhatsApp Inbox (sidebar folder) → **Templates**, its own page at `/dashboard/preview/wa-inbox/templates` (`?new=1` opens the form), built from the approved prototype
+`public/mockups/wa-templates.html`. Component: `app/(dashboard)/dashboard/preview/wa-inbox/TemplatesTab.tsx`.
+
+- **All templates** — every template on the number with Meta's live status (Approved / Waiting for
+  Meta / Rejected with Meta's reason / Paused), from `GET /api/wa-inbox/templates?all=1`, refreshed
+  every two minutes. Nothing is stored by us; Meta is the record.
+- **Default templates** — GooCampus's 18-template set for after the 24-hour window, in 7 groups,
+  defined once in `lib/wa-default-templates.ts` and matched to Meta's list by name. "Send for
+  approval" / "Send all" submit through `POST /api/wa-inbox/templates/new`.
+- **New template** drawer — name, Utility/Marketing, message with blanks + examples, footer, up to 3
+  quick-reply buttons, live preview. A rejected template reopens pre-named `<name>_v2`.
+- **Typed messages** — `gc_message_from_team`, `gc_next_steps`, `gc_application_status` and
+  `gc_important_update` have a blank that holds a whole message; the chat composer shows a big
+  "Your message" box for those (`typed` in the catalog). Meta forbids line breaks inside a blank
+  (error 132018), so they are sent as " · ".
+- Meta rules enforced before submitting: name `a-z0-9_`, an example per blank, blanks numbered
+  1..n, the message can't start or end with a blank, ≤ 3 buttons of ≤ 25 characters.
+- n8n `SzQZkodBWSN33f3t` → "Approved templates" now also asks Meta for `rejected_reason`, limit 250.
+
+## Template status alerts (6 Nov 2026)
+
+When Meta changes a template's verdict (approved, rejected, paused, disabled) or moves
+it between Utility and Marketing, everyone who can open the WhatsApp inbox gets a bell
+notification (Notifications → WhatsApp; Open goes to the template) and one Slack post
+goes to the dashboard's Slack channel.
+
+- `GET /api/cron/wa-templates` (header `x-cron-secret`) compares Meta's live list with
+  `wa_template_status` (sql/051), the last verdict seen per template. The first run
+  only records; each change is announced once (`source_id` = name, status, category).
+- A brand-new template that is only "waiting for Meta" is not announced (we just sent it).
+- Template listing is shared with the Templates page via `lib/wa-templates.ts`.
+- **At deploy:** add an n8n schedule that calls the endpoint every 15 minutes,
+  10:00–17:45 IST (team hours; overnight changes are reported at 10 AM). Not created
+  yet: n8n can't reach localhost, and the n8n connector needed reconnecting.

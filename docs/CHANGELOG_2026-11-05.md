@@ -17,7 +17,7 @@ Two lines in `.env.local`. Neither is in git, so the Mac does not have them:
 
 | Setting | What it is for | Where to get it |
 |---|---|---|
-| `WA_BUSINESS_ACCOUNT_ID=193332033867367` | Listing the Meta-approved WhatsApp templates | Here in this file |
+| `WA_BUSINESS_ACCOUNT_ID=1400461001694967` (corrected 6 Nov — `193332033867367` was the wrong account) | Listing the Meta-approved WhatsApp templates | Here in this file |
 | `WA_INBOX_SEND_SECRET=…` | Sending a WhatsApp reply or template | n8n → workflow **WA Inbox — templates and media** → the webhook's header-auth credential (`x-wa-inbox-secret`) |
 
 `WA_INBOX_SEND_SECRET` is **not set on Windows either**, so sending has never actually been

@@ -32,6 +32,7 @@ import type { TrashItem } from "@/lib/task-trash";
 import { IconRestore, IconSearch, IconPaperclip, IconBrandInstagram, IconBrandFacebook, IconBrandLinkedin, IconBrandYoutube, IconFilter, IconLayoutList, IconPalette, IconBookmark, IconDeviceFloppy, IconUser, IconUsers, IconLock, IconDots, IconPencil, IconFileDescription, IconCopy, IconClipboardCopy, IconUserShare, IconDownload, IconPrinter, IconTrash, IconCheck, IconPlus, IconPhoto, IconCloudUpload, IconMessageCircle2, IconHistory, IconCalendarEvent, IconExternalLink, IconFileText, IconChevronLeft, IconChevronRight, IconChevronDown, IconX, IconPlayerPlay, IconArrowsSort, IconColumns, IconAlertTriangle, IconArrowRight, IconLink, IconSparkles } from "@tabler/icons-react";
 import MissingFieldsModal, { gateFromResponse, type GateBlock } from "../MissingFieldsModal";
 import { alertDialog, confirmDialog, promptDialog } from "@/app/(dashboard)/dashboard/preview/ConfirmDialog";
+import { confirmStatusMove } from "@/app/(dashboard)/dashboard/preview/statusPreview";
 import { pageForSbu } from "@/lib/sbu-pages";
 import { pageInfo } from "@/lib/publish-pages";
 import { usePublishPages } from "@/lib/use-publish-pages";
@@ -5265,7 +5266,7 @@ export function DetailModal({ row, onClose }: { row: Row; onClose: () => void })
                     gates ("can't approve yet — X missing") and logs the change to Activity. */}
                 {detailRow("Status", statusEdit ? (
                   <PreviewSelect defaultOpen size="sm" onClose={() => setStatusEdit(false)} value={statusCur || ""}
-                    onChange={async (val) => { setStatusEdit(false); await saveOne("status", val, { value: statusCur, label: "Status" }); }}
+                    onChange={async (val) => { setStatusEdit(false); if (val !== statusCur && !(await confirmStatusMove(row.id, val))) return; await saveOne("status", val, { value: statusCur, label: "Status" }); }}
                     options={Array.from(new Set([...(statusCur ? [statusCur] : []), ...STATUS_CHOICES])).map((o) => ({ value: o, label: o }))} />
                 ) : (
                   <button onClick={() => setStatusEdit(true)} title="Change the status"

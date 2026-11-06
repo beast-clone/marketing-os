@@ -11,6 +11,7 @@ import MissingFieldsModal, { gateFromResponse, type GateBlock } from "../Missing
 import { useSbus } from "@/lib/use-sbus";
 import { Overlay } from "../Overlay";
 import { confirmDialog, promptDialog } from "../ConfirmDialog";
+import { confirmStatusMove } from "../statusPreview";
 import { showToast } from "../Toast";
 import { uploadTaskFile, removeTaskFile, reorderTaskFiles } from "@/lib/upload-task-file";
 import { copyTaskLink } from "@/lib/task-link";
@@ -2504,7 +2505,10 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
   // their work even if the owner field is pre-assigned.
   // Owner OR collaborator (MY_DAY_SPEC §5): after Manya approves + hands off, she
   // becomes the collaborator, so an approved task still shows on her board too.
-  const isMine = (t: Task) => t.detail.owner === me.name || (t.detail.collaborators || []).some((c) => c.name === me.name);
+  // ...or the person on camera (Praveen, 6 Nov): a presenter who was never made a
+  // collaborator — ownership moved straight from them to the editor — saw nothing.
+  const isMine = (t: Task) => t.detail.owner === me.name || (t.detail.collaborators || []).some((c) => c.name === me.name)
+    || (!!t.detail.presenter && t.detail.presenter.toLowerCase() === person.toLowerCase());
   const workingTasks = useMemo(
     () => uniqById([...claimedTasks, ...tasks]).filter((t) =>
       isMine(t) && STATUS[t.status].inView &&
@@ -3888,6 +3892,11 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
     const i = shownTasks.findIndex((t) => t.id === openId);
     if (i >= 0) { setSel(i); setOpenId(null); }
   }, [openId, shownTasks]);
+  // Say what else a status change does before saving it (Praveen, 6 Nov). Writers
+  // approving content already get the hand-off gate in setTaskStatus, so skip those.
+  const previewMove = (t: Task, status: CCStatus) =>
+    status === t.status || (status === "Content - Approved" && nameIsWriter(t.detail.owner))
+      ? Promise.resolve(true) : confirmStatusMove(t.id, status);
   const moveTask = (t: Task, status: CCStatus) => {
     const starting = status === "Output - In Progress" && t.status === "Content - Approved";
     const finishing = status === "Output - Ready" && t.status === "Output - In Progress";
@@ -4468,7 +4477,7 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
                 </div>
               )}
               <div className={upNext?.id === task.id ? "fx-pane" : undefined} key={`body-${task.id}`}>
-              <TaskBody key={`task-${task.id}`} task={task} label="Task · opened" onStatusChange={(s) => moveTask(task, s)} onSetDuration={(m, why, undoOf) => setDuration(task.id, m, why, undoOf)} canSchedule={isAdmin} uploadedBy={person} onSaved={load} timing={taskTiming(task)} canEdit={canEditTasks} canDelete={canDeleteTasks} canAssign={canAssignTasks} onDeleted={() => { setSel(null); load(); }} />
+              <TaskBody key={`task-${task.id}`} task={task} label="Task · opened" onStatusChange={async (s) => { if (await previewMove(task, s)) moveTask(task, s); }} onSetDuration={(m, why, undoOf) => setDuration(task.id, m, why, undoOf)} canSchedule={isAdmin} uploadedBy={person} onSaved={load} timing={taskTiming(task)} canEdit={canEditTasks} canDelete={canDeleteTasks} canAssign={canAssignTasks} onDeleted={() => { setSel(null); load(); }} />
               </div>
               </>
             ) : (
@@ -4721,7 +4730,7 @@ export function PreviewMyDay({ initialPerson, isAdmin: viewerIsAdmin = false, vi
         <div className="modal" onClick={() => setPlanModalId(null)}>
           <div className="modal-card" onClick={(e) => e.stopPropagation()}>
             <button className="modal-close" onClick={() => setPlanModalId(null)} title="Close"><IconX size={14} stroke={2} /></button>
-            <TaskBody key={`plan-${planModalTask.id}`} task={planModalTask} label="Today's plan · task" onStatusChange={(s) => setTaskStatus(planModalTask.id, s)} onSetDuration={(m, why, undoOf) => setDuration(planModalTask.id, m, why, undoOf)} canSchedule={isAdmin} uploadedBy={person} onSaved={load} timing={taskTiming(planModalTask)} canEdit={canEditTasks} canDelete={canDeleteTasks} canAssign={canAssignTasks} onDeleted={() => { setPlanModalId(null); load(); }} />
+            <TaskBody key={`plan-${planModalTask.id}`} task={planModalTask} label="Today's plan · task" onStatusChange={async (s) => { if (await previewMove(planModalTask, s)) setTaskStatus(planModalTask.id, s); }} onSetDuration={(m, why, undoOf) => setDuration(planModalTask.id, m, why, undoOf)} canSchedule={isAdmin} uploadedBy={person} onSaved={load} timing={taskTiming(planModalTask)} canEdit={canEditTasks} canDelete={canDeleteTasks} canAssign={canAssignTasks} onDeleted={() => { setPlanModalId(null); load(); }} />
             <div className="modal-foot">
               <span className="modal-foot-note">Didn’t finish? Roll it to next week. Done? Mark it complete.</span>
               <div className="modal-foot-acts">

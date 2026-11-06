@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
-import { IconTrash, IconRestore, IconArchive, IconAlertTriangle, IconPhoto } from "@tabler/icons-react";
+import { IconTrash, IconRestore, IconArchive, IconAlertTriangle, IconPhoto, IconBrandWhatsapp } from "@tabler/icons-react";
 import { CreativeThumb } from "@/components/CreativeThumb";
 import { PreviewShell } from "../PreviewShell";
 import { LoadingBlock } from "@/components/LoadingBlock";
@@ -20,7 +20,11 @@ const when = (iso: string | null | undefined) => {
   return d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
-type Tab = "bin" | "files" | "archive";
+type Tab = "bin" | "files" | "chats" | "archive";
+
+// A WhatsApp chat deleted from the inbox — app/api/wa-inbox/bin (6 Nov).
+type ChatItem = { contact: string; name: string | null; lastBody: string | null; lastAt: string | null; messages: number; deletedAt: string; deletedBy: string | null };
+const fmtNum = (d: string) => (d.startsWith("91") && d.length === 12 ? `+91 ${d.slice(2, 7)} ${d.slice(7)}` : `+${d}`);
 
 // A task file in the bin (creative / reference / attachment) — lib/file-trash.ts.
 type FileItem = { id: string; postId: string | null; postTitle: string | null; filename: string | null; kind: string | null; url: string | null; deletedAt: string; deletedBy: string | null };
@@ -116,6 +120,8 @@ export function RecycleBinView({ isAdmin }: { isAdmin: boolean }) {
   const [bin, setBin] = useState<TrashItem[] | undefined>();
   const [archive, setArchive] = useState<TrashItem[] | undefined>();
   const [files, setFiles] = useState<FileItem[] | undefined>();
+  // null = this person can't open the WhatsApp Inbox, so the tab isn't shown.
+  const [chats, setChats] = useState<ChatItem[] | undefined | null>();
   // Admin: files emptied from the bin (kept anyway) — the way back for a file.
   const [showEmptied, setShowEmptied] = useState(false);
   const [emptied, setEmptied] = useState<FileItem[] | undefined>();
@@ -148,6 +154,11 @@ export function RecycleBinView({ isAdmin }: { isAdmin: boolean }) {
       const j = await r.json().catch(() => ({}));
       setFiles(r.ok ? (j.items || []) : []);
     } catch { setFiles([]); }
+    try {
+      const r = await fetch("/api/wa-inbox/bin", { cache: "no-store" });
+      const j = await r.json().catch(() => ({}));
+      setChats(r.status === 403 || r.status === 401 ? null : r.ok ? (j.items || []) : []);
+    } catch { setChats([]); }
     if (!isAdmin) return;
     try {
       const r = await fetch("/api/marketing-hub/trash/files?emptied=1", { cache: "no-store" });
@@ -166,6 +177,31 @@ export function RecycleBinView({ isAdmin }: { isAdmin: boolean }) {
   const fileList = (showEmptied ? emptied : files) || [];
   const chosen = list.filter((t) => picked.has(t.id));
   const chosenFiles = fileList.filter((f) => picked.has(f.id));
+  const chatList = chats || [];
+  const chosenChats = chatList.filter((c) => picked.has(c.contact));
+
+  const actChats = async (action: "restore" | "purge") => {
+    const n = chosenChats.length;
+    if (!(await confirmDialog(action === "restore"
+      ? { title: `Restore ${n} chat${n === 1 ? "" : "s"}?`, body: "They go back to the WhatsApp Inbox with every message, label and note.", action: "Restore" }
+      : { title: `Delete ${n} chat${n === 1 ? "" : "s"} for good?`, body: "Every message in them is wiped from the dashboard, with the labels and notes. This one cannot be undone. It does not reach WhatsApp — they keep their copy.", action: "Delete for good", danger: true }))) return;
+    setBusy(true);
+    try {
+      let failed = 0;
+      if (action === "restore") {
+        const r = await fetch("/api/wa-inbox/bin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contacts: chosenChats.map((c) => c.contact) }) });
+        if (!r.ok) failed = n;
+      } else {
+        for (const c of chosenChats) {
+          const r = await fetch(`/api/wa-inbox/contact?contact=${c.contact}&forever=1`, { method: "DELETE" });
+          if (!r.ok) failed++;
+        }
+      }
+      setNotice(failed ? `${failed} chat${failed === 1 ? "" : "s"} couldn't be ${action === "restore" ? "restored" : "deleted"}.` : null);
+      setPicked(new Set());
+      await load();
+    } finally { setBusy(false); }
+  };
   const allOn = list.length > 0 && chosen.length === list.length;
   const toggle = (id: string) => setPicked((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const switchTab = (t: Tab) => { setTab(t); setPicked(new Set()); };
@@ -229,6 +265,13 @@ export function RecycleBinView({ isAdmin }: { isAdmin: boolean }) {
             <IconPhoto size={16} stroke={1.8} />Creatives &amp; files
             <span className="text-[11px] opacity-70">{files?.length ?? ""}</span>
           </button>
+          {chats !== null && (
+            <button onClick={() => switchTab("chats")}
+              className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13.5px] font-medium border transition ${tab === "chats" ? "bg-brand-light border-brand text-brand-dark" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
+              <IconBrandWhatsapp size={16} stroke={1.8} />WhatsApp chats
+              <span className="text-[11px] opacity-70">{chats?.length ?? ""}</span>
+            </button>
+          )}
           {isAdmin && (
             <button onClick={() => switchTab("archive")}
               className={`inline-flex items-center gap-1.5 h-9 px-3 rounded-lg text-[13.5px] font-medium border transition ${tab === "archive" ? "bg-brand-light border-brand text-brand-dark" : "bg-white border-gray-200 text-gray-600 hover:border-gray-300"}`}>
@@ -259,6 +302,16 @@ export function RecycleBinView({ isAdmin }: { isAdmin: boolean }) {
               </button>
               <button disabled={busy} onClick={() => actFiles("purge")} className="inline-flex items-center gap-1.5 h-9 px-3 rounded text-[14px] font-medium text-[#C0392B] border border-[#F3C6CE] bg-white hover:bg-[#FDECEA] disabled:opacity-50">
                 <IconTrash size={16} stroke={1.8} />Delete from bin
+              </button>
+            </div>
+          )}
+          {tab === "chats" && chosenChats.length > 0 && (
+            <div className="ml-auto flex items-center gap-2">
+              <button disabled={busy} onClick={() => actChats("restore")} className="inline-flex items-center gap-1.5 h-9 px-3 rounded text-[14px] font-medium text-white bg-brand hover:bg-brand-dark disabled:opacity-50">
+                <IconRestore size={16} stroke={1.8} />Restore {chosenChats.length}
+              </button>
+              <button disabled={busy} onClick={() => actChats("purge")} className="inline-flex items-center gap-1.5 h-9 px-3 rounded text-[14px] font-medium text-[#C0392B] border border-[#F3C6CE] bg-white hover:bg-[#FDECEA] disabled:opacity-50">
+                <IconTrash size={16} stroke={1.8} />Delete for good
               </button>
             </div>
           )}
@@ -324,7 +377,49 @@ export function RecycleBinView({ isAdmin }: { isAdmin: boolean }) {
             )}
           </div>
         )}
-        {tab !== "files" && (
+        {tab === "chats" && (
+          <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 text-[12.5px] text-gray-500">
+              WhatsApp chats deleted from the inbox. Restore puts one back with every message, label and note. A chat also comes back by itself if the person writes again. Delete for good wipes the messages — that one cannot be undone.
+            </div>
+            {chats === undefined ? <LoadingBlock /> : chatList.length === 0 ? (
+              <div className="px-5 py-10 text-center text-[14px] text-[#8A92A6]">No deleted chats.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm whitespace-nowrap">
+                  <thead className="border-b border-gray-100 bg-gray-50">
+                    <tr className="text-gray-500 text-left">
+                      <th className="pl-4 pr-0 py-2.5 w-9 font-normal">
+                        <input type="checkbox" checked={chatList.length > 0 && chosenChats.length === chatList.length} onChange={() => setPicked(chosenChats.length === chatList.length ? new Set() : new Set(chatList.map((c) => c.contact)))} aria-label="Select all" />
+                      </th>
+                      <th className="px-4 py-2.5 font-normal">Chat</th>
+                      <th className="px-4 py-2.5 font-normal">Last message</th>
+                      <th className="px-4 py-2.5 font-normal">Messages</th>
+                      <th className="px-4 py-2.5 font-normal">Deleted</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chatList.map((c) => (
+                      <tr key={c.contact} onClick={() => toggle(c.contact)} className="border-b border-gray-50 hover:bg-gray-50 cursor-pointer">
+                        <td className="pl-4 pr-0 py-2.5 w-9">
+                          <input type="checkbox" checked={picked.has(c.contact)} onChange={() => toggle(c.contact)} onClick={(e) => e.stopPropagation()} aria-label={`Select ${c.name || c.contact}`} />
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <span className="block text-gray-800">{c.name || fmtNum(c.contact)}</span>
+                          {c.name && <span className="block text-[12px] text-gray-400">{fmtNum(c.contact)}</span>}
+                        </td>
+                        <td className="px-4 py-2.5 text-gray-600"><span className="block max-w-[320px] truncate">{c.lastBody || "—"}</span></td>
+                        <td className="px-4 py-2.5 text-gray-600">{c.messages}</td>
+                        <td className="px-4 py-2.5 text-gray-500">{when(c.deletedAt)}<span className="text-gray-400"> · {who(c.deletedBy)}</span></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+        {(tab === "bin" || tab === "archive") && (
         <div className="bg-white border border-gray-100 rounded-xl overflow-hidden">
           <div className="px-5 py-3 border-b border-gray-100 text-[12.5px] text-gray-500">
             {tab === "bin"

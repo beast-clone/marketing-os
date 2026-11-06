@@ -659,6 +659,24 @@ export async function PATCH(req: Request) {
       }
     }
 
+    // The owner moved and the person on camera isn't the new owner → they become a
+    // collaborator. A presenter who OWNED the task was never a collaborator (nobody
+    // is both), so handing it straight to the editor left them on nothing at all —
+    // "You can't hold an AIQ seat…" went Nikhil → Nandu on 4 Nov and vanished from
+    // Nikhil's My Day (Praveen, 6 Nov).
+    {
+      const ownerBefore = String((before.data as { owner_key?: string | null }).owner_key || "").toLowerCase();
+      const ownerAfter = String(data.owner_key || "").toLowerCase();
+      const saved = (data.custom || {}) as Record<string, unknown>;
+      const presenter = typeof saved.presenter_key === "string" ? saved.presenter_key.toLowerCase() : "";
+      if (presenter && ownerBefore !== ownerAfter && presenter !== ownerAfter) {
+        await sb.from("mh_post_collaborators").upsert(
+          [{ post_id: body.id, member_key: presenter }],
+          { onConflict: "post_id,member_key", ignoreDuplicates: true },
+        );
+      }
+    }
+
     return NextResponse.json({ id: data.id, fields: data, updatedAt: data.updated_at, pendingApproval, ...(ownershipNote ? { warning: ownershipNote } : {}) });
   } catch (err) {
     return NextResponse.json(safeError(err, "Task update failed"), { status: 502 });

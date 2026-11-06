@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WhatsApp Templates — prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  /* Dashboard theme (Hope UI) — the .preview-scope tokens from app/globals.css */
+  :root { --brand:#3A57E8; --brand-dark:#2138B0; --brand-light:#E9ECFB; --ink:#232D42; --soft:#4A5468; --muted:#8A92A6; --canvas:#F6F7FB; --line:#EEF0F4; --line2:#E2E5EC;
+          --ok-bg:#E3F5EA; --ok:#137A3E; --wait-bg:#FDF3E1; --wait:#9A5B0B; --bad-bg:#FDE7E7; --bad:#C0342E; --grey-bg:#F1F2F6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:Inter,-apple-system,"Segoe UI",sans-serif; background:var(--canvas); color:var(--ink); font-size:14px; font-weight:400; }
+  b, strong { font-weight:500; }
+  svg.i { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; flex:none; }
+  .proto { background:var(--ink); color:#fff; font-size:12px; padding:8px 24px; }
+  .wrap { max-width:1240px; margin:0 auto; padding:24px; }
+  .hero { background:linear-gradient(100deg,#3A57E8 0%,#5470EE 100%); color:#fff; border-radius:16px; padding:22px 26px; }
+  .hero h1 { margin:0; font-size:22px; font-weight:500; }
+  .hero p { margin:6px 0 0; font-size:13px; opacity:.85; }
+  .tabs { display:flex; gap:8px; margin:16px 0; }
+  .tab { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 12px; border-radius:8px; border:1px solid var(--line2); background:#fff; color:#4A5468; font:500 13.5px Inter,sans-serif; cursor:pointer; }
+  .tab.on { background:var(--brand-light); border-color:var(--brand); color:var(--brand-dark); }
+  .tab .n { font-size:11px; opacity:.7; }
+  .cards { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+  .stat { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; gap:12px; align-items:center; }
+  .stat .ic { width:36px; height:36px; border-radius:10px; display:grid; place-items:center; }
+  .stat .k { font-size:12px; color:var(--muted); }
+  .stat .v { font-size:22px; font-weight:500; margin-top:2px; }
+  .panel { background:#fff; border:1px solid var(--line); border-radius:16px; margin-bottom:16px; overflow:hidden; }
+  .ph { display:flex; align-items:center; gap:10px; padding:14px 18px; border-bottom:1px solid var(--line); }
+  .ph.accent { background:var(--brand-light); border-bottom-color:#DCE1F8; }
+  .ph .ic { width:32px; height:32px; border-radius:9px; background:var(--brand-light); color:var(--brand); display:grid; place-items:center; }
+  .ph.accent .ic { background:#fff; }
+  .ph h2 { margin:0; font-size:15px; font-weight:500; }
+  .ph .sub { font-size:12px; color:var(--muted); margin-top:1px; }
+  .ph .right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  .btn { height:34px; padding:0 13px; border-radius:8px; border:1px solid var(--line2); background:#fff; color:var(--ink); font:500 13px Inter,sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+  .btn.primary { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .btn.primary:hover { background:var(--brand-dark); }
+  .btn.sm { height:28px; padding:0 10px; font-size:12px; }
+  .chip { display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:500; border-radius:99px; padding:2px 9px; white-space:nowrap; }
+  .chip.APPROVED { background:var(--ok-bg); color:var(--ok); }
+  .chip.PENDING { background:var(--wait-bg); color:var(--wait); }
+  .chip.REJECTED { background:var(--bad-bg); color:var(--bad); }
+  .chip.DRAFT { background:var(--grey-bg); color:#5A6273; }
+  .cat { font-size:11px; color:var(--soft); background:var(--canvas); border-radius:6px; padding:2px 7px; }
+  .cat.MARKETING { color:var(--wait); background:var(--wait-bg); }
+  .group { padding:14px 18px 4px; }
+  .group h3 { margin:0 0 2px; font-size:13px; font-weight:500; display:flex; align-items:center; gap:7px; }
+  .group .gsub { font-size:12px; color:var(--muted); margin-bottom:10px; }
+  .defaults { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; padding-bottom:12px; }
+  .def { border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; background:#fff; }
+  .def.star { border-color:#C9D1F7; background:#FAFBFF; }
+  .def .top { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .def .nm { font-weight:500; font-size:12.5px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  .def .when { font-size:12px; color:var(--muted); line-height:1.45; }
+  .bubble { background:#fff; border:1px solid #E4E7EE; border-radius:10px 10px 10px 2px; padding:9px 11px; font-size:13px; line-height:1.5; color:var(--ink); white-space:pre-wrap; }
+  .bubble .v { background:var(--brand-light); color:var(--brand-dark); border-radius:4px; padding:0 4px; font-size:12px; }
+  .bubble .v.typed { background:#FFF4D6; color:#7A5300; }
+  .bubble .ft { display:block; margin-top:6px; font-size:11.5px; color:var(--muted); }
+  .qr { display:flex; gap:6px; flex-wrap:wrap; }
+  .qr span { display:inline-flex; align-items:center; gap:4px; font-size:12px; color:var(--brand); background:#fff; border:1px solid #DCE1F8; border-radius:8px; padding:4px 9px; }
+  .def .foot { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-top:auto; }
+  .def .note { font-size:11.5px; color:var(--muted); flex-basis:100%; }
+  .toolbar { display:flex; gap:8px; align-items:center; padding:12px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .search { flex:1; min-width:220px; display:flex; align-items:center; gap:8px; background:var(--canvas); border:1px solid var(--line); border-radius:10px; padding:8px 11px; color:var(--muted); }
+  .search input { border:0; background:transparent; outline:0; font:13px Inter,sans-serif; width:100%; color:var(--ink); }
+  .fchip { height:30px; padding:0 11px; border-radius:99px; border:1px solid var(--line2); background:#fff; font:500 12.5px Inter,sans-serif; color:#4A5468; cursor:pointer; }
+  .fchip.on { background:var(--brand-light); border-color:var(--brand); color:var(--brand-dark); }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; font-weight:400; font-size:12px; color:var(--muted); background:#FAFBFD; padding:9px 18px; border-bottom:1px solid var(--line); }
+  td { padding:10px 18px; border-bottom:1px solid #F4F5F8; vertical-align:top; font-size:13px; }
+  td .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:12.5px; }
+  td .snip { color:var(--muted); font-size:12px; max-width:440px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  tr:hover td { background:#FBFBFE; cursor:pointer; }
+  .legend { font-size:12px; color:var(--muted); padding:10px 18px; }
+  /* send-from-chat demo */
+  .demo { display:grid; grid-template-columns:1fr 320px; gap:0; }
+  .demo .chat { background:var(--canvas); padding:16px 18px; border-right:1px solid var(--line); }
+  .closed { display:flex; gap:8px; align-items:flex-start; background:#fff; border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:12.5px; color:var(--soft); margin-bottom:12px; }
+  .composer { background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .composer label { margin-top:10px; }
+  .demo .side { padding:16px 18px; }
+  label { display:block; font-size:12px; color:var(--muted); margin:0 0 5px; }
+  .in, select, textarea { width:100%; border:1px solid var(--line2); border-radius:8px; padding:9px 11px; font:13px Inter,sans-serif; color:var(--ink); background:#fff; }
+  textarea { min-height:96px; resize:vertical; line-height:1.5; }
+  .in:focus, textarea:focus, select:focus { outline:0; border-color:var(--brand); }
+  .hint { font-size:11.5px; color:var(--muted); margin-top:5px; line-height:1.5; }
+  .seg { display:flex; gap:6px; }
+  .seg button { flex:1; height:34px; border:1px solid var(--line2); background:#fff; border-radius:8px; font:500 12.5px Inter,sans-serif; color:#4A5468; cursor:pointer; }
+  .seg button.on { background:var(--brand-light); border-color:var(--brand); color:var(--brand-dark); }
+  .vars { display:grid; grid-template-columns:70px 1fr; gap:6px 10px; align-items:center; }
+  .phone { background:#F0F2F7; border-radius:16px; padding:12px; border:1px solid var(--line); min-height:300px; }
+  .phone .bar { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:500; color:var(--ink); background:#fff; margin:-12px -12px 12px; padding:10px 12px; border-radius:16px 16px 0 0; border-bottom:1px solid var(--line); }
+  .phone .bar .av { width:24px; height:24px; border-radius:99px; background:var(--brand-light); color:var(--brand); display:grid; place-items:center; font-size:10px; }
+  /* drawer */
+  .scrim { position:fixed; inset:0; background:rgba(35,45,66,.35); display:none; }
+  .scrim.on { display:block; }
+  .drawer { position:fixed; top:0; right:0; bottom:0; width:880px; max-width:100%; background:#fff; display:none; flex-direction:column; }
+  .drawer.on { display:flex; }
+  .dh { display:flex; align-items:center; gap:10px; padding:16px 22px; border-bottom:1px solid var(--line); background:var(--brand-light); }
+  .dh h3 { margin:0; font-size:16px; font-weight:500; }
+  .db { display:grid; grid-template-columns:1fr 300px; gap:22px; padding:20px 22px; overflow:auto; flex:1; }
+  .f { margin-bottom:14px; }
+  .df { display:flex; gap:8px; justify-content:flex-end; padding:14px 22px; border-top:1px solid var(--line); align-items:center; }
+  .df .left { margin-right:auto; font-size:12px; color:var(--muted); max-width:420px; }
+  .toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%); background:var(--ink); color:#fff; padding:10px 16px; border-radius:10px; font-size:13px; display:none; }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-msg" viewBox="0 0 24 24"><path d="M8 9h8M8 13h6M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z"/></symbol>
+  <symbol id="i-tpl" viewBox="0 0 24 24"><path d="M4 4h16v4H4zM4 12h6v8H4zM14 12h6M14 16h6M14 20h6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 17.75l-6.17 3.24 1.18-6.87-5-4.86 6.9-1L12 2l3.09 6.26 6.9 1-5 4.86 1.18 6.87z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M5 6v.01M5 12v.01M5 18v.01"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="7"/><path d="M21 21l-6-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M10 14L21 3M21 3l-6.5 18a.55.55 0 0 1-1 0L10 14l-7-3.5a.55.55 0 0 1 0-1L21 3"/></symbol>
+  <symbol id="i-reply" viewBox="0 0 24 24"><path d="M9 14l-4-4 4-4"/><path d="M5 10h11a4 4 0 1 1 0 8h-1"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 1 1 8 0v4"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M16 3v4M8 3v4M4 11h16"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M6 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/></symbol>
+  <symbol id="i-cash" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M10 5a2 2 0 1 1 4 0 7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6M9 17v1a3 3 0 0 0 6 0v-1"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19.5 12.57L12 20l-7.5-7.43A5 5 0 1 1 12 6a5 5 0 1 1 7.5 6.57"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L18.5 9.5a2.83 2.83 0 0 0-4-4L4 16v4M13.5 6.5l4 4"/></symbol>
+</svg>
+<div class="proto">PROTOTYPE — nothing here sends to Meta. "All templates" is the real list on +91 74116 54951 (6 Nov). The default templates are proposals for you to approve.</div>
+<div class="wrap">
+  <div class="hero"><h1>WhatsApp Inbox</h1><p>Read and reply to WhatsApp messages sent to +91 74116 54951.</p></div>
+
+  <div class="tabs">
+    <button class="tab"><svg class="i"><use href="#i-msg"/></svg>Chats <span class="n">3</span></button>
+    <button class="tab on"><svg class="i"><use href="#i-tpl"/></svg>Templates <span class="n" id="tabN"></span></button>
+  </div>
+
+  <div class="cards">
+    <div class="stat"><span class="ic" style="background:var(--ok-bg);color:var(--ok)"><svg class="i"><use href="#i-check"/></svg></span><div><div class="k">Approved — can send</div><div class="v" id="cA"></div></div></div>
+    <div class="stat"><span class="ic" style="background:var(--wait-bg);color:var(--wait)"><svg class="i"><use href="#i-clock"/></svg></span><div><div class="k">Waiting for Meta</div><div class="v" id="cP"></div></div></div>
+    <div class="stat"><span class="ic" style="background:var(--bad-bg);color:var(--bad)"><svg class="i"><use href="#i-x"/></svg></span><div><div class="k">Rejected — needs a fix</div><div class="v" id="cR"></div></div></div>
+    <div class="stat"><span class="ic" style="background:var(--grey-bg);color:#5A6273"><svg class="i"><use href="#i-file"/></svg></span><div><div class="k">Defaults not created yet</div><div class="v" id="cD"></div></div></div>
+  </div>
+
+  <!-- How sending a template looks inside a chat -->
+  <div class="panel">
+    <div class="ph accent"><span class="ic"><svg class="i"><use href="#i-send"/></svg></span><div><h2>Sending a template from a chat</h2>
+      <div class="sub">A template is a full message, not just buttons. You type into its blanks every time — including a whole message of your own — and the buttons go out with it.</div></div></div>
+    <div class="demo">
+      <div class="chat">
+        <div class="closed"><svg class="i" style="color:var(--muted);margin-top:1px"><use href="#i-lock"/></svg>
+          <span>Priya last wrote <b>2 days ago</b>, so the 24-hour window is closed. WhatsApp only lets a template go out now. When she replies or taps a button, you can type freely again.</span></div>
+        <div class="composer">
+          <label>Template</label>
+          <select id="sTpl" onchange="sendDemo()"></select>
+          <div id="sFields"></div>
+          <div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" onclick="toast('Prototype: the template would be sent to Priya.')"><svg class="i"><use href="#i-send"/></svg>Send template</button></div>
+        </div>
+      </div>
+      <div class="side"><label>What Priya receives</label>
+        <div class="phone"><div class="bar"><span class="av">GC</span>GooCampus Edu Solutions</div><div class="bubble" id="sPv"></div><div class="qr" id="sPvB" style="margin-top:6px"></div></div></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><span class="ic"><svg class="i"><use href="#i-star"/></svg></span><div><h2>Default templates</h2>
+      <div class="sub">The set GooCampus keeps ready for when a chat's 24-hour window has closed. Each one sends to Meta for approval with one click; once approved it appears in every chat's template picker.</div></div>
+      <div class="right"><button class="btn primary" onclick="submitAll()"><svg class="i"><use href="#i-send"/></svg>Send all for approval</button></div></div>
+    <div id="defaults"></div>
+  </div>
+
+  <div class="panel">
+    <div class="ph"><span class="ic"><svg class="i"><use href="#i-list"/></svg></span><div><h2>All templates</h2><div class="sub">Everything on this WhatsApp number with Meta's current status. Click a row to open it.</div></div>
+      <div class="right"><button class="btn primary" onclick="openNew()"><svg class="i"><use href="#i-plus"/></svg>New template</button></div></div>
+    <div class="toolbar">
+      <div class="search"><svg class="i"><use href="#i-search"/></svg><input id="q" placeholder="Search name or text" oninput="renderTable()" /></div>
+      <span id="filters"></span>
+    </div>
+    <table><thead><tr><th>Template</th><th>Category</th><th>Status</th><th>Language</th><th>Used by</th></tr></thead><tbody id="rows"></tbody></table>
+    <div class="legend">Status comes from Meta and refreshes every few minutes. <b>Waiting for Meta</b> usually turns Approved within minutes, sometimes up to 24 hours. A <b>Rejected</b> template shows Meta's reason with an "Edit and resubmit" button.</div>
+  </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="closeNew()"></div>
+<div class="drawer" id="drawer">
+  <div class="dh"><svg class="i" style="color:var(--brand)"><use href="#i-pen"/></svg><h3 id="dTitle">New template</h3><span class="chip DRAFT" id="dStatus">Draft</span><button class="btn sm" style="margin-left:auto" onclick="closeNew()"><svg class="i"><use href="#i-x"/></svg></button></div>
+  <div class="db">
+    <div>
+      <div class="f"><label>Name</label><input class="in" id="fName" placeholder="e.g. gc_missed_reply_followup" oninput="draw()" />
+        <div class="hint">Lowercase letters, numbers and underscores. Only we see it.</div></div>
+      <div class="f"><label>Category</label>
+        <div class="seg" id="fCat"><button class="on" data-v="UTILITY">Utility</button><button data-v="MARKETING">Marketing</button></div>
+        <div class="hint"><b>Utility</b> — about something the person asked for or is in the middle of (their enquiry, payment, session). Cheaper. <b>Marketing</b> — offers, events, people gone quiet. Meta moves a template to Marketing if it reads like a promotion.</div></div>
+      <div class="f"><label>Message</label><textarea id="fBody" oninput="draw()"></textarea>
+        <div class="hint">Use <b>{{1}}</b>, <b>{{2}}</b>… for the parts you type each time you send it. <button class="btn sm" onclick="addVar()"><svg class="i"><use href="#i-plus"/></svg>Add a blank</button></div></div>
+      <div class="f"><label>Example for each blank (Meta needs these to review it)</label><div class="vars" id="fVars"></div></div>
+      <div class="f"><label>Footer (optional)</label><input class="in" id="fFoot" value="GooCampus Edu Solutions" oninput="draw()" /></div>
+      <div class="f"><label>Buttons (optional, up to 3 quick replies)</label><input class="in" id="fBtns" placeholder="Comma separated, e.g. Continue chat, Call me" oninput="draw()" />
+        <div class="hint">Buttons go out with the message. When they tap one, the 24-hour window opens and you can type freely again.</div></div>
+    </div>
+    <div><label>Preview</label><div class="phone"><div class="bar"><span class="av">GC</span>GooCampus Edu Solutions</div><div class="bubble" id="pv"></div><div class="qr" id="pvB" style="margin-top:6px"></div></div></div>
+  </div>
+  <div class="df"><span class="left" id="dNote">Meta reviews every template. Nothing can be sent with it until it's Approved.</span>
+    <button class="btn" onclick="closeNew()">Cancel</button><button class="btn primary" id="dGo" onclick="submitOne()"><svg class="i"><use href="#i-send"/></svg>Send to Meta for approval</button></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const LIVE = [{"name": "gcc_licensing_batch_dec_2026", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Hi {{1}}, thanks for your interest in practising in the Gulf.\n\nOur next GCC licensing batch starts 9 December.\n\nCan I share the details: the countries we cover, what is included, and the fee?", "header": null, "buttons": ["Yes, share details", "Not right now"], "reason": null}, {"name": "samvaya_matrimony_v2_november", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, \n\nThank you for your Samvaya enquiry. \nPlease complete this form so we can process your request: https://app.samvayamatrimony.com/", "header": "IMAGE", "buttons": [], "reason": null}, {"name": "samvaya_lead_welcome_v1", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Hello, thank you for your interest in Samvaya.\n\nWe offer a thoughtful approach to finding a life partner, with introductions that consider your values, preferences and plans for the future.\n\nTo get started, sign in and complete your profile. The form takes around 30 minutes, and you can save your progress and return later.\n\nHave a question? Reply to this message and our team will be happy to help.", "header": null, "buttons": ["Start your profile"], "reason": null}, {"name": "uae_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Failed ⚠️\n\nHi {{1}},\n\nYour recent payment for the UAE Medical Career Guide 2026 did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Retry Payment"], "reason": null}, {"name": "saudi_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Failed ⚠️\n\nHi {{1}},\n\nYour recent payment for the Saudi Arabia Medical Career Guide 2026 did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Retry Payment"], "reason": null}, {"name": "qatar_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Failed ⚠️\n\nHi {{1}},\n\nYour recent payment for the Qatar Medical Career Guide 2026 did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Retry Payment"], "reason": null}, {"name": "ireland_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Failed ⚠️\n\nHi {{1}},\n\nYour recent payment for the Ireland Medical Career Guide 2026 did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Retry Payment"], "reason": null}, {"name": "india_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Failed ⚠️\n\nHi {{1}},\n\nYour recent payment for the India NEET-PG Guide 2026 did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Retry Payment"], "reason": null}, {"name": "germany_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Failed ⚠️\n\nHi {{1}},\n\nYour recent payment for the Germany Medical Career Guide 2026 did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Retry Payment"], "reason": null}, {"name": "canada_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Failed ⚠️\n\nHi {{1}},\n\nYour recent payment for the Canada Medical Career Guide 2026 did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Retry Payment"], "reason": null}, {"name": "uae_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Your Guide is Ready 📖\n\nHi {{1}},\n\nThank you for purchasing the UAE Medical Career Guide 2026.\n\nAll 22 chapters are now available in your private Google Drive folder. We've also sent the access link to your email.\n\nSign in to Google Drive with the email you provided at checkout.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Open My Guide"], "reason": null}, {"name": "saudi_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Your Guide is Ready 📖\n\nHi {{1}},\n\nThank you for purchasing the Saudi Arabia Medical Career Guide 2026.\n\nAll 20 chapters are now available in your private Google Drive folder. We've also sent the access link to your email.\n\nSign in to Google Drive with the email you provided at checkout.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Open My Guide"], "reason": null}, {"name": "qatar_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Your Guide is Ready 📖\n\nHi {{1}},\n\nThank you for purchasing the Qatar Medical Career Guide 2026.\n\nAll 20 chapters are now available in your private Google Drive folder. We've also sent the access link to your email.\n\nSign in to Google Drive with the email you provided at checkout.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Open My Guide"], "reason": null}, {"name": "ireland_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Your Guide is Ready 📖\n\nHi {{1}},\n\nThank you for purchasing the Ireland Medical Career Guide 2026.\n\nAll 8 chapters are now available in your private Google Drive folder. We've also sent the access link to your email.\n\nSign in to Google Drive with the email you provided at checkout.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Open My Guide"], "reason": null}, {"name": "india_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Your Guide is Ready 📖\n\nHi {{1}},\n\nThank you for purchasing the India NEET-PG Guide 2026.\n\nAll 22 chapters and 4 appendices are now available in your private Google Drive folder. We've also sent the access link to your email.\n\nSign in to Google Drive with the email you provided at checkout.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Open My Guide"], "reason": null}, {"name": "germany_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Your Guide is Ready 📖\n\nHi {{1}},\n\nThank you for purchasing the Germany Medical Career Guide 2026.\n\nAll 18 chapters are now available in your private Google Drive folder. We've also sent the access link to your email.\n\nSign in to Google Drive with the email you provided at checkout.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Open My Guide"], "reason": null}, {"name": "canada_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Your Guide is Ready 📖\n\nHi {{1}},\n\nThank you for purchasing the Canada Medical Career Guide 2026.\n\nAll 20 chapters are now available in your private Google Drive folder. We've also sent the access link to your email.\n\nSign in to Google Drive with the email you provided at checkout.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Open My Guide"], "reason": null}, {"name": "uae_payment_successful_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Received✅\n\nHi {{1}},\n\nYour payment of Rs {{2}} for the UAE Medical Career Guide 2026 is successful.\n\nOrder: {{3}}\n\nYour access details will reach you shortly via email and WhatsApp.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": [], "reason": null}, {"name": "saudi_payment_successful_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Received✅\n\nHi {{1}},\n\nYour payment of Rs {{2}} for the Saudi Arabia Medical Career Guide 2026 is successful.\n\nOrder: {{3}}\n\nYour access details will reach you shortly via email and WhatsApp.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": [], "reason": null}, {"name": "qatar_payment_successful_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Received✅\n\nHi {{1}},\n\nYour payment of Rs {{2}} for the Qatar Medical Career Guide 2026 is successful.\n\nOrder: {{3}}\n\nYour access details will reach you shortly via email and WhatsApp.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": [], "reason": null}, {"name": "ireland_payment_successful_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Received✅\n\nHi {{1}},\n\nYour payment of Rs {{2}} for the Ireland Medical Career Guide 2026 is successful.\n\nOrder: {{3}}\n\nYour access details will reach you shortly via email and WhatsApp.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": [], "reason": null}, {"name": "india_payment_successful_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Received✅\n\nHi {{1}},\n\nYour payment of Rs {{2}} for the India NEET-PG Guide 2026 is successful.\n\nOrder: {{3}}\n\nYour access details will reach you shortly via email and WhatsApp.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": [], "reason": null}, {"name": "germany_payment_successful_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Received✅\n\nHi {{1}},\n\nYour payment of Rs {{2}} for the Germany Medical Career Guide 2026 is successful.\n\nOrder: {{3}}\n\nYour access details will reach you shortly via email and WhatsApp.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": [], "reason": null}, {"name": "canada_payment_successful_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Received✅\n\nHi {{1}},\n\nYour payment of Rs {{2}} for the Canada Medical Career Guide 2026 is successful.\n\nOrder: {{3}}\n\nYour access details will reach you shortly via email and WhatsApp.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": [], "reason": null}, {"name": "neet_pg_al_ameen_reminder", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hello {{1}},\n\nThis is a reminder about the NEET PG Counselling Session at Al-Ameen Medical College, Bijapur, following your enquiry.\n\nYour seat is not confirmed yet.\n\nSaturday, 3 October 2026\n10:00 AM – 5:00 PM\nAl Ameen Medical College Campus, Bijapur, Karnataka\n\nTo confirm your seat, please register using the link below.\n\nIf you have any questions, call Gagan on +91 90199 25848.", "header": null, "buttons": ["Register Now", "Get Directions"], "reason": null}, {"name": "neet_pg_al_ameen_event", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hello {{1}},\n\nFollowing your enquiry about the NEET PG Counselling Session at Al-Ameen Medical College, Bijapur, here are the details.\n\nSaturday, 3 October 2026\n10:00 AM – 5:00 PM\nAl Ameen Medical College Campus, Bijapur, Karnataka\n\nPlease confirm your seat by registering using the link below.\n\nIf you have any questions, call Gagan on +91 90199 25848.", "header": "IMAGE", "buttons": ["Complete Registration"], "reason": null}, {"name": "goocampus_atc_interest_check_au", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}},\n\nWe've tried reaching you a few times regarding your Australia medical PG pathway enquiry, but haven't been able to connect yet.\n\nWe don't want you to miss out on planning your journey at the right time. Could you confirm if you'd still like our counsellors to reach out to you for a discussion?", "header": null, "buttons": ["Yes, I'm interested", "Not right now", "Not interested"], "reason": null}, {"name": "samvaya_profile_pending_b_mkt", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Hi {{1}}, this is a reminder that your Samvaya profile is pending submission.\n\nYour profile is a required step before verification can begin. Without it, your registration cannot move forward to the next stage.\n\nPlease log in to the portal and complete the pending sections to proceed.", "header": null, "buttons": ["Complete profile"], "reason": null}, {"name": "samvaya_profile_pending_c_mkt", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Hi {{1}},\nYour Samvaya profile remains incomplete on our records.\n\nTo continue with your registration, please complete the pending profile form on the portal. The form covers your details, background, and preferences — all required before the next step.\n\nYou can return to the portal anytime to finish where you left off.", "header": null, "buttons": ["Complete profile"], "reason": null}, {"name": "samvaya_form_reminder_mkt", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Hi {{1}}, your Samvaya profile is currently incomplete.\n\nThe profile form collects your basic details, background, education, and preferences. This information is required before our team can proceed with the next steps on your registration.\n\nPlease complete your profile on the portal at your earliest convenience to continue.", "header": null, "buttons": ["Complete my profile"], "reason": null}, {"name": "samvaya_profile_pending_c", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, \n\nYour Samvaya profile remains incomplete on our records.\n\nTo continue with your registration, please complete the pending profile form on the portal. The form covers your details, background, and preferences — all required before the next step.\n\nYou can return to the portal anytime to finish where you left off.", "header": null, "buttons": ["Complete profile"], "reason": null}, {"name": "_samvaya_profile_pending_b", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, this is a reminder that your Samvaya profile is pending submission.\n\nYour profile is a required step before verification can begin. Without it, your registration cannot move forward to the next stage.\n\nPlease log in to the portal and complete the pending sections to proceed.", "header": null, "buttons": ["Complete profile"], "reason": null}, {"name": "samvaya_form_reminder_v6", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, your Samvaya profile is currently incomplete.\n\nThe profile form collects your basic details, background, education, and preferences. This information is required before our team can proceed with the next steps on your registration.\n\nPlease complete your profile on the portal at your earliest convenience to continue.", "header": null, "buttons": ["Complete my profile"], "reason": null}, {"name": "nz_payment_successful_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Received✅\n\nHi {{1}},\n\nYour payment of Rs {{2}} for The Complete New Zealand Pathway Blueprint is successful.\n\nOrder: {{3}}\n\nYour access details will reach you shortly via email and WhatsApp.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": [], "reason": null}, {"name": "nz_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Payment Failed ⚠️\n\nHi {{1}}, \n\nYour recent payment for The Complete New Zealand Pathway Blueprint did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Retry Payment"], "reason": null}, {"name": "nz_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Your Guide is Ready 📖\n\nHi {{1}}, \n\nThank you for purchasing The Complete New Zealand Pathway Blueprint.\n\nAll 8 chapters are now available in your private Google Drive folder. We've also sent the access link to your email.\n\nSign in to Google Drive with the email you provided at checkout.\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": null, "buttons": ["Open My Guide"], "reason": null}, {"name": "als_enquiry_callback_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}},\n\nThank you for enquiring about the ALS programme. We've received your details.\n\nMr Jeswin Jacob will call you shortly on +91 74838 00700.\n\nIn the meantime, you can view the available batches and register/pay directly using the button below.", "header": null, "buttons": ["View Batches & Register"], "reason": null}, {"name": "als_new_inquiry_alert", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi Mr Jeswin Jacob,\n\nNew ALS enquiry received.\n\nName: {{1}}\nPhone: {{2}}\nEmail: {{3}}\nPMQ status: {{4}}\n\nPlease follow up with a callback as soon as possible.", "header": null, "buttons": [], "reason": null}, {"name": "samvaya_nonmedical_earlyaccess", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, \n\nThank you for applying to Samvaya — we've received your application.\n\nTo be upfront: Samvaya is currently exclusively for verified medical professionals. But we've heard from so many people outside medicine that we're now preparing to open Samvaya to professionals across all fields.\n\nYou don't need to do anything right now — your details are with us, and we'll write to you personally t", "header": null, "buttons": [], "reason": null}, {"name": "samvaya_medical_confirmation_v2", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, \n\nWe've received your Samvaya waitlist registration.\n\nTo complete it, please create your account and set up your profile using the button below.\n\nNeed help? Reply to this message or call us on +91 97428 11599.", "header": null, "buttons": ["Create your account"], "reason": null}, {"name": "goocampus_callback_alert", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}! 👋\n\nThank you for {{4}}.\n\nYou will receive a call from \n{{2}} on {{3}}. \n\nPlease save this number and receive the call, or you can start a chat with your counsellor directly on this number. 💬", "header": null, "buttons": [], "reason": null}, {"name": "samvaya_onboarding_form", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, welcome to Samvaya Matrimony.\n\nYour registration is received. The next step is to complete your onboarding form so we can introduce you to compatible matches.\n\nIt only takes a few minutes.\n\nQuestions? Reply to +91-97428 11599.\n\n— Samvaya Team", "header": null, "buttons": ["Complete My Profile"], "reason": null}, {"name": "amc_payment_failed_retry", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, \n\nYour recent payment for The Complete Australia Pathway Blueprint did not go through.\n\nNo money has been charged.\n\nPlease wait 15–30 minutes before retrying — banks sometimes take time to release the temporary hold.\n\nOrder Reference: {{2}}\n\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": "TEXT", "buttons": ["Retry Payment"], "reason": null}, {"name": "amc_access_ready_", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, \nthank you for purchasing The Complete Australia Pathway Blueprint.\n\nAll 16 chapters are now available in your private Google Drive folder. \n\nWe've also sent the access link to your email.\n\n*Sign in to Google Drive with the email you provided at checkout.\n*\nFor help, contact +91 74835 24565.\n\n— GooCampus", "header": "TEXT", "buttons": ["Access Now"], "reason": null}, {"name": "amc_payment_successful", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}}, your payment of ₹{{2}} for The Complete Australia Pathway Blueprint has been received.\n\nOrder: {{3}}\n\nYour access details are on the way — please check your email and WhatsApp.\n\nQuestions? Contact +91 74835 24565.\n\n— GooCampus", "header": "TEXT", "buttons": [], "reason": null}, {"name": "samvaya_background_verification", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Hi {{1}}\n\nOne last step — *background verification* and you're in our candidate pool!\n\n✔️ Aadhaar\n✔️ PAN \n✔️ Address \n✔️ Medical License \n✔️ Credit Check\n\n*₹4,130* (₹3,500 + 18% GST) · One-time · Non-refundable\nResults in *3–5 business days* after payment.\n\n👉 Pay & begin: https://rzp.io/rzp/RaGBnyo\nSecure payment via Razorpay.\n\nHave a question? Reach us on WhatsApp: *+91 97428 11599*\n\n*Maheen Ejaz", "header": null, "buttons": [], "reason": null}, {"name": "send_samvaya_onboarding_form", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Hi {{1}} 👋\n\nThis is Ejaz from Samvaya Matrimony.\n\nYou're off the waitlist — your detailed onboarding form is ready for you here:\n\n👉 http://app.samvayamatrimony.com\n\nA few quick things:\n* Takes 35–40 minutes\n* Auto-saves as you go, so you can pause and continue any time\n* Please fill it yourself (not a family member) — it asks about your inner world\n* Photos stay blurred, name and details stay hidd", "header": null, "buttons": [], "reason": null}, {"name": "samvaya_registration_from_marketing", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Greetings from Samvaya Matrimony.✨\n\nThank you for your trust.\n\nWe have received your expression of interest. A detailed onboarding registration form will be shared with you in the first week of April, once we have compatible interests to match.\n\nIf you would like to speak with us before then, please feel free to contact us at +91 9742811599.", "header": null, "buttons": [], "reason": null}, {"name": "samvaya_registration_form", "status": "APPROVED", "category": "UTILITY", "language": "en_US", "quality": null, "body": "Hi {{1}} 👋\n\nExpression of interest received.\nStatus: Under review by our team.\nExpected timeline: Registration form in first week of April.\n\nQuestions? Reply here or call +91 9742811599.\nSamvaya Team", "header": null, "buttons": [], "reason": null}, {"name": "samvaya_waitlist_confirmation", "status": "APPROVED", "category": "UTILITY", "language": "en", "quality": null, "body": "Hi {{1}} 👋\n\nApplication received.\n\nStatus: On the waitlist.\nWe're collecting applications until April 5th, 2026 and will begin reviewing them after that date.\n\nQuestions? Reply to +91-97428 11599.\n\nSamvaya Team", "header": null, "buttons": [], "reason": null}, {"name": "samvaya_whatsapp_confirmation_message_to_people_who_join_the_waitlist__english_ind", "status": "APPROVED", "category": "MARKETING", "language": "en", "quality": null, "body": "Hi {{1}} 👋\n\nYour application to Samvaya is in — and we're glad you're here.\n\nWe've received your application and a real person on our team is reviewing it, not an automated system. If selected, you'll receive an exclusive invitation to complete your profile.\n\nWe know finding the right person is worth doing carefully. We're taking the same care with your application. Expect to hear from us within 7", "header": null, "buttons": [], "reason": null}, {"name": "hello_world", "status": "APPROVED", "category": "UTILITY", "language": "en_US", "quality": null, "body": "Welcome and congratulations!! This message demonstrates your ability to send a WhatsApp message notification from the Cloud API, hosted by Meta. Thank you for taking the time to test with us.", "header": "TEXT", "buttons": [], "reason": null}];
+const USED_BY = { "india_payment_successful_v2":"India eBook workflow", "india_access_ready_":"India eBook workflow", "india_payment_failed_retry":"India eBook workflow",
+  "als_enquiry_callback_v2":"ALS Leads workflow", "als_new_inquiry_alert":"ALS Leads workflow (to Jeswin)", "amc_payment_successful":"AMC eBook workflow",
+  "amc_access_ready_":"AMC eBook workflow", "amc_payment_failed_retry":"AMC eBook workflow", "goocampus_callback_alert":"Round-robin lead assignment",
+  "samvaya_waitlist_confirmation":"Samvaya waitlist", "neet_pg_al_ameen_event":"NEET PG Bijapur event" };
+const FOOT = "GooCampus Edu Solutions";
+// typed: which blank is a free-typed message (shown in yellow)
+const GROUPS = [
+  { title:"Reopen a chat", icon:"i-reply", sub:"The most-used set: someone wrote to us and the 24 hours ran out before we answered.", items:[
+    { name:"gc_message_from_team", cat:"UTILITY", star:true, when:"Type any message of your own. The template wraps it so Meta accepts it.",
+      body:"Hi {{1}}, here's a message from the GooCampus team:\n\n{{2}}\n\nReply to this message to continue the conversation.",
+      ex:["Priya","Your NEET PG documents are verified. Our counsellor will share the college list by Friday."], typed:[2], btns:["Reply","Call me"],
+      note:"Meta can refuse a template that is mostly a blank, so the fixed lines around it stay." },
+    { name:"gc_missed_reply_followup", cat:"UTILITY", when:"We didn't reply in time.",
+      body:"Hi {{1}}, sorry we couldn't reply to your message about {{2}} in time. Our team is available now — just reply to this message and we'll pick up where we left off.",
+      ex:["Priya","NEET PG counselling"], btns:["Continue chat","Call me"] },
+    { name:"gc_callback_missed", cat:"UTILITY", when:"A counsellor called and couldn't reach them.",
+      body:"Hi {{1}}, {{2}} from GooCampus tried calling you about your {{3}} enquiry. Reply with a good time and we'll call you back.",
+      ex:["Rahul","Robin","UK PG pathway"], btns:["Call me today","Call tomorrow"], note:"Similar already approved: goocampus_callback_alert (sent on lead assignment)." },
+  ]},
+  { title:"Enquiries and leads", icon:"i-user", sub:"First contact and what happens after a counselling call.", items:[
+    { name:"gc_enquiry_received", cat:"UTILITY", when:"Right after a form, call or ad enquiry.",
+      body:"Hi {{1}}, thanks for your enquiry about {{2}}. A GooCampus counsellor will get back to you shortly — reply here anytime with your questions.",
+      ex:["Meera","studying medicine in Georgia"], btns:["Talk to a counsellor"] },
+    { name:"gc_next_steps", cat:"UTILITY", when:"After a counselling call — what they need to do next, typed by the counsellor.",
+      body:"Hi {{1}}, thanks for speaking with {{2}} today about {{3}}.\n\nYour next steps:\n{{4}}\n\nReply here with any questions.",
+      ex:["Arjun","Robin","the AMC pathway","1. Book the AMC MCQ slot\n2. Send your passport copy"], typed:[4], btns:["I have a question"] },
+  ]},
+  { title:"Sessions and appointments", icon:"i-cal", sub:"Counselling sessions, mentor sessions and office visits.", items:[
+    { name:"gc_session_booked", cat:"UTILITY", when:"As soon as a session is booked.",
+      body:"Hi {{1}}, your session with {{2}} is booked for {{3}}. Join here: {{4}}\n\nReply to this message if you need to change it.",
+      ex:["Karthik","Dr. Anjali","Sat 8 Nov, 11:00 AM","https://meet.google.com/abc-defg-hij"], btns:["Reschedule"] },
+    { name:"gc_session_reminder", cat:"UTILITY", when:"The day before or an hour before.",
+      body:"Hi {{1}}, a reminder of your session with {{2}} on {{3}}. Reply YES to confirm, or RESCHEDULE if you need another time.",
+      ex:["Karthik","Dr. Anjali","Sat 8 Nov, 11:00 AM"], btns:["Yes","Reschedule"], note:"Similar already approved: neet_pg_al_ameen_reminder (one event only)." },
+    { name:"gc_session_missed", cat:"UTILITY", when:"They didn't join.",
+      body:"Hi {{1}}, we missed you at your session with {{2}} today. Reply to this message and we'll find a new time that suits you.",
+      ex:["Karthik","Dr. Anjali"], btns:["Pick a new time"] },
+  ]},
+  { title:"Applications and documents", icon:"i-file", sub:"Keeping students moving through their application.", items:[
+    { name:"gc_documents_pending", cat:"UTILITY", when:"We're waiting on documents.",
+      body:"Hi {{1}}, to continue with your {{2}} we still need: {{3}}. You can send them right here as a photo or PDF.",
+      ex:["Ananya","Australia PGCP application","passport copy and MBBS degree"], btns:["Sending now"] },
+    { name:"gc_documents_received", cat:"UTILITY", when:"Confirm we got them.",
+      body:"Hi {{1}}, we've received your {{2}}. Our team will review them and update you by {{3}}.",
+      ex:["Ananya","passport copy and MBBS degree","Monday"], btns:[] },
+    { name:"gc_application_status", cat:"UTILITY", when:"Any change in their application.",
+      body:"Hi {{1}}, an update on your {{2}}: {{3}}\n\nReply to this message if you have any questions.",
+      ex:["Ananya","Australia PGCP application","your offer letter has been issued."], typed:[3], btns:["I have a question"] },
+  ]},
+  { title:"Payments", icon:"i-cash", sub:"Programme fees and consultations (eBooks already have their own).", items:[
+    { name:"gc_payment_pending", cat:"UTILITY", when:"A payment was started but not finished.",
+      body:"Hi {{1}}, your payment of Rs {{2}} for {{3}} is still pending. You can complete it here: {{4}}\n\nReply to this message if you need any help.",
+      ex:["Sneha","4,999","the UK Mentorship Program","https://goocampus.in/pay"], btns:[], note:"Similar already approved: *_payment_failed_retry (eBooks only)." },
+    { name:"gc_payment_received", cat:"UTILITY", when:"Receipt for a programme payment.",
+      body:"Hi {{1}}, we've received your payment of Rs {{2}} for {{3}}. Thank you! Our team will contact you with the next steps.",
+      ex:["Sneha","4,999","the UK Mentorship Program"], btns:[] },
+  ]},
+  { title:"Updates and events", icon:"i-bell", sub:"News that affects them, and webinars or seminars.", items:[
+    { name:"gc_important_update", cat:"UTILITY", when:"Counselling round results, deadlines, visa slots.",
+      body:"Hi {{1}}, there's an update on {{2}}:\n\n{{3}}\n\nReply to this message if you have any questions.",
+      ex:["Arjun","your NEET PG counselling","Round 2 seat allotment results are out."], typed:[3], btns:["I have a question"] },
+    { name:"gc_event_reminder", cat:"UTILITY", when:"For people who registered for a webinar or seminar.",
+      body:"Hi {{1}}, a reminder that {{2}} starts {{3}}. Join here: {{4}}",
+      ex:["Divya","the UK PLAB webinar","today at 6:00 PM","https://goocampus.in/live"], btns:[] },
+    { name:"gc_event_invite", cat:"MARKETING", when:"Invite to a webinar or seminar. Marketing — opted-in people only.",
+      body:"Hi {{1}}, you're invited to {{2}} on {{3}}. {{4}}\n\nReply YES to save your seat.",
+      ex:["Divya","a free webinar on the UK PLAB pathway","Sat 15 Nov at 6:00 PM","Our doctors who cleared PLAB will answer your questions live."], btns:["Yes, save my seat","Not this time"] },
+  ]},
+  { title:"Re-engage", icon:"i-heart", sub:"People who went quiet. Costs more and needs their opt-in.", items:[
+    { name:"gc_reconnect_offer", cat:"MARKETING", when:"A lead who went quiet weeks ago.",
+      body:"Hi {{1}}, it's been a while since we spoke about {{2}}. {{3}}\n\nReply to this message if you'd like to continue — we're happy to help.",
+      ex:["Vikram","the AMC pathway","Applications for the February batch close on 30 November."], btns:["Yes, let's continue","Not now"] },
+    { name:"gc_feedback_request", cat:"MARKETING", when:"After a programme or session.",
+      body:"Hi {{1}}, how was your experience with {{2}}? Your feedback helps us help the next student. Reply with a rating from 1 to 5.",
+      ex:["Karthik","your mentor session"], btns:["5 — Excellent","3 — Okay","1 — Poor"], note:"Similar exists on another GooCampus WhatsApp account: client_feedback_request." },
+  ]},
+];
+const DEFAULTS = GROUPS.flatMap((g) => g.items);
+let submitted = {}; let filter = "ALL"; let drafts = {};
+
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+function fill(body, ex, typed) { return esc(body).replace(/\{\{(\d+)\}\}/g, (m, n) => `<span class="v${(typed||[]).includes(+n) ? " typed" : ""}">${esc(ex[n-1] || m)}</span>`); }
+function bubble(body, ex, foot, typed) { return fill(body, ex, typed) + (foot ? `<span class="ft">${esc(foot)}</span>` : ""); }
+const btnsHtml = (b) => b.map((x) => `<span><svg class="i" style="width:13px;height:13px"><use href="#i-reply"/></svg>${esc(x)}</span>`).join("");
+
+function all() {
+  const extra = Object.keys(submitted).map((n) => { const d = DEFAULTS.find((x) => x.name === n) || drafts[n];
+    return { name:n, status:"PENDING", category:d.cat, language:"en", body:d.body }; });
+  return [...extra, ...LIVE];
+}
+function counts() {
+  const a = all(); const c = (s) => a.filter((t) => t.status === s).length;
+  cA.textContent = c("APPROVED"); cP.textContent = c("PENDING"); cR.textContent = c("REJECTED");
+  cD.textContent = DEFAULTS.filter((d) => !submitted[d.name]).length; tabN.textContent = a.length;
+}
+function card(d) {
+  return `<div class="def${d.star ? " star" : ""}">
+      <div class="top"><span class="nm">${d.name}</span><span class="cat ${d.cat}">${d.cat.toLowerCase()}</span>
+        <span style="margin-left:auto" class="chip ${submitted[d.name] ? "PENDING" : "DRAFT"}">${submitted[d.name] ? "Waiting for Meta" : "Not created yet"}</span></div>
+      <div class="when">${esc(d.when)}</div>
+      <div class="bubble">${bubble(d.body, d.ex, FOOT, d.typed)}</div>
+      ${d.btns.length ? `<div class="qr">${btnsHtml(d.btns)}</div>` : ""}
+      <div class="foot">
+        ${submitted[d.name] ? `<span class="note">Sent to Meta — usually approved within minutes.</span>`
+          : `<button class="btn sm primary" onclick="submitDefault('${d.name}')">Send for approval</button><button class="btn sm" onclick="openNew('${d.name}')">Edit first</button>`}
+        ${d.note ? `<span class="note">${esc(d.note)}</span>` : ""}
+      </div></div>`;
+}
+function renderDefaults() {
+  defaults.innerHTML = GROUPS.map((g) => `<div class="group"><h3><svg class="i" style="color:var(--brand)"><use href="#${g.icon}"/></svg>${esc(g.title)}
+      <span class="cat">${g.items.length}</span></h3><div class="gsub">${esc(g.sub)}</div><div class="defaults">${g.items.map(card).join("")}</div></div>`).join("");
+}
+function renderFilters() {
+  const a = all(); const n = (s) => s === "ALL" ? a.length : a.filter((t) => t.status === s).length;
+  filters.innerHTML = [["ALL","All"],["APPROVED","Approved"],["PENDING","Waiting for Meta"],["REJECTED","Rejected"],["MARKETING","Marketing"],["UTILITY","Utility"]]
+    .map(([k, l]) => `<button class="fchip ${filter === k ? "on" : ""}" onclick="filter='${k}';renderFilters();renderTable()">${l}${["ALL","APPROVED","PENDING","REJECTED"].includes(k) ? " " + n(k) : ""}</button>`).join(" ");
+}
+const LABEL = { APPROVED:"Approved", PENDING:"Waiting for Meta", REJECTED:"Rejected", PAUSED:"Paused" };
+function renderTable() {
+  const qv = q.value.toLowerCase();
+  const list = all().filter((t) => (filter === "ALL" || t.status === filter || t.category === filter) && (!qv || (t.name + " " + t.body).toLowerCase().includes(qv)));
+  rows.innerHTML = list.map((t) => `
+    <tr onclick="openView('${t.name}')"><td><div class="mono">${esc(t.name)}</div><div class="snip">${esc(t.body.replace(/\n+/g, " "))}</div></td>
+      <td><span class="cat ${t.category}">${t.category.toLowerCase()}</span></td>
+      <td><span class="chip ${t.status}">${LABEL[t.status] || t.status}</span></td>
+      <td>${esc(t.language)}</td><td style="color:var(--muted);font-size:12px">${esc(USED_BY[t.name] || (t.name.startsWith("samvaya") ? "Samvaya" : "—"))}</td></tr>`).join("")
+    || `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:28px">No templates match.</td></tr>`;
+}
+
+// ── "send from a chat" demo ──
+function setupDemo() {
+  sTpl.innerHTML = DEFAULTS.map((d) => `<option value="${d.name}">${d.name}${d.star ? " — your own message" : ""}</option>`).join("");
+  sendDemo();
+}
+function sendDemo() {
+  const d = DEFAULTS.find((x) => x.name === sTpl.value);
+  const n = Math.max(...[...d.body.matchAll(/\{\{(\d+)\}\}/g)].map((m) => +m[1]));
+  const lab = (i) => i === 1 ? "Their name" : (d.typed || []).includes(i) ? "Your message" : `Blank {{${i}}}`;
+  sFields.innerHTML = Array.from({ length:n }, (_, k) => { const i = k + 1; const val = i === 1 ? "Priya" : d.ex[k];
+    return `<label>${lab(i)}</label>` + ((d.typed || []).includes(i)
+      ? `<textarea oninput="sendPv()">${esc(val)}</textarea>` : `<input class="in" oninput="sendPv()" value="${esc(val)}" />`); }).join("")
+    + (d.btns.length ? `<label>Buttons sent with it</label><div class="qr">${btnsHtml(d.btns)}</div>` : "");
+  sendPv();
+}
+function sendPv() {
+  const d = DEFAULTS.find((x) => x.name === sTpl.value);
+  const ex = [...sFields.querySelectorAll("input,textarea")].map((i) => i.value);
+  sPv.innerHTML = bubble(d.body, ex, FOOT, d.typed); sPvB.innerHTML = btnsHtml(d.btns);
+}
+
+// ── drawer ──
+let cat = "UTILITY";
+document.querySelectorAll("#fCat button").forEach((b) => b.onclick = () => { cat = b.dataset.v; document.querySelectorAll("#fCat button").forEach((x) => x.classList.toggle("on", x === b)); });
+function varCount() { return Math.max(0, ...[...fBody.value.matchAll(/\{\{(\d+)\}\}/g)].map((m) => +m[1])); }
+function draw() {
+  const n = varCount(); const old = [...fVars.querySelectorAll("input")].map((i) => i.value);
+  fVars.innerHTML = n ? Array.from({ length:n }, (_, i) => `<span style="font-size:12px;color:var(--muted)">{{${i+1}}}</span><input class="in" oninput="preview()" value="${esc(old[i] || "")}" />`).join("")
+    : `<span class="hint" style="grid-column:1/3;margin:0">No blanks in the message.</span>`;
+  preview();
+}
+function preview() {
+  const ex = [...fVars.querySelectorAll("input")].map((i) => i.value);
+  pv.innerHTML = bubble(fBody.value || "Your message appears here.", ex, fFoot.value);
+  pvB.innerHTML = btnsHtml(fBtns.value.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 3));
+}
+function addVar() { fBody.value += `{{${varCount() + 1}}}`; fBody.focus(); draw(); }
+function setForm(d, ro) {
+  fName.value = d ? d.name : ""; fBody.value = d ? d.body : ""; fFoot.value = FOOT;
+  fBtns.value = d && d.btns ? d.btns.join(", ") : "";
+  cat = d ? (d.cat || d.category) : "UTILITY";
+  document.querySelectorAll("#fCat button").forEach((x) => x.classList.toggle("on", x.dataset.v === cat));
+  draw(); if (d && d.ex) [...fVars.querySelectorAll("input")].forEach((i, k) => i.value = d.ex[k] || ""); preview();
+  document.querySelectorAll("#drawer .in, #drawer textarea").forEach((el) => el.disabled = !!ro);
+  dGo.style.display = ro ? "none" : "";
+}
+function openNew(name) {
+  const d = name ? DEFAULTS.find((x) => x.name === name) : null;
+  dTitle.textContent = d ? "Edit before sending" : "New template"; dStatus.className = "chip DRAFT"; dStatus.textContent = "Draft";
+  dNote.textContent = "Meta reviews every template. Nothing can be sent with it until it's Approved.";
+  setForm(d, false); show(true);
+}
+function openView(name) {
+  const t = all().find((x) => x.name === name);
+  dTitle.textContent = t.name; dStatus.className = "chip " + t.status; dStatus.textContent = LABEL[t.status] || t.status;
+  dNote.textContent = t.status === "APPROVED" ? "Approved by Meta — it can be sent from any chat. Changing it means submitting an edited copy for review." : "Waiting for Meta's review. Status refreshes every few minutes.";
+  setForm({ name:t.name, body:t.body, category:t.category }, true); show(true);
+}
+function show(on) { drawer.classList.toggle("on", on); scrim.classList.toggle("on", on); }
+function closeNew() { show(false); }
+function toast(m) { const t = document.getElementById("toast"); t.textContent = m; t.style.display = "block"; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = "none", 2600); }
+function refresh() { counts(); renderDefaults(); renderFilters(); renderTable(); }
+function submitDefault(n) { submitted[n] = "PENDING"; refresh(); toast(`Prototype: "${n}" would go to Meta — status "Waiting for Meta".`); }
+function submitAll() { DEFAULTS.forEach((d) => submitted[d.name] = "PENDING"); refresh(); toast(`Prototype: all ${DEFAULTS.length} defaults would go to Meta.`); }
+function submitOne() {
+  const name = fName.value.trim().toLowerCase().replace(/\s+/g, "_");
+  if (!/^[a-z0-9_]+$/.test(name)) return toast("Name: lowercase letters, numbers and underscores only.");
+  if (!fBody.value.trim()) return toast("Write the message first.");
+  drafts[name] = { body:fBody.value, cat }; submitted[name] = "PENDING"; closeNew(); refresh();
+  toast(`Prototype: "${name}" would go to Meta — status "Waiting for Meta".`);
+}
+setupDemo(); refresh();
+</script>
+</body>
+</html>

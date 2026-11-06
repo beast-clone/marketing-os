@@ -10,7 +10,7 @@ import { playChime } from "./notifChime";
 import {
   IconSunHigh, IconLayoutGrid, IconChartBar, IconCalendarEvent, IconRadar2, IconSparkles, IconBell, IconPlugConnected, IconBuildingStore, IconKey, IconWriting,
   IconClockHour4, IconCurrencyRupee, IconBrandInstagram, IconBrandLinkedin, IconBrandYoutube, IconBrandFacebook,
-  IconUsers, IconUserCheck, IconSpeakerphone, IconTargetArrow, IconChartHistogram, IconUserDollar, IconReportMoney, IconBulb, IconReportAnalytics, IconSettings, IconTools, IconUsersGroup, IconMessageCircle, IconActivityHeartbeat,
+  IconUsers, IconUserCheck, IconSpeakerphone, IconTargetArrow, IconChartHistogram, IconUserDollar, IconReportMoney, IconBulb, IconReportAnalytics, IconSettings, IconTools, IconUsersGroup, IconMessageCircle, IconTemplate, IconActivityHeartbeat,
   IconCalendarStats, IconChartPie, IconTimeline, IconArrowsExchange, IconIdBadge2,
   IconChevronRight, IconPhoto, IconMovie, IconCircleDashed, IconTable, IconLayoutKanban,
   IconChecklist, IconWorldWww, IconClick, IconChartArcs, IconSearch, IconBrandGoogle, IconTrendingUp,
@@ -132,7 +132,11 @@ const GROUPS: Group[] = [
   { label: "Sales", sec: "sales", items: [
     { label: "Marketing Campaigns", href: `${HUB}/campaigns`, icon: IconSpeakerphone },
     { label: "Inbox",         href: `${HUB}/inbox`,          icon: IconInbox },
-    { label: "WhatsApp Inbox", href: `${HUB}/wa-inbox`,      icon: IconBrandWhatsapp },
+    // A folder like Scheduler: chats and templates are separate pages (Praveen, 6 Nov).
+    { key: "wa-inbox", label: "WhatsApp Inbox", icon: IconBrandWhatsapp, href: `${HUB}/wa-inbox`, children: [
+      { label: "Chats",     href: `${HUB}/wa-inbox`,           icon: IconMessageCircle },
+      { label: "Templates", href: `${HUB}/wa-inbox/templates`, icon: IconTemplate },
+    ] },
     { label: "Marketing Leads", href: `${HUB}/leads`,          icon: IconUserDollar },
     // Sales Hub is a folder, not a page with tabs inside it: the six views were
     // in-page tabs and read as a second, competing navigation next to the sidebar.

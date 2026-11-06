@@ -18,7 +18,7 @@ const CATEGORIES = new Set(["UTILITY", "MARKETING", "AUTHENTICATION"]);
 export async function POST(req: Request) {
   const denied = await requireSection("sales");
   if (denied) return denied;
-  const limited = guardRate(req, "wa-template-new", 10, 60_000);
+  const limited = guardRate(req, "wa-template-new", 30, 60_000);
   if (limited) return limited;
   const secret = process.env.WA_INBOX_SEND_SECRET;
   if (!secret) return NextResponse.json({ error: "WhatsApp isn't configured on this server (WA_INBOX_SEND_SECRET)." }, { status: 500 });
@@ -45,6 +45,10 @@ export async function POST(req: Request) {
   if (vars > 0 && (example.length < vars || example.some((v) => !v))) {
     return NextResponse.json({ error: `Give an example for each blank — Meta rejects a template without them. This one has ${vars}.` }, { status: 400 });
   }
+  // Meta rejects a message that starts or ends with a blank.
+  if (/^\s*\{\{\d+\}\}/.test(body) || /\{\{\d+\}\}[\s.!?,:;]*$/.test(body)) {
+    return NextResponse.json({ error: "The message can't start or end with a blank — put some fixed words before and after it." }, { status: 400 });
+  }
   // Numbering must run 1, 2, 3 with nothing skipped.
   for (let i = 1; i <= vars; i++) {
     if (!body.includes(`{{${i}}}`)) return NextResponse.json({ error: `The blanks must run 1 to ${vars} with none missing — {{${i}}} isn't there.` }, { status: 400 });
@@ -56,6 +60,11 @@ export async function POST(req: Request) {
     ...(vars > 0 ? { example: { body_text: [example.slice(0, vars)] } } : {}),
   }];
   if (footer) components.push({ type: "FOOTER", text: footer.slice(0, 60) });
+  // Quick-reply buttons go out with the message; tapping one reopens the 24-hour window.
+  const buttons: string[] = (Array.isArray(b.buttons) ? b.buttons : []).map((x: unknown) => String(x).trim()).filter(Boolean);
+  if (buttons.length > 3) return NextResponse.json({ error: "At most 3 buttons." }, { status: 400 });
+  if (buttons.some((x) => x.length > 25)) return NextResponse.json({ error: "A button can be at most 25 characters." }, { status: 400 });
+  if (buttons.length) components.push({ type: "BUTTONS", buttons: buttons.map((text) => ({ type: "QUICK_REPLY", text })) });
 
   try {
     const r = await fetch(HOOK, {

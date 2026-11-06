@@ -1,13 +1,17 @@
 // Connect a YouTube channel from the dashboard (YouTube tab → "Connect this
-// channel"). Same Google OAuth client as the other channels and sign-in, same two
-// read-only scopes they were given. The grant is saved per channel in
+// channel"). Same Google OAuth client as the other channels and sign-in. Since
+// 6 Nov 2026 it also asks for `youtube` (manage the channel's videos) so the
+// Scheduler can upload Shorts (lib/youtube-upload.ts); channels connected before
+// that keep read-only grants until they are connected again. The grant is saved per channel in
 // mh_integration_tokens as "youtube:<key>", which lib/youtube.ts reads first.
 import { CHANNELS } from "@/lib/youtube-channels";
 import { saveIntegrationToken } from "@/lib/integration-tokens";
 import { createHmac, timingSafeEqual } from "crypto";
 import { fetchWithTimeout } from "@/lib/fetch-with-timeout";
 
-export const YT_SCOPES = "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly";
+export const YT_SCOPES = "https://www.googleapis.com/auth/youtube.readonly https://www.googleapis.com/auth/yt-analytics.readonly https://www.googleapis.com/auth/youtube";
+/** The scope that lets us upload, change and delete videos. */
+export const YT_MANAGE_SCOPE = "https://www.googleapis.com/auth/youtube";
 
 // On localhost the request origin IS the registered redirect; in production the
 // stable APP_URL has to win (functions see deploy-permalink hosts).

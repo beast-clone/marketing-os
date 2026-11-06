@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/PreviewDashboardShell";
 import { PreviewSelect } from "@/app/(dashboard)/dashboard/preview/PreviewSelect";
 import { LoadingBlock } from "@/components/LoadingBlock";
+import { Bubble } from "./TemplatesTab";
+import Link from "next/link";
+import { typedBlanks, DEFAULT_GROUPS } from "@/lib/wa-default-templates";
 import {
   IconBrandWhatsapp, IconSearch, IconSend, IconCheck, IconChecks, IconAlertTriangle, IconClock, IconMessageCircle,
   IconInfoCircle, IconTemplate, IconUserCheck, IconShieldCheck, IconCoinRupee, IconGauge,
@@ -33,7 +36,7 @@ type Meta = { contact: string; display_name: string | null; assigned_to: string 
 type Lead = { name: string; phone: string | null; email: string | null; counsellor: string | null; source: string | null; leadStatus: string | null; url: string };
 type Member = { id: string; name: string };
 type QuickReply = { id: string; text: string; created_by: string | null };
-type Template = { name: string; language: string; category: string; header: string | null; body: string; footer: string | null; variables: number };
+type Template = { name: string; language: string; category: string; header: string | null; body: string; footer: string | null; variables: number; buttons: string[] };
 
 const fmtNum = (d: string) => (d.startsWith("91") && d.length === 12 ? `+91 ${d.slice(2, 7)} ${d.slice(7)}` : `+${d}`);
 const initials = (c: Conv) => (c.name || "").split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "#";
@@ -106,81 +109,18 @@ const fillIn = (body: string, vars: string[]) =>
   vars.reduce((s, v, i) => s.split(`{{${i + 1}}}`).join(v || `{{${i + 1}}}`), body);
 
 /**
- * Write a template and send it to Meta for approval, without leaving the inbox.
- *
- * Approval is Meta's, and takes minutes to a day, so this cannot be a write-it-
- * and-send-it flow: it submits, and the template joins the list above once Meta
- * says yes. Meta also re-categorises anything that reads like an advert, so what
- * comes back is reported rather than what was asked for.
- */
-function NewTemplate({ onDone, onCancel }: { onDone: (msg: string) => void; onCancel: () => void }) {
-  const [name, setName] = useState("");
-  const [body, setBody] = useState("");
-  const [footer, setFooter] = useState("");
-  const [example, setExample] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-
-  // Meta refuses a template whose blanks have no example values, so ask for
-  // exactly as many as the text actually uses.
-  const vars = Math.max(0, ...[...body.matchAll(/\{\{(\d+)\}\}/g)].map((m) => Number(m[1])));
-  useEffect(() => { setExample((e) => Array.from({ length: vars }, (_, i) => e[i] || "")); }, [vars]);
-
-  async function submit() {
-    setBusy(true); setErr("");
-    const r = await fetch("/api/wa-inbox/templates/new", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, category: "UTILITY", body, footer, example }),
-    });
-    const j = await r.json().catch(() => ({}));
-    if (r.ok) onDone(`Sent to Meta as "${j.name}" — ${j.category}, ${j.status}. It can be used once Meta approves it.`);
-    else setErr(j.error || "Couldn't submit it");
-    setBusy(false);
-  }
-
-  return (
-    <div className="space-y-2">
-      <button type="button" onClick={onCancel} className="text-[11px] font-medium text-brand hover:underline">← back to the list</button>
-      {err && <div className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>}
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="A name, e.g. enquiry_followup"
-        className="w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand" />
-      <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={4} maxLength={1024}
-        placeholder="The message. Use {{1}}, {{2}} where a name or subject goes."
-        className="w-full resize-none rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-2 text-xs text-[#232D42] outline-none focus:border-brand" />
-      {Array.from({ length: vars }).map((_, i) => (
-        <input key={i} value={example[i] || ""} onChange={(e) => setExample((x) => x.map((v, j) => (j === i ? e.target.value : v)))}
-          placeholder={`An example for {{${i + 1}}} — Meta needs one`}
-          className="w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand" />
-      ))}
-      <input value={footer} onChange={(e) => setFooter(e.target.value)} maxLength={60} placeholder="A small footer line (optional)"
-        className="w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand" />
-      <p className="text-[10.5px] leading-relaxed text-[#8A92A6]">
-        Sent as a <b>utility</b> template. Meta approves it, usually in minutes, and may move it to
-        marketing if it reads like an advert — marketing costs more and needs opt-in.
-      </p>
-      <button type="button" onClick={submit} disabled={busy || !name.trim() || !body.trim()}
-        className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-        <IconSend size={15} />{busy ? "Sending to Meta…" : "Send for approval"}
-      </button>
-    </div>
-  );
-}
-
-/**
  * Reopening a conversation after the 24-hour window.
  *
  * WhatsApp allows nothing but an approved template here, so this is the only way
  * back to someone who last wrote yesterday. It shows what will actually be sent,
  * filled in, because a template is charged per message and cannot be unsent.
  */
-function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg) => void; onClose: () => void }) {
+function TemplateComposer({ to, name, onSent, onClose }: { to: string; name?: string | null; onSent: (m: Msg) => void; onClose: () => void }) {
   const [templates, setTemplates] = useState<Template[] | null>(null);
   const [err, setErr] = useState("");
   const [pick, setPick] = useState<Template | null>(null);
   const [vars, setVars] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
-  const [writing, setWriting] = useState(false);
-  const [note, setNote] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -192,7 +132,9 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
     })();
   }, []);
 
-  const choose = (t: Template) => { setPick(t); setVars(Array(t.variables).fill("")); };
+  // {{1}} is the person's first name in every GooCampus template, so start it filled.
+  const first = (name || "").trim().split(/\s+/)[0] || "";
+  const choose = (t: Template) => { setPick(t); setVars(Array.from({ length: t.variables }, (_, i) => (i === 0 && /^Hi \{\{1\}\}/.test(t.body) ? first : ""))); };
 
   async function send() {
     if (!pick || sending) return;
@@ -215,12 +157,7 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
       </div>
 
       {err && <div className="mb-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{err}</div>}
-      {note && <div className="mb-2 rounded-lg bg-brand-light px-3 py-2 text-xs text-brand">{note}</div>}
 
-      {writing ? (
-        <NewTemplate onCancel={() => setWriting(false)}
-          onDone={(m) => { setWriting(false); setNote(m); }} />
-      ) : (<>
       {!templates && <div className="text-xs text-[#8A92A6]">Loading templates…</div>}
       {templates && templates.length === 0 && !err && (
         <div className="rounded-lg bg-[#F6F7FB] px-3 py-2.5 text-xs leading-relaxed text-[#8A92A6]">
@@ -230,8 +167,17 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
       )}
 
       {templates && templates.length > 0 && !pick && (
+        <div className="max-h-[360px] space-y-3 overflow-y-auto pr-1">
+        {[
+          // The approved GooCampus defaults first, in their groups (Praveen, 6 Nov);
+          // everything else on the number after them.
+          ...DEFAULT_GROUPS.map((g) => ({ title: g.title, list: templates.filter((t) => g.items.some((d) => d.name === t.name)) })),
+          { title: "Other templates", list: templates.filter((t) => !DEFAULT_GROUPS.some((g) => g.items.some((d) => d.name === t.name))) },
+        ].filter((g) => g.list.length).map((g) => (
+        <div key={g.title}>
+        <div className="mb-1 text-[10.5px] font-medium uppercase tracking-wide text-[#8A92A6]">{g.title}</div>
         <ul className="space-y-1.5">
-          {templates.map((t) => (
+          {g.list.map((t) => (
             <li key={`${t.name}|${t.language}`}>
               <button type="button" onClick={() => choose(t)}
                 className="w-full rounded-lg border border-gray-100 px-3 py-2 text-left hover:border-brand hover:bg-brand-light">
@@ -245,28 +191,39 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
             </li>
           ))}
         </ul>
+        </div>
+        ))}
+        </div>
       )}
 
       {templates && !pick && (
-        <button type="button" onClick={() => { setWriting(true); setNote(""); }}
+        <Link href="/dashboard/preview/wa-inbox/templates?new=1"
           className="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-gray-200 px-2.5 py-1.5 text-[11px] font-medium text-[#8A92A6] hover:border-brand hover:text-brand">
           <IconPlus size={12} />Write a new template
-        </button>
+        </Link>
       )}
 
       {pick && (
         <div className="space-y-2">
           <button type="button" onClick={() => setPick(null)} className="text-[11px] font-medium text-brand hover:underline">← pick a different template</button>
-          {Array.from({ length: pick.variables }).map((_, i) => (
-            <input key={i} value={vars[i] || ""} onChange={(e) => setVars((v) => v.map((x, j) => (j === i ? e.target.value : x)))}
-              placeholder={`What goes in {{${i + 1}}}?`}
-              className="w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand" />
-          ))}
+          {Array.from({ length: pick.variables }).map((_, i) => {
+            const typed = typedBlanks(pick.name).includes(i + 1);
+            const field = "w-full rounded-lg border border-gray-100 bg-[#F6F7FB] px-2.5 py-1.5 text-xs text-[#232D42] outline-none focus:border-brand";
+            const change = (v: string) => setVars((x) => x.map((y, j) => (j === i ? v : y)));
+            return (
+              <div key={i}>
+                <label className="mb-0.5 block text-[11px] text-[#8A92A6]">{typed ? "Your message" : i === 0 && /^Hi \{\{1\}\}/.test(pick.body) ? "Their name" : `Blank {{${i + 1}}}`}</label>
+                {typed
+                  ? <textarea value={vars[i] || ""} onChange={(e) => change(e.target.value)} rows={4} placeholder="Type your message" className={`${field} resize-y`} />
+                  : <input value={vars[i] || ""} onChange={(e) => change(e.target.value)} placeholder={`What goes in {{${i + 1}}}?`} className={field} />}
+              </div>
+            );
+          })}
           <div className="rounded-lg bg-[#F6F7FB] px-3 py-2">
             <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-[#8A92A6]">They will see</div>
-            {pick.header && <div className="text-xs font-medium text-[#232D42]">{pick.header}</div>}
-            <div className="whitespace-pre-wrap break-words text-xs text-[#232D42]">{fillIn(pick.body, vars)}</div>
-            {pick.footer && <div className="mt-1 text-[10.5px] text-[#8A92A6]">{pick.footer}</div>}
+            {pick.header && <div className="mb-1 text-xs font-medium text-[#232D42]">{pick.header}</div>}
+            <Bubble body={pick.body} values={vars} footer={pick.footer} buttons={pick.buttons} typed={typedBlanks(pick.name)} />
+            {typedBlanks(pick.name).length > 0 && <p className="mt-1 text-[10.5px] text-[#8A92A6]">Line breaks in your message are sent as “ · ” — WhatsApp doesn’t allow them inside a template’s blank.</p>}
           </div>
           <button type="button" onClick={send} disabled={sending || vars.some((v) => !v.trim())}
             className="inline-flex items-center gap-1.5 rounded-xl bg-brand px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
@@ -274,7 +231,6 @@ function TemplateComposer({ to, onSent, onClose }: { to: string; onSent: (m: Msg
           </button>
         </div>
       )}
-      </>)}
     </div>
   );
 }
@@ -626,10 +582,10 @@ function Inbox() {
     else setErr(j.error || "Couldn’t change the block");
   }, [sel, loadList]);
 
-  /** Remove our copy of the chat. Theirs is untouched — the warning says so. */
+  /** Move the chat to the Recycle bin. Theirs is untouched — the warning says so. */
   const del = useCallback(async () => {
     if (!sel) return;
-    if (!confirm("Delete this chat?\n\nEvery message in it is removed from the dashboard, with the labels and notes. There is no undo.\n\nThis does NOT reach WhatsApp: they keep their copy, and a new chat appears if they write again. To stop them writing, block them.")) return;
+    if (!confirm("Move this chat to the Recycle bin?\n\nIt leaves the inbox but nothing is lost: restore it any time from Recycle bin → WhatsApp chats, or delete it for good there.\n\nThis does NOT reach WhatsApp: they keep their copy, and the chat comes back by itself if they write again. To stop them writing, block them.")) return;
     const r = await fetch("/api/wa-inbox/contact?contact=" + sel, { method: "DELETE" });
     const j = await r.json().catch(() => ({}));
     if (r.ok) { setSel(null); setMsgs(null); setMeta(null); loadList(); }
@@ -861,7 +817,7 @@ function Inbox() {
               </div>
             )}
             {showTemplate ? (
-              <TemplateComposer to={cur.contact}
+              <TemplateComposer to={cur.contact} name={cur.name}
                 onSent={(m) => { setMsgs((x) => [...(x || []), m]); loadList(); }}
                 onClose={() => setShowTemplate(false)} />
             ) : cur.open ? (

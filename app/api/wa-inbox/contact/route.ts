@@ -75,18 +75,20 @@ export async function POST(req: Request) {
 }
 
 /**
- * Delete our copy of a chat.
+ * Delete a chat — into the Recycle bin, not for good (Praveen, 6 Nov 2026).
  *
- *   DELETE /api/wa-inbox/contact?contact=9198…
+ *   DELETE /api/wa-inbox/contact?contact=9198…              -> moves it to the bin
+ *   DELETE /api/wa-inbox/contact?contact=9198…&forever=1    -> wipes it (bin only)
  *
- * Removes the messages and everything we know about the chat. It does NOT reach
- * WhatsApp: the other person keeps their copy, and if they write again a new
- * chat appears. Blocking is the thing that stops them writing — see
- * /api/wa-inbox/block — and the two are offered together in the UI for that
- * reason.
+ * Moving to the bin only stamps wa_contacts.deleted_at: the messages stay, the
+ * chat leaves the inbox and shows under Recycle bin → WhatsApp chats, where it
+ * can be restored. If the person writes again it comes back by itself.
  *
- * There is no undo. Messages are the record of what was said, so this is
- * deliberately a separate, confirmed action rather than part of "Spam".
+ * "Forever" removes the messages and everything we know about the chat, and is
+ * refused unless the chat is already in the bin — so nothing is wiped by one click.
+ *
+ * Neither reaches WhatsApp: the other person keeps their copy. Blocking is what
+ * stops them writing — see /api/wa-inbox/block.
  */
 export async function DELETE(req: Request) {
   const denied = await requireSection("sales");
@@ -96,15 +98,27 @@ export async function DELETE(req: Request) {
   const db = getSupabase();
   if (!db) return NextResponse.json({ error: "Database not configured" }, { status: 500 });
 
-  const contact = (new URL(req.url).searchParams.get("contact") || "").replace(/\D/g, "");
+  const url = new URL(req.url);
+  const contact = (url.searchParams.get("contact") || "").replace(/\D/g, "");
+  const forever = url.searchParams.get("forever") === "1";
   if (!contact) return NextResponse.json({ error: "Which number?" }, { status: 400 });
 
   try {
+    if (!forever) {
+      const now = new Date().toISOString();
+      const { error } = await db.from("wa_contacts").upsert(
+        { contact, deleted_at: now, deleted_by: getSessionUserId(), updated_at: now, updated_by: getSessionUserId() },
+        { onConflict: "contact" },
+      );
+      if (error) throw error;
+      return NextResponse.json({ ok: true, binned: true });
+    }
+
+    const { data: row } = await db.from("wa_contacts").select("deleted_at").eq("contact", contact).maybeSingle();
+    if (!row?.deleted_at) return NextResponse.json({ error: "Put the chat in the Recycle bin first." }, { status: 409 });
     const { count } = await db.from("wa_messages").select("id", { count: "exact", head: true }).eq("contact", contact);
     const { error: mErr } = await db.from("wa_messages").delete().eq("contact", contact);
     if (mErr) throw mErr;
-    // The notes and labels go too — keeping them would resurrect an empty chat
-    // in the list the next time anyone looked.
     const { error: cErr } = await db.from("wa_contacts").delete().eq("contact", contact);
     if (cErr) throw cErr;
     return NextResponse.json({ ok: true, deleted: count ?? 0 });

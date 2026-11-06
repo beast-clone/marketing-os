@@ -8,17 +8,19 @@ import { bustMarketingHubCache } from "@/lib/mh-cache";
 // as "System"/automation), and busts the read cache so the Published Links
 // section + My Day reflect it immediately, everywhere the post appears.
 
-export type LinkPlatform = "instagram" | "facebook" | "linkedin";
+export type LinkPlatform = "instagram" | "facebook" | "linkedin" | "youtube";
 
 const COLUMN: Record<LinkPlatform, string> = {
   instagram: "instagram_url",
   facebook: "facebook_url",
   linkedin: "linkedin_url",
+  youtube: "youtube_url",
 };
 const ACTION: Record<LinkPlatform, string> = {
   instagram: "instagram_url_changed",
   facebook: "facebook_url_changed",
   linkedin: "linkedin_url_changed",
+  youtube: "youtube_url_changed",
 };
 
 // Resolve a post by mh_posts.id or airtable_record_id (n8n knows the Airtable id).

@@ -70,7 +70,13 @@ export async function GET(req: Request) {
     ]);
 
     const now = Date.now();
-    const conversations = [...by.values()].map((c) => {
+    // A chat in the Recycle bin stays out of the inbox — until the person writes
+    // again after it was deleted, which brings it back on its own.
+    const binned = (c: { contact: string; lastAt: string }) => {
+      const d = metaMap.get(c.contact)?.deleted_at;
+      return !!d && Date.parse(d) >= Date.parse(c.lastAt);
+    };
+    const conversations = [...by.values()].filter((c) => !binned(c)).map((c) => {
       const meta = metaMap.get(c.contact) ?? EMPTY_META(c.contact);
       return {
         ...c,

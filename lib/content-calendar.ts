@@ -176,6 +176,9 @@ export type ScheduledPost = {
   mediaFb?: string[];              // Facebook's own set (custom.media_fb), when it differs from Instagram's
   collaborators?: string[];
   captionFbOverride?: string | null; // the separate Facebook caption, when one was written
+  /** Also as a YouTube Short (custom.youtube) — its title, and how the upload stands (yt_uploads). */
+  youtubeTitle?: string | null;
+  youtube?: { status: string; pct: number; error: string | null; url: string | null } | null;
 };
 
 export type EffectiveStatus = "scheduled" | "publishing" | "published" | "failed" | "draft" | "unknown";
@@ -203,6 +206,7 @@ type MhQueueRow = {
   publish_status: string | null;
   instagram_url: string | null;
   facebook_url: string | null;
+  youtube_url?: string | null;
   published_at: string | null;
   custom: Record<string, unknown> | null;
   failure_reason: string | null;
@@ -269,7 +273,7 @@ export async function fetchScheduledQueueFromSupabase(limit = 100): Promise<Sche
   if (!sb) throw new Error("Supabase not configured");
   const { data, error } = await sb
     .from("mh_posts")
-    .select("id, particulars, sbu, type, caption, media_urls, publish_to, publish_to_page, publish_to_pages, schedule_time, publish_status, instagram_url, facebook_url, published_at, custom, failure_reason, updated_at, collaborators")
+    .select("id, particulars, sbu, type, caption, media_urls, publish_to, publish_to_page, publish_to_pages, schedule_time, publish_status, instagram_url, facebook_url, youtube_url, published_at, custom, failure_reason, updated_at, collaborators")
     .not("publish_status", "is", null)
     .order("schedule_time", { ascending: false, nullsFirst: false })
     .limit(limit);
@@ -295,6 +299,14 @@ export async function fetchScheduledQueueFromSupabase(limit = 100): Promise<Sche
       arr.push(a.storage_path);
       attByPost.set(a.post_id, arr);
     }
+  }
+
+  // How each YouTube Short upload stands (sql/052, /api/cron/youtube-shorts).
+  const ytIds = rows.filter((r) => (r.custom as { youtube?: unknown } | null)?.youtube).map((r) => r.id);
+  const ytByPost = new Map<string, { status: string; size: number | null; sent: number; error: string | null; video_id: string | null }>();
+  if (ytIds.length) {
+    const { data: ups } = await sb.from("yt_uploads").select("post_id, status, size, sent, error, video_id").in("post_id", ytIds);
+    for (const u of ups || []) ytByPost.set(u.post_id as string, u as never);
   }
 
   return rows.map((r) => {
@@ -348,6 +360,12 @@ export async function fetchScheduledQueueFromSupabase(limit = 100): Promise<Sche
       mediaFb: Array.isArray(cust.media_fb) ? (cust.media_fb as string[]) : [],
       collaborators: r.collaborators || [],
       captionFbOverride: typeof cust.caption_fb === "string" ? cust.caption_fb : null,
+      youtubeTitle: (cust.youtube as { title?: string } | null)?.title || null,
+      youtube: (() => {
+        if (!cust.youtube) return null;
+        const u = ytByPost.get(r.id);
+        return { status: u?.status || "waiting", pct: u?.size ? Math.round((100 * u.sent) / u.size) : 0, error: u?.error || null, url: r.youtube_url || null };
+      })(),
       prepState: prepStateOf(r).state,
       prepError: prepStateOf(r).error,
     } as ScheduledPost;

@@ -1,5 +1,6 @@
 "use client";
 import { pageInfo } from "@/lib/publish-pages";
+import { YT_CHANNEL, YT_CHANNEL_PILLS } from "@/lib/brand-platforms";
 import { usePublishPages } from "@/lib/use-publish-pages";
 import { LoadingBlock } from "@/components/LoadingBlock";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
@@ -9,7 +10,7 @@ import { PreviewDashboardShell } from "@/app/(dashboard)/dashboard/preview/Previ
 import { LiveIndicator } from "@/components/LiveIndicator";
 import { CreativeThumb } from "@/components/CreativeThumb";
 import { AutoTextarea } from "@/components/AutoTextarea";
-import { IconChevronRight, IconChevronLeft, IconChevronDown, IconCheck, IconCalendarEvent, IconClock, IconPlus, IconBrandMeta, IconBrandLinkedin, IconFileTypePdf, IconPhoto, IconHeart, IconMessageCircle, IconSend, IconBookmark, IconThumbUp, IconShare3, IconRepeat, IconWorld, IconAlertTriangle, IconDeviceMobile, IconDeviceTablet, IconPaperclip, IconMovie, IconFileText, IconSparkles, IconLock, IconPencil, IconTarget, IconBolt, IconWand, IconTrendingUp, IconChartBar, IconBulb, IconCircleCheck, IconArrowBackUp, IconBrandFacebook, IconTrash, IconSearch, IconLayoutSidebarRight, IconLink, IconX } from "@tabler/icons-react";
+import { IconChevronRight, IconChevronLeft, IconChevronDown, IconCheck, IconCalendarEvent, IconClock, IconPlus, IconBrandMeta, IconBrandLinkedin, IconFileTypePdf, IconPhoto, IconHeart, IconMessageCircle, IconSend, IconBookmark, IconThumbUp, IconShare3, IconRepeat, IconWorld, IconAlertTriangle, IconDeviceMobile, IconDeviceTablet, IconPaperclip, IconMovie, IconFileText, IconSparkles, IconLock, IconPencil, IconTarget, IconBolt, IconWand, IconTrendingUp, IconChartBar, IconBulb, IconCircleCheck, IconArrowBackUp, IconBrandFacebook, IconTrash, IconSearch, IconLayoutSidebarRight, IconLink, IconX, IconBrandYoutube } from "@tabler/icons-react";
 import { showToast } from "../Toast";
 import { LinkedInQueue } from "./LinkedInScheduler";
 import { PdfThumb, pdfPageCount } from "@/components/PdfThumb";
@@ -67,6 +68,8 @@ type ScheduledPost = {
   mediaFb?: string[];        // Facebook's own set (pictures beside an Instagram video carousel)
   collaborators?: string[];
   captionFbOverride?: string | null;
+  youtubeTitle?: string | null;
+  youtube?: { status: string; pct: number; error: string | null; url: string | null } | null;
 };
 
 type TimeSuggestion = {
@@ -231,6 +234,19 @@ function Scheduler() {
   // Cross-post to LinkedIn too. Maps each selected brand page to its LinkedIn org
   // page (Main → GooCampus, World → GooCampus World; India has no LinkedIn page).
   const [alsoLinkedIn, setAlsoLinkedIn] = useState(true);
+  // Also as a YouTube Short (6 Nov 2026, docs/YOUTUBE_SHORTS_SPEC.md): a reel only. Each
+  // ticked page goes to its own channel; the description is the caption.
+  const [alsoYouTube, setAlsoYouTube] = useState(false);
+  const [ytTitle, setYtTitle] = useState("");
+  const ytChannels = useMemo(() => [...new Set(composePages.map((v) => YT_CHANNEL[pageInfo(v).accountId]).filter((c): c is string => !!c))], [composePages]);
+  const [ytReady, setYtReady] = useState<Record<string, { ready: boolean; title?: string; reason?: string }>>({});
+  useEffect(() => {
+    for (const c of ytChannels) if (!ytReady[c]) {
+      fetch(`/api/scheduler/youtube-ready?channel=${encodeURIComponent(c)}`).then((r) => r.json())
+        .then((d) => setYtReady((m) => ({ ...m, [c]: d }))).catch(() => {});
+    }
+  }, [ytChannels, ytReady]);
+  const ytName = (c: string) => YT_CHANNEL_PILLS.find((x) => x.key === c)?.label || c;
   // LinkedIn pages reachable from the brands currently ticked. Empty for India.
   // Remembered per browser — Meta offers the same, and re-ticking two boxes every
   // time is the kind of small friction that makes people avoid a tool.
@@ -507,6 +523,7 @@ function Scheduler() {
     const fmt = p.format === "reel" || p.format === "story" ? p.format : "post";
     if (media.filter((u) => !isPdfUrl(u)).length === 1) draftFormat.current = fmt;
     setAlsoStory(draftHasStory(p.id));
+    setAlsoYouTube(!!p.youtubeTitle); setYtTitle(p.youtubeTitle || "");
     setResult(null);
     setShowCreateForm(true);
   }
@@ -762,6 +779,24 @@ function Scheduler() {
   // "Also share as a Story" — only for one photo (post) or one reel going to Instagram
   // and/or Facebook. It queues a Story beside the post at the same time (now or the
   // scheduled time); the publisher sends both. LinkedIn has no Stories.
+  const ytNotReady = ytChannels.filter((c) => ytReady[c] && !ytReady[c].ready);
+  // A Short is square (1:1) or vertical (9:16) and up to 3 minutes; a landscape 16:9
+  // video is not one (Praveen, 6 Nov). Read from the video file itself.
+  const [videoShape, setVideoShape] = useState<{ url: string; w: number; h: number; sec: number } | null>(null);
+  useEffect(() => {
+    if (!singleVideoUrl || videoShape?.url === singleVideoUrl) return;
+    const v = document.createElement("video");
+    v.preload = "metadata";
+    v.onloadedmetadata = () => setVideoShape({ url: singleVideoUrl, w: v.videoWidth, h: v.videoHeight, sec: v.duration });
+    v.src = singleVideoUrl;
+  }, [singleVideoUrl, videoShape]);
+  const shape = videoShape && videoShape.url === singleVideoUrl ? videoShape : null;
+  const notAShort = !shape ? null
+    : shape.w > shape.h ? "This video is landscape (16:9). YouTube Shorts take square (1:1) or vertical (9:16) videos only."
+    : shape.sec > 180 ? `This video is ${Math.floor(shape.sec / 60)}:${String(Math.round(shape.sec % 60)).padStart(2, "0")} long. YouTube Shorts are up to 3 minutes.`
+    : null;
+  const youtubeAvailable = format === "reel" && !!singleVideoUrl && !!shape && !notAShort && ytChannels.length > 0 && ytChannels.every((c) => ytReady[c]?.ready);
+  const toYouTube = alsoYouTube && youtubeAvailable;
   const storyOffer = !!singleMediaUrl && (format === "post" || format === "reel") && (toInstagram || toFacebook);
   const storyTick = storyOffer ? (
     <label className="flex items-start gap-2 mt-3 cursor-pointer">
@@ -938,6 +973,7 @@ function Scheduler() {
     setScheduleDate(""); setScheduleTime(""); setSchedulingTaskId(null); setSelectedTaskId(null); setAlsoLinkedIn(false);
     setFormat("post"); setAlsoStory(false); setCoverUrl(""); setSplitCaption(false); setCaptionFb(""); setSbu("");
     setComposePages([]);   // the next post starts with no page ticked too
+    setAlsoYouTube(false); setYtTitle("");
   }
 
   // Instagram, Facebook and LinkedIn in one row — in Create post AND in the panel a
@@ -957,6 +993,13 @@ function Scheduler() {
             onChange={(e) => setAlsoLinkedIn(e.target.checked)} className="w-4 h-4 accent-[#3A57E8] disabled:opacity-40" />
           <span className={`text-sm ${linkedInAvailable ? "text-gray-800" : "text-gray-400"}`}>LinkedIn</span>
         </label>
+        {format === "reel" && singleVideoUrl && ytChannels.length > 0 && (
+          <label className={`flex items-center gap-2 ${youtubeAvailable ? "cursor-pointer" : "cursor-not-allowed"}`}>
+            <input type="checkbox" checked={toYouTube} disabled={!youtubeAvailable}
+              onChange={(e) => setAlsoYouTube(e.target.checked)} className="w-4 h-4 accent-[#3A57E8] disabled:opacity-40" />
+            <span className={`text-sm ${youtubeAvailable ? "text-gray-800" : "text-gray-400"}`}>YouTube Shorts</span>
+          </label>
+        )}
         <span className="text-xs text-gray-500 ml-auto">
           {!linkedInAvailable ? `${noLinkedInName} has no LinkedIn page`
             : alsoLinkedIn ? `LinkedIn page: ${linkedInPages.map((k) => (k === "world" ? "GooCampus World" : "GooCampus")).join(" · ")}` : ""}
@@ -967,6 +1010,23 @@ function Scheduler() {
       )}
       {igOnlyPage && (
         <div className="text-xs text-[#8A92A6] mt-1">{igOnlyPage.label} is connected with Instagram only — it has no Facebook page, so this goes to Instagram only.</div>
+      )}
+      {format === "reel" && singleVideoUrl && ytChannels.length > 0 && notAShort && (
+        <div className="text-xs text-[#8A92A6] mt-1">{notAShort}</div>
+      )}
+      {format === "reel" && singleVideoUrl && !notAShort && ytNotReady.length > 0 && (
+        <div className="text-xs text-[#8A92A6] mt-1">{ytNotReady.map(ytName).join(" and ")}&apos;s YouTube isn&apos;t connected for uploading yet — an admin presses Reconnect on its YouTube card on the Brands page to allow Shorts.</div>
+      )}
+      {toYouTube && (
+        <div className="mt-2 rounded-xl border border-gray-100 bg-[#F6F7FB] p-3">
+          <div className="flex items-center gap-2 text-xs text-[#232D42] font-medium mb-1.5">
+            <IconBrandYoutube size={16} className="text-brand" /> YouTube Shorts — {ytChannels.map(ytName).join(" · ")}
+          </div>
+          <input value={ytTitle} onChange={(e) => setYtTitle(e.target.value.slice(0, 100))}
+            placeholder={(caption.split("\n")[0] || "Title of the Short").slice(0, 100)}
+            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:border-brand" />
+          <div className="text-xs text-[#8A92A6] mt-1.5">Title, up to 100 characters (empty = the caption&apos;s first line). The caption is the description. It uploads 90 minutes ahead, private, and YouTube makes it public at the post time.</div>
+        </div>
       )}
       {tooBigForIg.length > 0 && (
         <div className="text-xs text-[#F16A1B] mt-1">Over 300 MB ({tooBigForIg.map((t) => fmtSize(t.size)).join(", ")}) — Instagram doesn&apos;t take videos that big from outside its app, so this goes to Facebook only.</div>
@@ -1073,6 +1133,7 @@ function Scheduler() {
           coverUrl: format === "reel" ? coverUrl : "",
           channels: [toInstagram ? "instagram" : "", toFacebook ? "facebook" : ""].filter(Boolean),
           captionFb: splitCaption && toInstagram && toFacebook ? captionFb : "",
+          youtube: toYouTube ? { title: (ytTitle.trim() || caption.split("\n")[0]).slice(0, 100), description: caption } : null,
           draft: Boolean(asDraft),
           scheduleTimeISO,
           alsoStory: storyOffer && alsoStory,
@@ -3164,6 +3225,20 @@ function PostPreviewContent({ item, story }: { item: CalendarItem; story?: { fra
           <div className="text-xs uppercase tracking-wide text-gray-400 font-medium mb-1">Caption</div>
           <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">{caption || <span className="text-gray-400 italic">No caption</span>}</div>
         </div>
+        {!isPub && p.youtube && (
+          <div className="flex items-start gap-2 rounded-xl border border-gray-100 px-3 py-2 text-xs">
+            <IconBrandYoutube size={16} className="text-brand shrink-0 mt-px" />
+            <div className="min-w-0">
+              <span className="text-[#232D42] font-medium">YouTube Shorts: </span>
+              {p.youtube.status === "live" && p.youtube.url ? <a href={p.youtube.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">live — view on YouTube ↗</a>
+                : p.youtube.status === "uploading" ? <span className="text-[#4A5468]">uploading — {p.youtube.pct}%</span>
+                : p.youtube.status === "scheduled" ? <span className="text-[#4A5468]">uploaded, private — YouTube makes it public at the post time</span>
+                : p.youtube.status === "failed" ? <span className="text-rose-600">{p.youtube.error || "didn't post"}</span>
+                : p.youtube.status === "cancelled" ? <span className="text-[#8A92A6]">taken off YouTube (the post was unscheduled or changed)</span>
+                : <span className="text-[#8A92A6]">uploads 90 minutes before the post time{p.youtubeTitle ? ` as “${p.youtubeTitle}”` : ""}</span>}
+            </div>
+          </div>
+        )}
         {(igUrl || fbUrl) && (
           <div className="flex gap-2 pt-1">
             {igUrl && <a href={igUrl} target="_blank" rel="noreferrer" className="text-xs font-medium bg-brand text-white px-3 py-2 rounded-lg hover:bg-brand-dark">View on Instagram ↗</a>}
